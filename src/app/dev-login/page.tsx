@@ -1,20 +1,27 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import { validateDevPin } from './actions'
 
 export default function DevLogin() {
   const [pin, setPin] = useState('')
   const [error, setError] = useState(false)
-  const router = useRouter()
+  const [loading, setLoading] = useState(false)
   const searchParams = useSearchParams()
-  const from = searchParams.get('from') || '/'
+  const from = searchParams.get('from') || '/dashboard'
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    document.cookie = `dev_access=${pin}; path=/`
-    router.push(from)
-    router.refresh()
+    setLoading(true)
+    setError(false)
+
+    const result = await validateDevPin(pin, from)
+    if (result?.error) {
+      setError(true)
+      setPin('')
+    }
+    setLoading(false)
   }
 
   return (
@@ -30,13 +37,15 @@ export default function DevLogin() {
           value={pin}
           onChange={e => { setPin(e.target.value); setError(false) }}
           className="bg-slate-800 text-white rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-slate-500"
+          autoFocus
         />
         {error && <p className="text-red-400 text-sm text-center">PIN incorrecto</p>}
         <button
           type="submit"
-          className="bg-white text-slate-950 font-medium rounded-lg py-3 hover:bg-slate-200 transition-colors"
+          disabled={loading || !pin}
+          className="bg-white text-slate-950 font-medium rounded-lg py-3 hover:bg-slate-200 transition-colors disabled:opacity-50"
         >
-          Entrar
+          {loading ? 'Verificando...' : 'Entrar'}
         </button>
       </form>
     </div>

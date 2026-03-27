@@ -4,14 +4,12 @@ import { createClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/shared/layout/Sidebar'
 import { BottomNav } from '@/components/shared/navigation/BottomNav'
 
-const isDev = process.env.NODE_ENV === 'development'
-
 async function isAuthenticated(): Promise<boolean> {
-  // Dev bypass: si /dev-login seteó la cookie dev_access, permitir acceso
-  if (isDev) {
+  const devPin = process.env.DEV_ACCESS_PIN
+  if (devPin) {
     const cookieStore = await cookies()
     const devCookie = cookieStore.get('dev_access')
-    if (devCookie?.value) return true
+    return devCookie?.value === devPin
   }
 
   const supabase = await createClient()
