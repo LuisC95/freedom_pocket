@@ -155,10 +155,11 @@ src/
 │
 ├── modules/
 │   ├── mi-realidad/
-│   │   ├── types/index.ts         ← tipos completos ✅
-│   │   ├── actions/index.ts       ← 7 server actions ✅
+│   │   ├── types/index.ts         ← tipos completos (IncomeEntry incluye incomeName) ✅
+│   │   ├── actions/index.ts       ← 10 server actions ✅
 │   │   └── components/
-│   │       ├── MiRealidadClient.tsx      ← hero card + income list + horas modal ✅
+│   │       ├── MiRealidadClient.tsx      ← hero card (3 métricas) + slider + horas ✅
+│   │       ├── IncomeSlider.tsx          ← slider 2 paneles: pagos agrupados + fuentes ✅
 │   │       └── RegisterPaymentModal.tsx  ← modal oscuro con scanner paystub ✅
 │   ├── dashboard/
 │   │   ├── actions/index.ts       ✅
@@ -179,14 +180,24 @@ src/
 ### Server Actions (`src/modules/mi-realidad/actions/index.ts`)
 | Action | Descripción |
 |---|---|
-| `getMiRealidadData()` | Carga período, ingresos+entries, horas, calcula Precio Real por Hora |
+| `getMiRealidadData()` | Carga período, ingresos+entries (join incomes.label), horas; calcula métricas derivadas |
 | `createIncome(data)` | Crea fuente de ingreso |
 | `updateIncome(data)` | Edita fuente (valida ownership) |
 | `deleteIncome(id)` | Elimina fuente (valida ownership) |
 | `upsertRealHours(data)` | INSERT o UPDATE horas reales |
 | `registerPayment(payload)` | Batch insert de `income_entries` (ganancias + deducciones) |
+| `updateIncomeEntry(id, fields)` | Edita un entry individual |
+| `deleteIncomeEntry(id)` | Elimina un entry individual (valida ownership) |
 | `scanPaystub(base64, mimeType)` | Llama Claude Vision API — soporta imágenes y PDF |
 | `checkAndUnlockModule2()` | Inserta en `module_unlocks` si hay ingresos + horas |
+
+### Métricas derivadas en `getMiRealidadData()` → `MiRealidadData`
+| Campo | Fórmula | Disponible cuando |
+|---|---|---|
+| `costoRealDeTrabajar` | `totalIngresosMes / (horasReales × 4.33)` | estado `completo` |
+| `rendimientoDeTuTiempo` | `totalIngresosMes / (diasDelPeriodo × 24)` | hay ingresos |
+| `diasDelPeriodo` | días entre `start_date` y `end_date` (o hoy) | siempre |
+| `valorRealDeTuTiempo` | `null` — pendiente Módulo 2 (requiere gastos) | — |
 
 ### Algoritmo 1 — Precio Real por Hora
 - Si hay `income_entries` este mes → usa `ganancias - deducciones` como ingreso real
@@ -194,12 +205,28 @@ src/
 - `horas_reales = contratadas + extra + desplazamiento + preparación + carga_mental`
 - `precio_por_hora = total_ingresos_mes / (horas_reales × 4.33)`
 
-### UI (`MiRealidadClient.tsx` + `RegisterPaymentModal.tsx`)
-- **Hero card dark** con Precio Real por Hora + desglose de horas (4 estados: sin_datos, solo_ingresos, solo_horas, completo)
-- **Income list**: fuentes con entries inline (fecha, tipo earning/deduction, monto +/-)
-- **Botones siempre visibles**: "+ Nueva fuente" (abre IncomeModal blanco) y "+ Registrar pago" (abre RegisterPaymentModal oscuro)
-- **IncomeModal**: monto + periodicidad solo para `fixed`/`hourly`; comisión/proyecto/pasivo omiten esos campos
-- **RegisterPaymentModal**: diseño oscuro `#1A2520`, scanner paystub (imagen o PDF ≤2 pág), filas múltiples de ganancias + deducciones, totales Bruto/Deducciones/Neto en tiempo real, columna Horas solo para fuentes tipo `hourly`
+### UI — Componentes
+| Componente | Descripción |
+|---|---|
+| `MiRealidadClient.tsx` | Contenedor principal; hero card + slider + horas + modales |
+| `IncomeSlider.tsx` | Slider tipo Instagram con 2 paneles (swipe táctil + dots): Panel 0 = registros de pago agrupados, Panel 1 = fuentes de ingreso |
+| `RegisterPaymentModal.tsx` | Modal oscuro `#1A2520`, scanner paystub (imagen o PDF), ganancias + deducciones, totales en tiempo real |
+
+### Hero Card (`MiRealidadClient.tsx`)
+- **Fila 1 izquierda** — "Valor real de tu tiempo": siempre `- -` + badge `módulo 2` (pendiente)
+- **Fila 1 derecha** — dos sub-métricas: `costoRealDeTrabajar` y `rendimientoDeTuTiempo` (con 2 decimales)
+- **Fila 2** — 5 pills de desglose de horas: Contratadas / Extra / Traslado / Preparación / Carga mental
+- 4 estados: `sin_datos`, `solo_ingresos`, `solo_horas`, `completo`
+
+### IncomeSlider — Panel 0: Registros de pago
+- Agrupa `income_entries` por `entry_date` (todos los del mismo día = un registro)
+- Cada card: header colapsable (fuente, fecha, ganancias, deducciones, neto) + detalle expandible por entry
+- Detalle: `incomeName` (del join), badge `ganancia`/`deducción`, monto, botones Editar y Eliminar
+- `incomeName` proviene del join `incomes(label)` en la server action
+
+### IncomeSlider — Panel 1: Fuentes de ingreso
+- Lista de `incomes` con label, tipo badge, total mes calculado
+- Botones: Configurar (abre `IncomeModal`) y Eliminar
 
 ---
 
@@ -227,7 +254,7 @@ src/
 - UI/UX: paleta, tipografía, layout — CERRADO
 - Sidebar + BottomNav + layout con PIN auth
 - Dashboard con datos reales
-- **Módulo 1 — Mi Realidad** completo (branch `miRealidad`, commit `c166971`)
+- **Módulo 1 — Mi Realidad v2** — hero card 3 métricas, IncomeSlider, registros agrupados, métricas derivadas (branch `miRealidad`)
 
 ### Próximos pasos
 1. ✅ ~~Módulo 1 — Mi Realidad~~

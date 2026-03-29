@@ -1,1 +1,1 @@
-export {}
+export { IncomeSlider } from './IncomeSlider'

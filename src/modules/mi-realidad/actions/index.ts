@@ -98,7 +98,10 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
     .single()
 
   if (!period) {
-    return { periodo_activo: null, ingresos: [], real_hours: null, precio_real_por_hora: null, estado: 'sin_datos' }
+    return {
+      periodo_activo: null, ingresos: [], real_hours: null, precio_real_por_hora: null, estado: 'sin_datos',
+      diasDelPeriodo: null, costoRealDeTrabajar: null, rendimientoDeTuTiempo: null, valorRealDeTuTiempo: null,
+    }
   }
 
   const [{ data: incomesRaw }, { data: hoursRaw }, { data: entriesRaw }] = await Promise.all([
@@ -116,14 +119,20 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
       .single(),
     supabase
       .from('income_entries')
-      .select('*')
+      .select('*, incomes(label)')
       .eq('user_id', DEV_USER_ID)
       .order('entry_date', { ascending: false }),
   ])
 
   const ingresos: Income[] = (incomesRaw ?? []).map(i => ({ ...i, amount: Number(i.amount) }))
   const real_hours: RealHours | null = hoursRaw ?? null
-  const allEntries: IncomeEntry[] = (entriesRaw ?? []).map(e => ({ ...e, amount: Number(e.amount) }))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allEntries: IncomeEntry[] = (entriesRaw ?? []).map((e: any) => ({
+    ...e,
+    amount:     Number(e.amount),
+    incomeName: e.incomes?.label ?? 'Sin fuente',
+    incomes:    undefined,
+  }))
 
   let estado: MiRealidadEstado
   if (ingresos.length === 0 && !real_hours) estado = 'sin_datos'
@@ -142,7 +151,31 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
     total_mes_calculado: calcularIngresoMensual(i, allEntries),
   }))
 
-  return { periodo_activo: period, ingresos: ingresosConEntries, real_hours, precio_real_por_hora, estado }
+  // ── Métricas derivadas ────────────────────────────────────────────────────
+  const endDate   = period.end_date ? new Date(period.end_date) : new Date()
+  const startDate = new Date(period.start_date)
+  const diasDelPeriodo = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+
+  const totalIngresosMes = ingresosConEntries.reduce((s, i) => s + i.total_mes_calculado, 0)
+
+  const costoRealDeTrabajar = precio_real_por_hora?.precio_por_hora ?? null
+
+  const rendimientoDeTuTiempo =
+    totalIngresosMes > 0 && diasDelPeriodo > 0
+      ? totalIngresosMes / (diasDelPeriodo * 24)
+      : null
+
+  return {
+    periodo_activo: period,
+    ingresos: ingresosConEntries,
+    real_hours,
+    precio_real_por_hora,
+    estado,
+    diasDelPeriodo,
+    costoRealDeTrabajar,
+    rendimientoDeTuTiempo,
+    valorRealDeTuTiempo: null,
+  }
 }
 
 // ─── createIncome ─────────────────────────────────────────────────────────────
@@ -231,6 +264,40 @@ export async function upsertRealHours(
 
   if (error) return { data: null, error: error.message }
   return { data: row, error: null }
+}
+
+// ─── deleteIncomeEntry ────────────────────────────────────────────────────────
+
+export async function deleteIncomeEntry(id: string): Promise<{ error: string | null }> {
+  const supabase = createAdminClient()
+
+  const { error } = await supabase
+    .from('income_entries')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', DEV_USER_ID)
+
+  return { error: error?.message ?? null }
+}
+
+// ─── updateIncomeEntry ────────────────────────────────────────────────────────
+
+export async function updateIncomeEntry(
+  id: string,
+  fields: { amount: number; entry_date: string; hours_worked: number | null; notes: string | null }
+): Promise<{ data: IncomeEntry | null; error: string | null }> {
+  const supabase = createAdminClient()
+
+  const { data: row, error } = await supabase
+    .from('income_entries')
+    .update(fields)
+    .eq('id', id)
+    .eq('user_id', DEV_USER_ID)
+    .select()
+    .single()
+
+  if (error) return { data: null, error: error.message }
+  return { data: { ...row, amount: Number(row.amount) }, error: null }
 }
 
 // ─── registerPayment ─────────────────────────────────────────────────────────

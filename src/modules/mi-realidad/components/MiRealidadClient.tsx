@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import type {
   Income,
+  IncomeEntry,
   RealHours,
   MiRealidadData,
   IncomeType,
@@ -16,14 +17,21 @@ import {
   deleteIncome,
   upsertRealHours,
   checkAndUnlockModule2,
+  updateIncomeEntry,
+  deleteIncomeEntry,
 } from '../actions'
 import { RegisterPaymentModal } from './RegisterPaymentModal'
+import { IncomeSlider } from './IncomeSlider'
 import { useRouter } from 'next/navigation'
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 
 function fmt(n: number, currency = 'USD') {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 0 }).format(n)
+}
+
+function fmtMetric(n: number, currency = 'USD') {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 2 }).format(n)
 }
 
 function fmtHours(h: number) {
@@ -318,13 +326,13 @@ function HorasModal({ periodId, realHours, onClose, onSaved }: HorasModalProps) 
               <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-1">
                 Horas contratadas / sem
               </label>
-              <input type="number" value={form.contracted_hours_per_week} onChange={e => set('contracted_hours_per_week', e.target.value)} min="1" max="168" className={NUM_FIELD_CLASS} />
+              <input type="number" value={form.contracted_hours_per_week} onChange={e => set('contracted_hours_per_week', e.target.value)} min="0.5" max="168" step="0.5" className={NUM_FIELD_CLASS} />
             </div>
             <div>
               <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-1">
                 Horas extra / sem
               </label>
-              <input type="number" value={form.extra_hours_per_week} onChange={e => set('extra_hours_per_week', e.target.value)} min="0" max="80" className={NUM_FIELD_CLASS} />
+              <input type="number" value={form.extra_hours_per_week} onChange={e => set('extra_hours_per_week', e.target.value)} min="0" max="80" step="0.5" className={NUM_FIELD_CLASS} />
             </div>
             <div>
               <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-1">
@@ -342,7 +350,7 @@ function HorasModal({ periodId, realHours, onClose, onSaved }: HorasModalProps) 
               <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-1">
                 Carga mental (h/sem)
               </label>
-              <input type="number" value={form.mental_load_hours_per_week} onChange={e => set('mental_load_hours_per_week', e.target.value)} min="0" max="40" className={NUM_FIELD_CLASS} />
+              <input type="number" value={form.mental_load_hours_per_week} onChange={e => set('mental_load_hours_per_week', e.target.value)} min="0" max="40" step="0.5" className={NUM_FIELD_CLASS} />
             </div>
             <div>
               <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-1">
@@ -360,7 +368,7 @@ function HorasModal({ periodId, realHours, onClose, onSaved }: HorasModalProps) 
                 <input type="time" value={form.arrival_home_time} onChange={e => set('arrival_home_time', e.target.value)} className={NUM_FIELD_CLASS} />
               </div>
               <div>
-                <label className="block text-[11px] text-[#7A9A8A] mb-1">Hora de descanso</label>
+                <label className="block text-[11px] text-[#7A9A8A] mb-1">Hora de desconexión laboral</label>
                 <input type="time" value={form.recovery_start_time} onChange={e => set('recovery_start_time', e.target.value)} className={NUM_FIELD_CLASS} />
               </div>
             </div>
@@ -382,11 +390,90 @@ function HorasModal({ periodId, realHours, onClose, onSaved }: HorasModalProps) 
   )
 }
 
+// ─── Entry Edit Modal ─────────────────────────────────────────────────────────
+
+interface EntryEditModalProps {
+  entry: IncomeEntry
+  isHourly: boolean
+  onClose: () => void
+  onSaved: () => void
+}
+
+function EntryEditModal({ entry, isHourly, onClose, onSaved }: EntryEditModalProps) {
+  const [pending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const [amount, setAmount] = useState(entry.amount.toString())
+  const [date, setDate] = useState(entry.entry_date.slice(0, 10))
+  const [hours, setHours] = useState(entry.hours_worked?.toString() ?? '')
+  const [notes, setNotes] = useState(entry.notes ?? '')
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const amt = parseFloat(amount)
+    if (isNaN(amt) || amt <= 0) return setError('El monto debe ser mayor a 0')
+    startTransition(async () => {
+      const res = await updateIncomeEntry(entry.id, {
+        amount: amt,
+        entry_date: date,
+        hours_worked: isHourly && hours ? parseFloat(hours) : null,
+        notes: notes.trim() || null,
+      })
+      if (res.error) return setError(res.error)
+      onSaved()
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-xl">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-[15px] font-semibold text-[#141F19]">Editar registro</h2>
+          <button onClick={onClose} className="text-[#7A9A8A] hover:text-[#141F19] text-xl leading-none">×</button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-1">Fecha</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)}
+              className={NUM_FIELD_CLASS} />
+          </div>
+          <div>
+            <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-1">Monto</label>
+            <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
+              min="0" step="0.01" className={NUM_FIELD_CLASS} />
+          </div>
+          {isHourly && (
+            <div>
+              <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-1">Horas trabajadas</label>
+              <input type="number" value={hours} onChange={e => setHours(e.target.value)}
+                min="0" step="0.5" className={NUM_FIELD_CLASS} />
+            </div>
+          )}
+          <div>
+            <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-1">Notas (opcional)</label>
+            <input type="text" value={notes} onChange={e => setNotes(e.target.value)}
+              placeholder="Ej: Bono Q1, horas extra" className={NUM_FIELD_CLASS} />
+          </div>
+          {error && <p className="text-[#E84434] text-[12px]">{error}</p>}
+          <div className="flex gap-3 pt-1">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1" disabled={pending}>
+              Cancelar
+            </Button>
+            <Button type="submit" className="flex-1 bg-[#2E7D52] hover:bg-[#3A9E6A]" disabled={pending}>
+              {pending ? 'Guardando…' : 'Guardar'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Client Component ────────────────────────────────────────────────────
 
 type Modal =
   | { type: 'income_new' }
   | { type: 'income_edit'; income: Income }
+  | { type: 'entry_edit'; entry: IncomeEntry; isHourly: boolean }
   | { type: 'horas' }
   | { type: 'register_payment' }
   | null
@@ -400,7 +487,7 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
   const [modal, setModal] = useState<Modal>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const { periodo_activo, ingresos, real_hours, precio_real_por_hora, estado } = data
+  const { periodo_activo, ingresos, real_hours, precio_real_por_hora, costoRealDeTrabajar, rendimientoDeTuTiempo } = data
 
   function refresh() {
     setModal(null)
@@ -414,143 +501,111 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
     router.refresh()
   }
 
-  const incomeTypeBadge: Record<IncomeType, string> = {
-    fixed: 'Fijo',
-    hourly: 'Por hora',
-    commission: 'Comisión',
-    project: 'Por proyecto',
-    passive: 'Pasivo',
+  async function handleDeleteEntry(id: string) {
+    setDeletingId(id)
+    await deleteIncomeEntry(id)
+    setDeletingId(null)
+    router.refresh()
   }
+
+  // ── Hero derivados ────────────────────────────────────────────────────────
+  const heroCurrency = precio_real_por_hora?.currency ?? ingresos[0]?.currency ?? 'USD'
+  const desgloseHoras = precio_real_por_hora?.desglose_horas ?? (real_hours ? {
+    contratadas:   real_hours.contracted_hours_per_week,
+    extra:         real_hours.extra_hours_per_week,
+    desplazamiento:(real_hours.commute_minutes_per_day  * real_hours.working_days_per_week * 2) / 60,
+    preparacion:   (real_hours.preparation_minutes_per_day * real_hours.working_days_per_week) / 60,
+    carga_mental:  real_hours.mental_load_hours_per_week,
+  } : null)
 
   return (
     <>
       {/* ── Hero Card ── */}
-      <div className="bg-[#1A2520] rounded-2xl p-6 mb-4">
-        <p className="text-[10px] uppercase tracking-[0.15em] text-[#7A9A8A] mb-1">
-          Precio Real por Hora
-        </p>
-        {precio_real_por_hora ? (
-          <>
-            <p className="font-mono text-4xl font-bold text-white mb-1">
-              {fmt(precio_real_por_hora.precio_por_hora, precio_real_por_hora.currency)}
-            </p>
-            <p className="text-[12px] text-[#7A9A8A]">
-              {fmtHours(precio_real_por_hora.horas_reales_semana)} reales / semana · {fmt(precio_real_por_hora.total_ingresos_mes, precio_real_por_hora.currency)} / mes
-            </p>
+      <div className="bg-[#1A2520] rounded-xl px-[18px] py-[16px] mb-4">
 
-            {/* Desglose de horas */}
-            <div className="grid grid-cols-5 gap-2 mt-4">
-              {[
-                { label: 'Contratadas', val: precio_real_por_hora.desglose_horas.contratadas },
-                { label: 'Extra', val: precio_real_por_hora.desglose_horas.extra },
-                { label: 'Traslado', val: precio_real_por_hora.desglose_horas.desplazamiento },
-                { label: 'Preparación', val: precio_real_por_hora.desglose_horas.preparacion },
-                { label: 'Carga mental', val: precio_real_por_hora.desglose_horas.carga_mental },
-              ].map(item => (
-                <div key={item.label} className="bg-[#EAF0EC10] rounded-lg p-2 text-center">
-                  <p className="font-mono text-[13px] text-white">{fmtHours(item.val)}</p>
-                  <p className="text-[9px] text-[#7A9A8A] mt-0.5">{item.label}</p>
-                </div>
-              ))}
-            </div>
-          </>
-        ) : (
-          <div className="mt-2">
-            <p className="text-white text-[15px] mb-1">
-              {estado === 'sin_datos' && 'Agrega tus ingresos y horas reales'}
-              {estado === 'solo_ingresos' && 'Falta configurar tus horas reales'}
-              {estado === 'solo_horas' && 'Falta agregar al menos un ingreso'}
+        {/* Fila 1 */}
+        <div className="flex border-b border-white/[8%] pb-3 mb-3">
+
+          {/* Columna izquierda — Valor real de tu tiempo (Módulo 2) */}
+          <div className="flex-[1.2] border-r border-white/10 pr-[14px]">
+            <p className="text-[10px] uppercase tracking-widest text-[#5DCAA5] mb-1.5">
+              Valor real de tu tiempo
             </p>
-            <p className="text-[#7A9A8A] text-[12px]">El precio real por hora se calculará automáticamente</p>
+            <p className="font-mono text-[32px] leading-none text-white/20 mb-0.5">
+              - -
+            </p>
+            <p className="text-[10px] text-white/[18%] mb-2">/hr de vida</p>
+            <span className="inline-block bg-[#C69B30]/10 border border-[#C69B30]/25 rounded-lg px-[7px] py-[2px] text-[9px] text-[#C69B30] mb-1.5">
+              módulo 2
+            </span>
+            <p className="text-[10px] text-white/[35%]">tu margen real por hora de existencia</p>
           </div>
-        )}
-      </div>
 
-      {/* ── Ingresos ── */}
-      <section className="mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[13px] font-semibold text-[#141F19]">Ingresos del período</h2>
-          {periodo_activo && (
-            <div className="flex gap-3">
-              <button
-                onClick={() => setModal({ type: 'income_new' })}
-                className="text-[12px] font-medium text-[#7A9A8A] hover:text-[#141F19] transition-colors"
-              >
-                + Nueva fuente
-              </button>
-              <button
-                onClick={() => setModal({ type: 'register_payment' })}
-                className="text-[12px] font-medium text-[#2E7D52] hover:text-[#3A9E6A] transition-colors"
-              >
-                + Registrar pago
-              </button>
+          {/* Columna derecha — 2 métricas */}
+          <div className="flex-[2] pl-[14px] flex">
+
+            {/* Costo real de trabajar */}
+            <div className="flex-1 min-w-0">
+              <p className="text-[9px] uppercase tracking-widest text-[#5DCAA5]/70 mb-1.5">
+                Costo real de trabajar
+              </p>
+              <p className="font-mono text-[20px] leading-none text-white mb-1">
+                {costoRealDeTrabajar !== null
+                  ? fmtMetric(costoRealDeTrabajar, heroCurrency)
+                  : '- -'}
+              </p>
+              <p className="text-[10px] text-white/[35%]">tu ingreso dividido entre el tiempo real que inviertes en trabajar</p>
             </div>
-          )}
+
+            {/* Separador */}
+            <div className="w-px bg-white/10 mx-[14px] self-stretch" />
+
+            {/* Rendimiento de tu tiempo */}
+            <div className="flex-1 min-w-0">
+              <p className="text-[9px] uppercase tracking-widest text-[#5DCAA5]/70 mb-1.5">
+                Rendimiento de tu tiempo
+              </p>
+              <p className="font-mono text-[20px] leading-none text-white mb-1">
+                {rendimientoDeTuTiempo !== null
+                  ? fmtMetric(rendimientoDeTuTiempo, heroCurrency)
+                  : '- -'}
+              </p>
+              <p className="text-[10px] text-white/[35%]">cuánto genera tu trabajo por cada hora del período, incluyendo descansos</p>
+            </div>
+
+          </div>
         </div>
 
-        {ingresos.length === 0 ? (
-          <div className="bg-[#EAF0EC] rounded-xl p-4 text-center">
-            <p className="text-[13px] text-[#7A9A8A]">Sin fuentes de ingreso — crea una para comenzar</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {ingresos.map(income => (
-              <div key={income.id} className="bg-white border border-[#EAF0EC] rounded-xl px-4 py-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-[14px] font-medium text-[#141F19]">{income.label}</p>
-                      <span className="text-[10px] bg-[#EAF0EC] text-[#7A9A8A] px-2 py-0.5 rounded-full">
-                        {incomeTypeBadge[income.type]}
-                      </span>
-                    </div>
-                    <p className="text-[12px] text-[#7A9A8A] mt-0.5">
-                      Este mes: <span className="font-mono font-semibold text-[#141F19]">{fmt(income.total_mes_calculado, income.currency)}</span>
-                    </p>
-                  </div>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => setModal({ type: 'income_edit', income })}
-                      className="text-[#7A9A8A] hover:text-[#2E7D52] text-[12px] px-2 py-1 rounded transition-colors"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => handleDelete(income.id)}
-                      disabled={deletingId === income.id}
-                      className="text-[#7A9A8A] hover:text-[#E84434] text-[12px] px-2 py-1 rounded transition-colors disabled:opacity-40"
-                    >
-                      {deletingId === income.id ? '…' : 'Eliminar'}
-                    </button>
-                  </div>
-                </div>
-                {income.entries.length > 0 && (
-                  <div className="mt-2 border-t border-[#EAF0EC] pt-2 space-y-1">
-                    {income.entries.slice(0, 5).map(entry => (
-                      <div key={entry.id} className="flex justify-between items-center">
-                        <span className="text-[11px] text-[#7A9A8A]">
-                          {new Date(entry.entry_date).toLocaleDateString('es', { day: 'numeric', month: 'short' })}
-                          {entry.entry_type === 'deduction' && (
-                            <span className="ml-1 text-[#E84434] uppercase tracking-wide">
-                              {entry.deduction_category?.replace('_', ' ')}
-                            </span>
-                          )}
-                        </span>
-                        <span className={`font-mono text-[12px] font-medium ${entry.entry_type === 'deduction' ? 'text-[#E84434]' : 'text-[#2E7D52]'}`}>
-                          {entry.entry_type === 'deduction' ? '−' : '+'}{fmt(entry.amount, entry.currency)}
-                        </span>
-                      </div>
-                    ))}
-                    {income.entries.length > 5 && (
-                      <p className="text-[10px] text-[#7A9A8A]">+{income.entries.length - 5} más este período</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+        {/* Fila 2 — Pills de horas */}
+        <div className="flex gap-[5px]">
+          {([
+            { label: 'Contratadas', val: desgloseHoras?.contratadas    ?? 0 },
+            { label: 'Extra',       val: desgloseHoras?.extra           ?? 0 },
+            { label: 'Traslado',    val: desgloseHoras?.desplazamiento  ?? 0 },
+            { label: 'Preparación', val: desgloseHoras?.preparacion     ?? 0 },
+            { label: 'Carga mental',val: desgloseHoras?.carga_mental    ?? 0 },
+          ] as { label: string; val: number }[]).map(item => (
+            <div key={item.label} className="flex-1 bg-white/[6%] rounded-md px-2 py-[6px] text-center">
+              <p className="font-mono text-[13px] font-medium text-white">{fmtHours(item.val)}</p>
+              <p className="text-[9px] text-white/[35%]">{item.label}</p>
+            </div>
+          ))}
+        </div>
+
+      </div>
+
+      {/* ── Income Slider ── */}
+      <IncomeSlider
+        ingresos={ingresos}
+        periodId={periodo_activo?.id}
+        deletingId={deletingId}
+        onNewIncome={() => setModal({ type: 'income_new' })}
+        onEditIncome={income => setModal({ type: 'income_edit', income })}
+        onDeleteIncome={handleDelete}
+        onRegisterPayment={() => setModal({ type: 'register_payment' })}
+        onEditEntry={(entry, isHourly) => setModal({ type: 'entry_edit', entry, isHourly })}
+        onDeleteEntry={handleDeleteEntry}
+      />
 
       {/* ── Horas Reales ── */}
       <section>
@@ -600,6 +655,14 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
       </section>
 
       {/* ── Modales ── */}
+      {modal?.type === 'entry_edit' && (
+        <EntryEditModal
+          entry={modal.entry}
+          isHourly={modal.isHourly}
+          onClose={() => setModal(null)}
+          onSaved={refresh}
+        />
+      )}
       {modal?.type === 'income_new' && periodo_activo && (
         <IncomeModal periodId={periodo_activo.id} onClose={() => setModal(null)} onSaved={refresh} />
       )}

@@ -73,6 +73,7 @@ export interface IncomeEntry {
   entry_type: EntryType
   deduction_category: DeductionCategory | null  // requerido si entry_type = 'deduction'
   created_at: string
+  incomeName: string                // join con incomes.label — resuelto en server action
 }
 
 export type IncomeEntryInsert = Omit<IncomeEntry, 'id' | 'created_at'>
@@ -161,4 +162,9 @@ export interface MiRealidadData {
   real_hours: RealHours | null
   precio_real_por_hora: PrecioRealPorHora | null
   estado: MiRealidadEstado
+  // ── Métricas derivadas ──────────────────────────────────────────────────
+  diasDelPeriodo: number | null          // días reales del período activo
+  costoRealDeTrabajar: number | null     // ingreso ÷ horas reales (ya en precioRealPorHora, alias explícito)
+  rendimientoDeTuTiempo: number | null   // ingreso ÷ horas de vida del período
+  valorRealDeTuTiempo: null              // Módulo 2 — pendiente
 }
