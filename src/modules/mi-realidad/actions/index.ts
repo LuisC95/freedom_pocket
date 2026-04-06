@@ -316,22 +316,34 @@ export async function scanPaystub(
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fileBlock: any = isPdf
-      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: fileBase64 } }
-      : { type: 'image', source: { type: 'base64', media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/webp', data: fileBase64 } }
+    let response: any
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const createFn: any = isPdf ? client.beta.messages.create.bind(client.beta.messages) : client.messages.create.bind(client.messages)
-
-    const response = await createFn({
-      model: 'claude-opus-4-5',
-      max_tokens: 1024,
-      ...(isPdf ? { betas: ['pdfs-2024-09-25'] } : {}),
-      messages: [{
-        role: 'user',
-        content: [fileBlock, { type: 'text', text: PAYSTUB_PROMPT }],
-      }],
-    })
+    if (isPdf) {
+      response = await client.beta.messages.create({
+        model: 'claude-opus-4-6',
+        max_tokens: 1024,
+        betas: ['pdfs-2024-09-25'],
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: fileBase64 } },
+            { type: 'text', text: PAYSTUB_PROMPT },
+          ],
+        }],
+      })
+    } else {
+      response = await client.messages.create({
+        model: 'claude-opus-4-6',
+        max_tokens: 1024,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/webp', data: fileBase64 } },
+            { type: 'text', text: PAYSTUB_PROMPT },
+          ],
+        }],
+      })
+    }
 
     const text = response.content[0].type === 'text' ? response.content[0].text : ''
     const parsed = JSON.parse(text)
