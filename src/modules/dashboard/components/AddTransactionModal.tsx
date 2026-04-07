@@ -1,10 +1,17 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { createTransaction, updateTransaction, createRecurringTemplate } from '../actions'
+import { createTransaction, updateTransaction, createRecurringTemplate, createCategory, deleteCategory } from '../actions'
 import type { Transaction, TransactionCategory, RecurringFrequency } from '../types'
 
+const CATEGORY_COLORS = [
+  '#6366f1','#f59e0b','#3b82f6','#ef4444','#8b5cf6',
+  '#ec4899','#14b8a6','#0ea5e9','#f97316','#22c55e',
+  '#94a3b8','#2E7D52','#C69B30','#E84434','#3A9E6A',
+]
+
 const FREQ_OPTIONS: { value: RecurringFrequency; label: string }[] = [
+  { value: 'manual',   label: 'Sin frecuencia fija' },
   { value: 'daily',    label: 'Diario' },
   { value: 'weekly',   label: 'Semanal' },
   { value: 'biweekly', label: 'Quincenal' },
@@ -79,20 +86,74 @@ export function AddTransactionModal({
   const [date, setDate] = useState(transaction?.transaction_date ?? new Date().toISOString().slice(0, 10))
   const [notes, setNotes] = useState(transaction?.notes ?? '')
   const [currency, setCurrency] = useState(transaction?.currency ?? 'USD')
+  const [extraCategories, setExtraCategories] = useState<TransactionCategory[]>([])
+  const [showNewCat, setShowNewCat] = useState(false)
+  const [newCatName, setNewCatName] = useState('')
+  const [newCatIcon, setNewCatIcon] = useState('')
+  const [newCatColor, setNewCatColor] = useState(CATEGORY_COLORS[0])
+  const [savingCat, startCatTransition] = useTransition()
+  const [deletedCatIds, setDeletedCatIds] = useState<Set<string>>(new Set())
+  const [catToDelete, setCatToDelete] = useState<TransactionCategory | null>(null)
+  const [hasLinkedTxs, setHasLinkedTxs] = useState(false)
+  const [replacementCatId, setReplacementCatId] = useState('')
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deletingCat, startDeleteTransition] = useTransition()
+
   const [isRecurring, setIsRecurring] = useState(false)
-  const [frequency, setFrequency] = useState<RecurringFrequency>('monthly')
+  const [registerToday, setRegisterToday] = useState(true)
+  const [frequency, setFrequency] = useState<RecurringFrequency>('manual')
   const [dayOfMonth, setDayOfMonth] = useState(new Date().getDate().toString())
   const [dayOfWeek, setDayOfWeek] = useState(1)
   const [monthOfYear, setMonthOfYear] = useState(new Date().getMonth() + 1)
   const [customDays, setCustomDays] = useState('30')
-  const [saveAsTemplate, setSaveAsTemplate] = useState(false)
 
   const accentColor = type === 'expense' ? '#E84434' : '#2E7D52'
   const accentColorLight = type === 'expense' ? '#E8443425' : '#2E7D5225'
 
-  const filteredCategories = categories.filter(c =>
-    c.applies_to === 'expense' || c.applies_to === 'both'
+  const filteredCategories = [...categories, ...extraCategories].filter(c =>
+    (c.applies_to === 'expense' || c.applies_to === 'both') && !deletedCatIds.has(c.id)
   )
+
+  function handleDeleteCategory() {
+    if (!catToDelete) return
+    setDeleteError(null)
+    startDeleteTransition(async () => {
+      const result = await deleteCategory(catToDelete.id, replacementCatId || undefined)
+      if (result.hasLinkedTransactions) {
+        setHasLinkedTxs(true)
+        return
+      }
+      if (result.error) {
+        setDeleteError(result.error)
+        return
+      }
+      setDeletedCatIds(prev => new Set([...prev, catToDelete.id]))
+      if (categoryId === catToDelete.id) setCategoryId(replacementCatId || '')
+      setCatToDelete(null)
+      setHasLinkedTxs(false)
+      setReplacementCatId('')
+    })
+  }
+
+  function handleCreateCategory() {
+    if (!newCatName.trim()) return
+    startCatTransition(async () => {
+      const { data } = await createCategory({
+        name: newCatName.trim(),
+        applies_to: 'expense',
+        icon: newCatIcon.trim() || null,
+        color: newCatColor,
+      })
+      if (data) {
+        setExtraCategories(prev => [...prev, data])
+        setCategoryId(data.id)
+      }
+      setShowNewCat(false)
+      setNewCatName('')
+      setNewCatIcon('')
+      setNewCatColor(CATEGORY_COLORS[0])
+    })
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -103,6 +164,29 @@ export function AddTransactionModal({
     if (!categoryId) return setError('Selecciona una categoría')
 
     startTransition(async () => {
+      const templateName = notes || (filteredCategories.find(c => c.id === categoryId)?.name ?? 'Habitual')
+      const dayRef = (frequency === 'weekly' || frequency === 'biweekly')
+        ? dayOfWeek
+        : parseInt(dayOfMonth) || new Date().getDate()
+
+      // Solo plantilla — sin registrar transacción hoy
+      if (isRecurring && !registerToday) {
+        const res = await createRecurringTemplate({
+          category_id: categoryId,
+          name: templateName,
+          type,
+          amount: amt,
+          currency,
+          frequency,
+          day_of_month: frequency === 'manual' || frequency === 'daily' ? 1 : dayRef,
+          month_of_year: frequency === 'annual' ? monthOfYear : null,
+          custom_interval_days: frequency === 'custom' ? (parseInt(customDays) || 30) : null,
+        })
+        if (res.error) return setError(res.error)
+        onSaved()
+        return
+      }
+
       if (isEdit) {
         const res = await updateTransaction(transaction!.id, {
           type,
@@ -127,19 +211,19 @@ export function AddTransactionModal({
         })
         if (res.error) return setError(res.error)
 
-        if (isRecurring && saveAsTemplate) {
-          const dayRef = (frequency === 'weekly' || frequency === 'biweekly') ? dayOfWeek : parseInt(dayOfMonth) || new Date().getDate()
-          await createRecurringTemplate({
+        if (isRecurring) {
+          const tplRes = await createRecurringTemplate({
             category_id: categoryId,
-            name: notes || (filteredCategories.find(c => c.id === categoryId)?.name ?? 'Recurrente'),
+            name: templateName,
             type,
             amount: amt,
             currency,
             frequency,
-            day_of_month: dayRef,
+            day_of_month: frequency === 'manual' || frequency === 'daily' ? 1 : dayRef,
             month_of_year: frequency === 'annual' ? monthOfYear : null,
             custom_interval_days: frequency === 'custom' ? (parseInt(customDays) || 30) : null,
           })
+          if (tplRes.error) return setError(tplRes.error)
         }
       }
       onSaved()
@@ -197,28 +281,179 @@ export function AddTransactionModal({
             <label style={LABEL_STYLE}>Categoría</label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
               {filteredCategories.map(cat => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setCategoryId(cat.id)}
-                  style={{
-                    backgroundColor: categoryId === cat.id ? accentColorLight : '#0E1512',
-                    border: `0.5px solid ${categoryId === cat.id ? accentColor : '#2E7D5225'}`,
-                    borderRadius: '8px',
-                    padding: '8px 6px',
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: '11px',
-                    color: categoryId === cat.id ? accentColor : '#7A9A8A',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {cat.icon && <span style={{ display: 'block', marginBottom: '2px' }}>{cat.icon}</span>}
-                  {cat.name}
-                </button>
+                <div key={cat.id} style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    onClick={() => setCategoryId(cat.id)}
+                    style={{
+                      width: '100%',
+                      backgroundColor: categoryId === cat.id ? (cat.color ? `${cat.color}22` : accentColorLight) : '#0E1512',
+                      border: `0.5px solid ${categoryId === cat.id ? (cat.color ?? accentColor) : '#2E7D5225'}`,
+                      borderRadius: '8px',
+                      padding: '8px 6px',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: '11px',
+                      color: categoryId === cat.id ? (cat.color ?? accentColor) : '#7A9A8A',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {cat.icon && <span style={{ display: 'block', marginBottom: '2px' }}>{cat.icon}</span>}
+                    {cat.name}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); setCatToDelete(cat); setHasLinkedTxs(false); setReplacementCatId(''); setDeleteError(null) }}
+                    style={{
+                      position: 'absolute', top: '3px', right: '3px',
+                      width: '14px', height: '14px', borderRadius: '50%',
+                      backgroundColor: '#1A2520', border: '0.5px solid #7A9A8A50',
+                      color: '#7A9A8A', fontSize: '10px', lineHeight: 1,
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      padding: 0,
+                    }}
+                  >×</button>
+                </div>
               ))}
+              {/* Botón nueva categoría */}
+              <button
+                type="button"
+                onClick={() => setShowNewCat(p => !p)}
+                style={{
+                  backgroundColor: showNewCat ? '#2E7D5215' : '#0E1512',
+                  border: `0.5px solid ${showNewCat ? '#2E7D52' : '#2E7D5225'}`,
+                  borderRadius: '8px',
+                  padding: '8px 6px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: '11px',
+                  color: showNewCat ? '#2E7D52' : '#7A9A8A',
+                }}
+              >
+                <span style={{ display: 'block', marginBottom: '2px' }}>＋</span>
+                Nueva
+              </button>
             </div>
+
+            {/* Confirmación eliminación — fase 1: sin transacciones */}
+            {catToDelete && !hasLinkedTxs && (
+              <div style={{ marginTop: '10px', backgroundColor: '#0E1512', borderRadius: '10px', padding: '12px', border: '0.5px solid #E8443430' }}>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: '#F2F7F4', marginBottom: '10px' }}>
+                  ¿Eliminar <strong style={{ color: '#E84434' }}>"{catToDelete.name}"</strong>? Esta acción no se puede deshacer.
+                </p>
+                {deleteError && <p style={{ color: '#E84434', fontFamily: 'var(--font-mono)', fontSize: '10px', marginBottom: '8px' }}>{deleteError}</p>}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button type="button" onClick={() => { setCatToDelete(null); setDeleteError(null) }}
+                    style={{ flex: 1, padding: '8px', borderRadius: '8px', backgroundColor: 'transparent', border: '0.5px solid #2E7D5240', fontFamily: 'var(--font-sans)', fontSize: '12px', color: '#7A9A8A', cursor: 'pointer' }}>
+                    Cancelar
+                  </button>
+                  <button type="button" onClick={handleDeleteCategory} disabled={deletingCat}
+                    style={{ flex: 1, padding: '8px', borderRadius: '8px', backgroundColor: '#E84434', border: 'none', fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'white', cursor: 'pointer', opacity: deletingCat ? 0.6 : 1 }}>
+                    {deletingCat ? '…' : 'Eliminar'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Confirmación eliminación — fase 2: tiene transacciones, pide reemplazo */}
+            {catToDelete && hasLinkedTxs && (
+              <div style={{ marginTop: '10px', backgroundColor: '#0E1512', borderRadius: '10px', padding: '12px', border: '0.5px solid #C69B3040' }}>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: '#F2F7F4', marginBottom: '8px' }}>
+                  <strong style={{ color: '#C69B30' }}>"{catToDelete.name}"</strong> tiene transacciones. Elige una categoría de reemplazo:
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '5px', marginBottom: '10px' }}>
+                  {filteredCategories.filter(c => c.id !== catToDelete.id).map(cat => (
+                    <button key={cat.id} type="button" onClick={() => setReplacementCatId(cat.id)}
+                      style={{
+                        padding: '6px 4px', borderRadius: '7px', textAlign: 'center', cursor: 'pointer',
+                        fontFamily: 'var(--font-sans)', fontSize: '10px',
+                        backgroundColor: replacementCatId === cat.id ? (cat.color ? `${cat.color}22` : '#2E7D5225') : '#1A2520',
+                        border: `0.5px solid ${replacementCatId === cat.id ? (cat.color ?? '#2E7D52') : '#2E7D5225'}`,
+                        color: replacementCatId === cat.id ? (cat.color ?? '#3A9E6A') : '#7A9A8A',
+                      }}>
+                      {cat.icon && <span style={{ display: 'block' }}>{cat.icon}</span>}
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+                {deleteError && <p style={{ color: '#E84434', fontFamily: 'var(--font-mono)', fontSize: '10px', marginBottom: '8px' }}>{deleteError}</p>}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button type="button" onClick={() => { setCatToDelete(null); setHasLinkedTxs(false); setReplacementCatId(''); setDeleteError(null) }}
+                    style={{ flex: 1, padding: '8px', borderRadius: '8px', backgroundColor: 'transparent', border: '0.5px solid #2E7D5240', fontFamily: 'var(--font-sans)', fontSize: '12px', color: '#7A9A8A', cursor: 'pointer' }}>
+                    Cancelar
+                  </button>
+                  <button type="button" onClick={handleDeleteCategory} disabled={deletingCat || !replacementCatId}
+                    style={{ flex: 1, padding: '8px', borderRadius: '8px', backgroundColor: '#E84434', border: 'none', fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'white', cursor: 'pointer', opacity: (deletingCat || !replacementCatId) ? 0.4 : 1 }}>
+                    {deletingCat ? '…' : 'Reasignar y eliminar'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Formulario nueva categoría inline */}
+            {showNewCat && (
+              <div style={{ marginTop: '10px', backgroundColor: '#0E1512', borderRadius: '10px', padding: '12px', border: '0.5px solid #2E7D5230' }}>
+                <div style={{ marginBottom: '8px' }}>
+                  <label style={LABEL_STYLE}>Nombre</label>
+                  <input
+                    type="text"
+                    value={newCatName}
+                    onChange={e => setNewCatName(e.target.value)}
+                    placeholder="Ej: Mascotas"
+                    style={INPUT_STYLE}
+                    autoFocus
+                  />
+                </div>
+                <div style={{ marginBottom: '8px' }}>
+                  <label style={LABEL_STYLE}>Emoji (opcional)</label>
+                  <input
+                    type="text"
+                    value={newCatIcon}
+                    onChange={e => setNewCatIcon(e.target.value)}
+                    placeholder="🐾"
+                    style={{ ...INPUT_STYLE, width: '70px', textAlign: 'center', fontSize: '18px' }}
+                  />
+                </div>
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={LABEL_STYLE}>Color</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {CATEGORY_COLORS.map(c => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setNewCatColor(c)}
+                        style={{
+                          width: '22px', height: '22px', borderRadius: '50%',
+                          backgroundColor: c,
+                          border: newCatColor === c ? `2px solid #F2F7F4` : '2px solid transparent',
+                          cursor: 'pointer', flexShrink: 0,
+                          boxShadow: newCatColor === c ? `0 0 0 1px ${c}` : 'none',
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewCat(false)}
+                    style={{ flex: 1, padding: '8px', borderRadius: '8px', backgroundColor: 'transparent', border: '0.5px solid #2E7D5240', fontFamily: 'var(--font-sans)', fontSize: '12px', color: '#7A9A8A', cursor: 'pointer' }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCreateCategory}
+                    disabled={savingCat || !newCatName.trim()}
+                    style={{ flex: 1, padding: '8px', borderRadius: '8px', backgroundColor: newCatColor, border: 'none', fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'white', cursor: 'pointer', opacity: savingCat || !newCatName.trim() ? 0.5 : 1 }}
+                  >
+                    {savingCat ? '…' : 'Crear'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Fecha */}
@@ -264,7 +499,7 @@ export function AddTransactionModal({
                   }} />
                 </div>
                 <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: '#7A9A8A' }}>
-                  ¿Es recurrente?
+                  ¿Es un gasto habitual?
                 </span>
               </label>
 
@@ -328,12 +563,28 @@ export function AddTransactionModal({
                     </div>
                   )}
 
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={saveAsTemplate} onChange={e => setSaveAsTemplate(e.target.checked)} style={{ accentColor }} />
+                  {/* Toggle: registrar hoy */}
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '4px' }}>
+                    <div
+                      onClick={() => setRegisterToday(p => !p)}
+                      style={{
+                        width: '32px', height: '18px', borderRadius: '9px',
+                        backgroundColor: registerToday ? '#2E7D52' : '#0E1512',
+                        border: `0.5px solid ${registerToday ? '#2E7D52' : '#2E7D5230'}`,
+                        position: 'relative', cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0,
+                      }}
+                    >
+                      <div style={{
+                        width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'white',
+                        position: 'absolute', top: '3px', left: registerToday ? '17px' : '3px',
+                        transition: 'left 0.2s',
+                      }} />
+                    </div>
                     <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: '#7A9A8A' }}>
-                      Guardar como plantilla recurrente
+                      También registrar el gasto de hoy
                     </span>
                   </label>
+
                 </div>
               )}
             </div>
@@ -369,7 +620,7 @@ export function AddTransactionModal({
               }}
               disabled={pending}
             >
-              {pending ? 'Guardando…' : isEdit ? 'Guardar' : 'Agregar'}
+              {pending ? 'Guardando…' : isEdit ? 'Guardar' : (isRecurring && !registerToday) ? 'Guardar plantilla' : 'Agregar'}
             </button>
           </div>
         </form>

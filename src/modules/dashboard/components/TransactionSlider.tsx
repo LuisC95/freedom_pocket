@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { deleteTransaction, deleteRecurringTemplate, confirmRecurringTemplate, upsertBudget } from '../actions'
+import { deleteTransaction, deleteRecurringTemplate, confirmRecurringTemplate, approveRecurringTransaction, upsertBudget } from '../actions'
 import type { Transaction, TransactionGroup, Budget, RecurringTemplate, TransactionCategory } from '../types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -27,6 +27,7 @@ function fmtFrequency(t: RecurringTemplate): string {
     case 'monthly':  return `Mensual · día ${t.day_of_month}`
     case 'annual':   return `Anual · ${t.month_of_year ? MONTH_NAMES[t.month_of_year - 1] : ''} ${t.day_of_month}`
     case 'custom':   return `Cada ${t.custom_interval_days ?? 30}d`
+    case 'manual':   return 'Sin frecuencia fija'
     default:         return `Día ${t.day_of_month}`
   }
 }
@@ -169,6 +170,13 @@ function RecurringSheet({ template, onClose, onChanged }: { template: RecurringT
     })
   }
 
+  function handleApprove() {
+    startTransition(async () => {
+      await approveRecurringTransaction(template.id)
+      onChanged()
+    })
+  }
+
   return (
     <Sheet onClose={onClose}>
       <p style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 500, color: '#141F19', marginBottom: '4px' }}>{template.name}</p>
@@ -178,11 +186,14 @@ function RecurringSheet({ template, onClose, onChanged }: { template: RecurringT
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
         <Row label="Categoría" value={template.category?.name ?? '—'} />
         <Row label="Frecuencia" value={fmtFrequency(template)} />
-        {template.last_confirmed_at && <Row label="Última confirmación" value={new Date(template.last_confirmed_at).toLocaleDateString('es')} />}
+        {template.last_confirmed_at && <Row label="Último registro" value={new Date(template.last_confirmed_at).toLocaleDateString('es')} />}
       </div>
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <SheetBtn label={pending ? '…' : 'Confirmar activo'} onClick={handleConfirm} disabled={pending} />
-        <SheetBtn label={pending ? '…' : 'Eliminar'} onClick={handleDelete} danger disabled={pending} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <SheetBtn label={pending ? '…' : '✓ Registrar hoy'} onClick={handleApprove} disabled={pending} />
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <SheetBtn label={pending ? '…' : 'Marcar como activo'} onClick={handleConfirm} disabled={pending} />
+          <SheetBtn label={pending ? '…' : 'Eliminar'} onClick={handleDelete} danger disabled={pending} />
+        </div>
       </div>
     </Sheet>
   )
@@ -253,6 +264,7 @@ export function TransactionSlider({
   transaction_groups,
   budgets,
   recurring_templates,
+  categories,
   gasto_diario,
   onEditTransaction,
   onDataChanged,
@@ -260,7 +272,7 @@ export function TransactionSlider({
   const [tab, setTab] = useState(0)
   const [sheet, setSheet] = useState<Sheet>(null)
 
-  const TABS = ['Gastos', 'Presupuestos', 'Recurrentes']
+  const TABS = ['Gastos', 'Presupuestos', 'Habituales']
 
   // Compute weekly sparklines per category from transaction_groups
   const now = new Date()
@@ -411,12 +423,13 @@ export function TransactionSlider({
         </div>
       )}
 
-      {/* Tab 3 — Recurrentes */}
+      {/* Tab 3 — Habituales */}
       {tab === 2 && (
         <div style={{ backgroundColor: 'white', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}>
+
           {recurring_templates.length === 0 ? (
             <div style={{ padding: '24px', textAlign: 'center' }}>
-              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#7A9A8A' }}>Sin plantillas recurrentes</p>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#7A9A8A' }}>Sin gastos habituales</p>
             </div>
           ) : (
             recurring_templates.map(template => (
@@ -470,6 +483,7 @@ export function TransactionSlider({
           onChanged={() => { setSheet(null); onDataChanged() }}
         />
       )}
+
     </div>
   )
 }

@@ -145,6 +145,8 @@ function isTemplatePending(
       const daysSince = Math.floor((hoy.getTime() - last.getTime()) / 86400000)
       return daysSince >= interval
     }
+    case 'manual':
+      return false
     default:
       return false
   }
@@ -204,6 +206,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     { data: budgetsRaw },
     { data: templatesRaw },
     { data: categoriesRaw },
+    { data: settingsRaw },
     { data: incomesRaw },
     { data: incomeEntriesRaw },
   ] = await Promise.all([
@@ -235,6 +238,11 @@ export async function getDashboardData(): Promise<DashboardData> {
       .select('*')
       .or(`user_id.is.null,user_id.eq.${DEV_USER_ID}`)
       .order('name'),
+    supabase
+      .from('user_settings')
+      .select('hidden_category_ids')
+      .eq('user_id', DEV_USER_ID)
+      .single(),
     supabase
       .from('incomes')
       .select('amount, frequency')
@@ -351,7 +359,10 @@ export async function getDashboardData(): Promise<DashboardData> {
   const pending_recurring = recurring_templates.filter(t => t.is_pending_this_period)
 
   // ── Categories ────────────────────────────────────────────────────────────
-  const categories: TransactionCategory[] = (categoriesRaw ?? []).map(mapCategory)
+  const hiddenIds: string[] = (settingsRaw as any)?.hidden_category_ids ?? []
+  const categories: TransactionCategory[] = (categoriesRaw ?? [])
+    .filter(c => !hiddenIds.includes(c.id))
+    .map(mapCategory)
 
   // ── Métricas ──────────────────────────────────────────────────────────────
   // Ingresos: entradas reales en la ventana rodante; fallback a proyección mensual
@@ -508,6 +519,69 @@ export async function createCategory(data: {
 
   if (error) return { data: null, error: error.message }
   return { data: mapCategory(row), error: null }
+}
+
+// ─── deleteCategory ───────────────────────────────────────────────────────────
+
+export async function deleteCategory(
+  id: string,
+  replacementCategoryId?: string
+): Promise<{ error: string | null; hasLinkedTransactions?: boolean }> {
+  const supabase = createAdminClient()
+
+  // Check if category has linked transactions
+  const { count } = await supabase
+    .from('transactions')
+    .select('id', { count: 'exact', head: true })
+    .eq('category_id', id)
+    .eq('user_id', DEV_USER_ID)
+
+  if (count && count > 0) {
+    if (!replacementCategoryId) return { error: null, hasLinkedTransactions: true }
+    // Reassign transactions to replacement
+    const { error: reassignError } = await supabase
+      .from('transactions')
+      .update({ category_id: replacementCategoryId })
+      .eq('category_id', id)
+      .eq('user_id', DEV_USER_ID)
+    if (reassignError) return { error: reassignError.message }
+  }
+
+  // Determine if system or custom category
+  const { data: cat } = await supabase
+    .from('transaction_categories')
+    .select('user_id, is_custom')
+    .eq('id', id)
+    .single()
+
+  if (!cat) return { error: 'Categoría no encontrada' }
+
+  if (cat.is_custom && cat.user_id === DEV_USER_ID) {
+    // Custom: hard delete from DB
+    const { error } = await supabase
+      .from('transaction_categories')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', DEV_USER_ID)
+    if (error) return { error: error.message }
+  } else {
+    // System: soft-hide via user_settings.hidden_category_ids
+    const { data: settings } = await supabase
+      .from('user_settings')
+      .select('hidden_category_ids')
+      .eq('user_id', DEV_USER_ID)
+      .single()
+
+    const current: string[] = (settings as any)?.hidden_category_ids ?? []
+    if (!current.includes(id)) {
+      await supabase
+        .from('user_settings')
+        .update({ hidden_category_ids: [...current, id] })
+        .eq('user_id', DEV_USER_ID)
+    }
+  }
+
+  return { error: null }
 }
 
 // ─── upsertBudget ─────────────────────────────────────────────────────────────

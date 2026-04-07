@@ -19,7 +19,7 @@ export function RecurringBanner({ pending, onApproved }: RecurringBannerProps) {
   return (
     <div style={{ backgroundColor: '#1A2520', borderRadius: '12px', padding: '12px 16px', borderLeft: '3px solid #C69B30' }} className="mb-4">
       <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.09em', color: '#C69B30' }} className="mb-2.5">
-        recurrentes pendientes
+        Gastos habituales pendientes
       </p>
       {pending.map(t => (
         <BannerItem key={t.id} template={t} onApproved={onApproved} />
@@ -67,7 +67,7 @@ function BannerItem({ template, onApproved }: { template: RecurringTemplate; onA
           whiteSpace: 'nowrap',
         }}
       >
-        {pending ? '…' : '✓ Aprobar'}
+        {pending ? '…' : '✓ Registrar'}
       </button>
     </div>
   )

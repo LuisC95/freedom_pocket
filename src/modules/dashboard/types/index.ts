@@ -1,5 +1,5 @@
 export type TransactionType = 'income' | 'expense'
-export type RecurringFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'annual' | 'custom'
+export type RecurringFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'annual' | 'custom' | 'manual'
 export type ExpenseType = 'fixed' | 'variable'
 export type BudgetSource = 'system' | 'user'
 
