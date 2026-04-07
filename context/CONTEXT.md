@@ -224,9 +224,10 @@ src/
 | `deleteRecurringTemplate(id)` | Elimina plantilla |
 | `confirmRecurringTemplate(id)` | Marca como activa (sin crear transacción) |
 
-### Frecuencias de plantillas recurrentes
+### Frecuencias de gastos habituales (plantillas recurrentes)
 | Frecuencia | Campo referencia | Lógica pending |
 |---|---|---|
+| `manual` | — | Nunca auto-pendiente — se registra manualmente desde el tab |
 | `daily` | — | Pendiente si no confirmada hoy |
 | `weekly` | `day_of_month` = día semana (1=Lun..7=Dom) | Pendiente si es el día correcto esta semana |
 | `biweekly` | `day_of_month` = día semana | Pendiente si es el día correcto y han pasado ≥14 días |
@@ -234,12 +235,20 @@ src/
 | `annual` | `day_of_month` + `month_of_year` | Pendiente si mes y día coinciden y no confirmada este año |
 | `custom` | `custom_interval_days` | Pendiente si han pasado ≥ N días desde last_confirmed_at |
 
+### Lógica de creación desde AddTransactionModal
+- Toggle "¿Es un gasto habitual?" → muestra selector de frecuencia (default: `manual`)
+- Sub-toggle "También registrar el gasto de hoy" (default: ON):
+  - ON → crea transacción + plantilla
+  - OFF → solo crea plantilla (botón dice "Guardar plantilla")
+- Error de `createRecurringTemplate` se muestra al usuario
+
 ### Componentes UI
 - **`DashboardClient.tsx`** — contenedor cliente, FAB, estado de modales, router.refresh()
 - **`HeroCard.tsx`** — neto protagonista 38px, chip `+X.Xd autonomía`, barra retención, explicación autonomía económica, historial 6 meses (Recharts ComposedChart)
-- **`RecurringBanner.tsx`** — banner dorado con recurrentes pendientes, botón "✓ Aprobar"
-- **`AddTransactionModal.tsx`** — monto + categoría grid + fecha + notas + toggle recurrente (con selector de frecuencia y campos condicionales)
-- **`TransactionSlider.tsx`** — 3 tabs (Gastos/Presupuestos/Recurrentes) + TxSheet + BudgetSheet + RecurringSheet
+- **`RecurringBanner.tsx`** — banner dorado "Gastos habituales pendientes", botón "✓ Registrar"
+- **`AddTransactionModal.tsx`** — monto + categoría grid + fecha + notas + toggle habitual + toggle registrar hoy + eliminación de categorías
+- **`RecurringTemplateModal.tsx`** — modal standalone para crear/editar plantillas (no usado desde tab, disponible para uso futuro)
+- **`TransactionSlider.tsx`** — 3 tabs (Gastos/Presupuestos/**Habituales**) + TxSheet + BudgetSheet + RecurringSheet (con "✓ Registrar hoy")
 
 ---
 
@@ -261,13 +270,17 @@ src/
 
 ### Completado ✅
 - Concepto, stack, algoritmos (8), household feature, estrategia dev
-- 22 tablas en Supabase en producción + columnas nuevas en `recurring_templates`
+- 22 tablas en Supabase en producción + columnas adicionales aplicadas vía MCP
 - Next.js 16.2.1 + Supabase SSR conectado
 - shadcn/ui configurado, `@anthropic-ai/sdk` instalado
 - UI/UX: paleta, tipografía, layout — CERRADO
 - Sidebar + BottomNav + layout con PIN auth
 - **Módulo 1 — Mi Realidad** completo
-- **Módulo 2 — Dashboard Financiero** completo
+- **Módulo 2 — Dashboard Financiero** completo (branch `dashboard`):
+  - Gastos habituales: frecuencia `manual` + 6 frecuencias con time frame
+  - Eliminación de categorías (custom y sistema)
+  - Creación de plantillas con/sin registro de gasto hoy
+  - Fix: constraint `type` en `recurring_templates` (`expense`/`income`)
 
 ### Próximos pasos
 1. ✅ ~~Módulo 1 — Mi Realidad~~
