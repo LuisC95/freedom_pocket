@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fastlane Compass — Módulo 2 Visual Reference</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --base: #F2F7F4;
+    --dark: #1A2520;
+    --accent: #2E7D52;
+    --accent-light: #3A9E6A;
+    --surface: #EAF0EC;
+    --gold: #C69B30;
+    --alert: #E84434;
+    --text-primary: #141F19;
+    --text-secondary: #7A9A8A;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0E1512; color: #F2F7F4; font-family: var(--sans); min-height: 100vh; }
+
+  /* ── LAYOUT ── */
+  .page { max-width: 1200px; margin: 0 auto; padding: 48px 32px; }
+  .section { margin-bottom: 64px; }
+  .section-header { display: flex; align-items: baseline; gap: 16px; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 0.5px solid #2E7D5240; }
+  .section-title { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent-light); }
+  .section-subtitle { font-family: var(--sans); font-size: 12px; color: var(--text-secondary); }
+  .component-row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+  .component-col { display: flex; flex-direction: column; gap: 24px; }
+
+  /* ── ANNOTATIONS ── */
+  .ann { font-family: var(--mono); font-size: 10px; color: var(--gold); background: #C69B3015; border: 0.5px solid #C69B3030; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+  .ann-red { color: var(--alert); background: #E8443415; border-color: #E8443430; }
+  .ann-green { color: var(--accent-light); background: #3A9E6A15; border-color: #3A9E6A30; }
+  .ann-gray { color: var(--text-secondary); background: #7A9A8A15; border-color: #7A9A8A30; }
+  .annotation-block { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .ann-row { display: flex; align-items: center; gap: 8px; }
+  .ann-label { font-family: var(--sans); font-size: 11px; color: #7A9A8A; }
+  .spec-tag { font-family: var(--mono); font-size: 10px; color: #F2F7F4; background: #2E7D5230; border: 0.5px solid #2E7D5250; padding: 1px 6px; border-radius: 3px; }
+
+  /* ── COMPONENT WRAPPERS ── */
+  .comp-wrap { position: relative; }
+  .comp-label { font-family: var(--mono); font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+
+  /* ── HERO CARD ── */
+  .hero { background: var(--dark); border-radius: 16px; padding: 20px 20px 16px; width: 340px; }
+  .hero-period { font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-secondary); margin-bottom: 10px; }
+  .hero-main { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 4px; }
+  .hero-net-label { font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--accent-light); margin-bottom: 4px; }
+  .hero-net-value { font-family: var(--mono); font-size: 38px; font-weight: 600; color: var(--accent-light); line-height: 1; }
+  .hero-net-negative { color: var(--alert); }
+  .hrs-chip { display: inline-flex; align-items: center; padding: 4px 9px; border-radius: 5px; background: #C69B3018; color: var(--gold); font-family: var(--mono); font-size: 11px; border: 0.5px solid #C69B3040; }
+  .hero-secondary { display: flex; align-items: center; background: #2E7D5215; border-radius: 8px; padding: 9px 12px; margin: 12px 0; gap: 0; }
+  .hero-sec-item { flex: 1; }
+  .hero-sec-item:last-child { text-align: right; }
+  .hero-sec-label { font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-secondary); margin-bottom: 3px; }
+  .hero-sec-value { font-family: var(--mono); font-size: 19px; font-weight: 500; }
+  .hero-divider { width: 0.5px; background: #2E7D5240; margin: 0 8px; height: 36px; }
+  .retention-bar-bg { background: #E8443425; border-radius: 4px; height: 6px; width: 100%; overflow: hidden; margin-bottom: 4px; }
+  .retention-bar-fill { height: 6px; border-radius: 4px; background: var(--accent-light); }
+  .retention-labels { display: flex; justify-content: space-between; }
+  .ret-lbl { font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-secondary); }
+  .hero-chart-label { font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-secondary); margin: 14px 0 6px; }
+
+  /* ── CHART SVG ── */
+  .chart-placeholder { width: 100%; height: 72px; position: relative; }
+
+  /* ── RECURRING BANNER ── */
+  .banner { background: var(--dark); border-radius: 12px; padding: 12px 16px; width: 340px; border-left: 3px solid var(--gold); }
+  .banner-label { font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--gold); margin-bottom: 10px; }
+  .banner-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 0.5px solid #2E7D5220; }
+  .banner-item:last-of-type { border-bottom: none; }
+  .banner-item-left { display: flex; align-items: center; gap: 8px; }
+  .banner-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .banner-name { font-family: var(--sans); font-size: 12px; color: #F2F7F4; }
+  .banner-meta { font-family: var(--mono); font-size: 10px; color: var(--text-secondary); }
+  .approve-btn { font-family: var(--mono); font-size: 10px; color: var(--accent-light); background: #3A9E6A20; border: 0.5px solid #3A9E6A40; padding: 3px 10px; border-radius: 5px; cursor: pointer; white-space: nowrap; }
+
+  /* ── TABS ── */
+  .tab-bar { display: flex; background: white; border-radius: 10px 10px 0 0; overflow: hidden; width: 340px; }
+  .tab { flex: 1; text-align: center; padding: 10px 4px; font-family: var(--sans); font-size: 11px; color: var(--text-secondary); background: white; cursor: pointer; }
+  .tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+
+  /* ── TRANSACTION LIST ── */
+  .tx-list { background: white; border-radius: 0 0 12px 12px; width: 340px; overflow: hidden; }
+  .sec-label { font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-secondary); padding: 8px 14px 3px; background: var(--base); }
+  .tx-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-bottom: 0.5px solid var(--surface); background: white; }
+  .tx-left { display: flex; align-items: center; gap: 9px; }
+  .tx-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .tx-name { font-family: var(--sans); font-size: 13px; color: var(--text-primary); }
+  .tx-cat { font-family: var(--sans); font-size: 10px; color: var(--text-secondary); }
+  .tx-right { text-align: right; }
+  .tx-amount { font-family: var(--mono); font-size: 14px; font-weight: 500; }
+  .tx-hrs { font-family: var(--mono); font-size: 9px; color: var(--gold); margin-top: 2px; }
+  .tx-hrs-income { color: var(--accent-light); }
+
+  /* ── BUDGET LIST ── */
+  .budget-list { background: white; border-radius: 0 0 12px 12px; width: 340px; overflow: hidden; }
+  .budget-row { padding: 10px 14px; border-bottom: 0.5px solid var(--surface); background: white; }
+  .budget-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .budget-name-wrap { display: flex; align-items: center; gap: 7px; }
+  .budget-name { font-family: var(--sans); font-size: 11px; color: var(--text-primary); }
+  .budget-nums { text-align: right; }
+  .budget-spent { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--text-primary); }
+  .budget-avg { font-family: var(--mono); font-size: 9px; color: var(--text-secondary); }
+  .prog-bg { background: var(--surface); border-radius: 3px; height: 5px; width: 100%; overflow: hidden; position: relative; }
+  .prog-fill { height: 5px; border-radius: 3px; }
+  .prog-ok { background: var(--accent-light); }
+  .prog-warn { background: var(--gold); }
+  .prog-over { background: var(--alert); }
+  .budget-footer { display: flex; justify-content: space-between; margin-top: 3px; }
+  .budget-footer-lbl { font-family: var(--mono); font-size: 9px; color: var(--text-secondary); }
+  .budget-footer-lbl.warn { color: var(--gold); }
+  .budget-footer-lbl.over { color: var(--alert); }
+  .budget-footer-lbl.ok { color: var(--accent-light); }
+  .sparkline { display: flex; align-items: flex-end; gap: 1.5px; height: 18px; margin-right: 6px; }
+  .spark-bar { border-radius: 1px 1px 0 0; width: 5px; }
+
+  /* ── RECURRING LIST ── */
+  .rec-list { background: white; border-radius: 0 0 12px 12px; width: 340px; overflow: hidden; }
+  .rec-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-bottom: 0.5px solid var(--surface); background: white; }
+  .rec-name { font-family: var(--sans); font-size: 12px; color: var(--text-primary); }
+  .rec-meta { font-family: var(--mono); font-size: 10px; color: var(--text-secondary); margin-top: 1px; }
+  .rec-right { text-align: right; }
+  .rec-amount { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--alert); }
+  .badge { display: inline-flex; padding: 2px 7px; border-radius: 8px; font-family: var(--mono); font-size: 9px; }
+  .badge-active { background: #3A9E6A20; color: var(--accent-light); border: 0.5px solid #3A9E6A40; }
+  .badge-pending { background: #7A9A8A20; color: var(--text-secondary); border: 0.5px solid #7A9A8A40; }
+  .badge-fixed { background: #2E7D5215; color: var(--accent); border: 0.5px solid #2E7D5230; }
+  .badge-variable { background: #C69B3015; color: var(--gold); border: 0.5px solid #C69B3030; }
+
+  /* ── MODAL ── */
+  .modal-wrap { background: rgba(0,0,0,0.6); border-radius: 16px; padding: 24px; display: flex; align-items: center; justify-content: center; width: 380px; min-height: 500px; }
+  .modal { background: var(--dark); border-radius: 16px; padding: 20px; width: 320px; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .modal-title { font-family: var(--sans); font-size: 14px; font-weight: 500; color: #F2F7F4; }
+  .modal-close { font-family: var(--mono); font-size: 16px; color: var(--text-secondary); cursor: pointer; }
+  .type-toggle { display: flex; background: #0E1512; border-radius: 8px; padding: 3px; margin-bottom: 18px; }
+  .type-btn { flex: 1; text-align: center; padding: 8px; border-radius: 6px; font-family: var(--sans); font-size: 12px; cursor: pointer; }
+  .type-btn-expense { background: var(--alert); color: white; }
+  .type-btn-income { color: var(--text-secondary); }
+  .modal-field { margin-bottom: 14px; }
+  .modal-field-label { font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-secondary); margin-bottom: 5px; }
+  .modal-input { background: #0E1512; border: 0.5px solid #2E7D5230; border-radius: 8px; padding: 10px 12px; width: 100%; font-family: var(--mono); font-size: 13px; color: #F2F7F4; }
+  .modal-amount { font-size: 28px; font-weight: 600; text-align: center; color: var(--alert); }
+  .modal-cat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .modal-cat-item { background: #0E1512; border: 0.5px solid #2E7D5225; border-radius: 8px; padding: 8px 6px; text-align: center; cursor: pointer; }
+  .modal-cat-item.selected { border-color: var(--alert); background: #E8443415; }
+  .modal-cat-icon { font-size: 16px; margin-bottom: 2px; }
+  .modal-cat-name { font-family: var(--sans); font-size: 9px; color: var(--text-secondary); }
+  .modal-save { width: 100%; padding: 12px; background: var(--alert); border: none; border-radius: 10px; color: white; font-family: var(--sans); font-size: 13px; font-weight: 500; cursor: pointer; margin-top: 6px; }
+  .modal-save-income { background: var(--accent); }
+  .modal-recurring-toggle { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #0E1512; border-radius: 8px; margin-bottom: 14px; }
+  .modal-recurring-label { font-family: var(--sans); font-size: 12px; color: #F2F7F4; }
+  .toggle-pill { width: 32px; height: 18px; background: #2E7D5230; border-radius: 9px; position: relative; }
+  .toggle-dot { width: 14px; height: 14px; background: var(--text-secondary); border-radius: 50%; position: absolute; top: 2px; left: 2px; }
+
+  /* ── FAB ── */
+  .fab { width: 48px; height: 48px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 24px; color: white; font-weight: 300; cursor: pointer; box-shadow: 0 4px 16px #2E7D5240; }
+
+  /* ── STATES ── */
+  .hero-empty { opacity: 0.5; }
+  .state-pill { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; padding: 3px 10px; border-radius: 10px; }
+
+  /* ── SPEC GRID ── */
+  .spec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  .spec-card { background: #1A2520; border-radius: 10px; padding: 14px; border: 0.5px solid #2E7D5230; }
+  .spec-card-title { font-family: var(--mono); font-size: 10px; color: var(--gold); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+  .spec-item { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+  .spec-item-label { font-family: var(--mono); font-size: 9px; color: var(--text-secondary); }
+  .spec-item-value { font-family: var(--mono); font-size: 11px; color: #F2F7F4; }
+  .color-swatch { width: 100%; height: 24px; border-radius: 4px; margin-bottom: 4px; }
+
+  /* ── HEADER ── */
+  .doc-header { margin-bottom: 48px; padding-bottom: 24px; border-bottom: 0.5px solid #2E7D5230; }
+  .doc-title { font-family: var(--mono); font-size: 22px; font-weight: 600; color: var(--accent-light); margin-bottom: 4px; }
+  .doc-subtitle { font-family: var(--sans); font-size: 13px; color: var(--text-secondary); }
+  .doc-badge { display: inline-flex; align-items: center; gap: 6px; background: #C69B3015; border: 0.5px solid #C69B3040; border-radius: 6px; padding: 4px 10px; margin-top: 12px; }
+  .doc-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
+  .doc-badge-text { font-family: var(--mono); font-size: 10px; color: var(--gold); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="doc-header">
+    <div class="doc-title">Fastlane Compass — Módulo 2</div>
+    <div class="doc-subtitle">Dashboard Financiero · Referencia visual para implementación</div>
+    <div class="doc-badge">
+      <div class="doc-badge-dot"></div>
+      <div class="doc-badge-text">DESIGN LOCKED — no improvisar estilos</div>
+    </div>
+  </div>
+
+  <!-- ── SECCIÓN 1: DESIGN TOKENS ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">01 — Design Tokens</div>
+      <div class="section-subtitle">Usar exactamente estos valores — nunca hardcodear otros</div>
+    </div>
+    <div class="spec-grid">
+      <div class="spec-card">
+        <div class="spec-card-title">Paleta</div>
+        <div class="spec-item"><div class="color-swatch" style="background:#1A2520;border:0.5px solid #2E7D5240;"></div><div class="spec-item-label">Dark / Hero Card</div><div class="spec-item-value">#1A2520</div></div>
+        <div class="spec-item"><div class="color-swatch" style="background:#2E7D52;"></div><div class="spec-item-label">Accent / CTA</div><div class="spec-item-value">#2E7D52</div></div>
+        <div class="spec-item"><div class="color-swatch" style="background:#3A9E6A;"></div><div class="spec-item-label">Accent Light / Positivo</div><div class="spec-item-value">#3A9E6A</div></div>
+        <div class="spec-item"><div class="color-swatch" style="background:#E84434;"></div><div class="spec-item-label">Alert / Gasto</div><div class="spec-item-value">#E84434</div></div>
+        <div class="spec-item"><div class="color-swatch" style="background:#C69B30;"></div><div class="spec-item-label">Gold / Horas chip</div><div class="spec-item-value">#C69B30</div></div>
+        <div class="spec-item"><div class="color-swatch" style="background:#F2F7F4;border:0.5px solid #2E7D5230;"></div><div class="spec-item-label">Base / Fondo</div><div class="spec-item-value">#F2F7F4</div></div>
+        <div class="spec-item"><div class="color-swatch" style="background:#EAF0EC;border:0.5px solid #2E7D5220;"></div><div class="spec-item-label">Surface / Mini cards</div><div class="spec-item-value">#EAF0EC</div></div>
+        <div class="spec-item"><div class="color-swatch" style="background:#7A9A8A;"></div><div class="spec-item-label">Text Secondary</div><div class="spec-item-value">#7A9A8A</div></div>
+      </div>
+      <div class="spec-card">
+        <div class="spec-card-title">Tipografía</div>
+        <div class="spec-item"><div class="spec-item-label">Números / Montos / Métricas</div><div class="spec-item-value">IBM Plex Mono</div></div>
+        <div class="spec-item"><div class="spec-item-label">UI / Labels / Navegación</div><div class="spec-item-value">IBM Plex Sans</div></div>
+        <div style="height:12px;"></div>
+        <div class="spec-item"><div class="spec-item-label">Neto hero (PROTAGONISTA)</div><div class="spec-item-value">Mono 38px w600</div></div>
+        <div class="spec-item"><div class="spec-item-label">Ingresos / Gastos fila sec.</div><div class="spec-item-value">Mono 19px w500</div></div>
+        <div class="spec-item"><div class="spec-item-label">Monto en lista de tx</div><div class="spec-item-value">Mono 14px w500</div></div>
+        <div class="spec-item"><div class="spec-item-label">Horas chip dorado</div><div class="spec-item-value">Mono 9-11px</div></div>
+        <div class="spec-item"><div class="spec-item-label">Labels / Categorías en tx</div><div class="spec-item-value">Sans 10-12px</div></div>
+        <div class="spec-item"><div class="spec-item-label">Section headers (HOY, etc)</div><div class="spec-item-value">Mono 9px uppercase</div></div>
+      </div>
+      <div class="spec-card">
+        <div class="spec-card-title">Jerarquía Visual</div>
+        <div style="font-family:var(--mono);font-size:10px;color:#7A9A8A;margin-bottom:8px;">HERO CARD — orden de importancia:</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;align-items:center;gap:8px;"><div style="width:4px;height:24px;background:var(--accent-light);border-radius:2px;"></div><div><div style="font-size:10px;color:#F2F7F4;">① Neto del período</div><div style="font-size:9px;color:#7A9A8A;">38px verde — PROTAGONISTA</div></div></div>
+          <div style="display:flex;align-items:center;gap:8px;"><div style="width:4px;height:20px;background:#C69B30;border-radius:2px;"></div><div><div style="font-size:10px;color:#F2F7F4;">② Horas libres chip</div><div style="font-size:9px;color:#7A9A8A;">11px dorado — esquina derecha</div></div></div>
+          <div style="display:flex;align-items:center;gap:8px;"><div style="width:4px;height:18px;background:#2E7D52;border-radius:2px;"></div><div><div style="font-size:10px;color:#F2F7F4;">③ Ingresos / Gastos</div><div style="font-size:9px;color:#7A9A8A;">19px — fila secundaria</div></div></div>
+          <div style="display:flex;align-items:center;gap:8px;"><div style="width:4px;height:14px;background:#7A9A8A;border-radius:2px;"></div><div><div style="font-size:10px;color:#F2F7F4;">④ Barra retención</div><div style="font-size:9px;color:#7A9A8A;">6px — verde/rojo</div></div></div>
+          <div style="display:flex;align-items:center;gap:8px;"><div style="width:4px;height:12px;background:#3A9E6A40;border-radius:2px;"></div><div><div style="font-size:10px;color:#F2F7F4;">⑤ Gráfica historial</div><div style="font-size:9px;color:#7A9A8A;">72px — 6 meses Recharts</div></div></div>
+        </div>
+      </div>
+      <div class="spec-card">
+        <div class="spec-card-title">Horas Chip — Reglas</div>
+        <div style="font-family:var(--mono);font-size:10px;color:#7A9A8A;margin-bottom:10px;">Solo color dorado. Nunca rojo/verde.</div>
+        <div class="hrs-chip" style="margin-bottom:8px;">+70 hrs libres</div>
+        <div class="hrs-chip" style="margin-bottom:8px;">142.6 hrs gastadas</div>
+        <div class="hrs-chip" style="margin-bottom:16px;">0.8 hrs</div>
+        <div style="font-family:var(--mono);font-size:9px;color:#7A9A8A;">bg: #C69B3018<br>border: #C69B3040<br>color: #C69B30<br>font: Mono 9-11px</div>
+        <div style="height:12px;"></div>
+        <div style="font-family:var(--mono);font-size:10px;color:#7A9A8A;margin-bottom:6px;">EXCEPCIÓN ingresos en lista:</div>
+        <div class="hrs-chip" style="background:#3A9E6A20;color:#3A9E6A;border-color:#3A9E6A40;">+106.2 hrs</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECCIÓN 2: HERO CARD ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">02 — Hero Card</div>
+      <div class="section-subtitle">HeroCard.tsx — bg-[#1A2520], siempre dark</div>
+    </div>
+    <div class="component-row">
+
+      <!-- Estado completo -->
+      <div class="comp-wrap">
+        <div class="comp-label">Estado: con datos ✅</div>
+        <div class="hero">
+          <div class="hero-period">Dashboard financiero · marzo 2025</div>
+          <div class="hero-main">
+            <div>
+              <div class="hero-net-label">retenido este mes</div>
+              <div class="hero-net-value">+$1,582</div>
+            </div>
+            <div style="text-align:right;padding-bottom:5px;">
+              <div style="font-family:var(--mono);font-size:9px;color:var(--text-secondary);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em;">en horas libres</div>
+              <div class="hrs-chip">+70 hrs</div>
+            </div>
+          </div>
+          <div class="hero-secondary">
+            <div class="hero-sec-item">
+              <div class="hero-sec-label">ingresos</div>
+              <div class="hero-sec-value" style="color:var(--accent-light);">$4,800</div>
+            </div>
+            <div class="hero-divider"></div>
+            <div class="hero-sec-item">
+              <div class="hero-sec-label" style="text-align:right;">gastos</div>
+              <div class="hero-sec-value" style="color:var(--alert);">$3,218</div>
+            </div>
+          </div>
+          <div class="retention-bar-bg">
+            <div class="retention-bar-fill" style="width:67%;"></div>
+          </div>
+          <div class="retention-labels" style="margin-bottom:14px;">
+            <span class="ret-lbl">67% retenido</span>
+            <span class="ret-lbl">33% gastado</span>
+          </div>
+          <div class="hero-chart-label">últimos 6 meses</div>
+          <svg width="100%" height="72" viewBox="0 0 300 72" xmlns="http://www.w3.org/2000/svg">
+            <!-- Oct -->
+            <rect x="2" y="24" width="34" height="40" rx="2" fill="#3A9E6A30"/>
+            <rect x="2" y="38" width="34" height="26" rx="2" fill="#E84434" opacity="0.7"/>
+            <!-- Nov -->
+            <rect x="52" y="20" width="34" height="44" rx="2" fill="#3A9E6A30"/>
+            <rect x="52" y="34" width="34" height="30" rx="2" fill="#E84434" opacity="0.7"/>
+            <!-- Dic -->
+            <rect x="102" y="26" width="34" height="38" rx="2" fill="#3A9E6A30"/>
+            <rect x="102" y="42" width="34" height="22" rx="2" fill="#E84434" opacity="0.7"/>
+            <!-- Ene -->
+            <rect x="152" y="18" width="34" height="46" rx="2" fill="#3A9E6A30"/>
+            <rect x="152" y="32" width="34" height="32" rx="2" fill="#E84434" opacity="0.7"/>
+            <!-- Feb -->
+            <rect x="202" y="16" width="34" height="48" rx="2" fill="#3A9E6A30"/>
+            <rect x="202" y="34" width="34" height="30" rx="2" fill="#E84434" opacity="0.7"/>
+            <!-- Mar (actual) -->
+            <rect x="252" y="12" width="42" height="52" rx="2" fill="#3A9E6A40"/>
+            <rect x="252" y="28" width="42" height="36" rx="2" fill="#E84434" opacity="0.8"/>
+            <!-- Línea neto -->
+            <polyline points="19,30 69,26 119,34 169,22 219,20 273,16" fill="none" stroke="#7A9A8A" stroke-width="1" stroke-dasharray="2,2"/>
+            <circle cx="273" cy="16" r="3" fill="#3A9E6A"/>
+            <!-- Labels -->
+            <text x="6" y="72" fill="#7A9A8A" font-size="8" font-family="IBM Plex Mono">Oct</text>
+            <text x="56" y="72" fill="#7A9A8A" font-size="8" font-family="IBM Plex Mono">Nov</text>
+            <text x="106" y="72" fill="#7A9A8A" font-size="8" font-family="IBM Plex Mono">Dic</text>
+            <text x="156" y="72" fill="#7A9A8A" font-size="8" font-family="IBM Plex Mono">Ene</text>
+            <text x="206" y="72" fill="#7A9A8A" font-size="8" font-family="IBM Plex Mono">Feb</text>
+            <text x="256" y="72" fill="#3A9E6A" font-size="8" font-family="IBM Plex Mono">Mar</text>
+            <!-- leyenda -->
+            <rect x="0" y="0" width="8" height="6" rx="1" fill="#3A9E6A60"/>
+            <text x="11" y="6" fill="#7A9A8A" font-size="7" font-family="IBM Plex Mono">ingreso</text>
+            <rect x="62" y="0" width="8" height="6" rx="1" fill="#E84434" opacity="0.7"/>
+            <text x="73" y="6" fill="#7A9A8A" font-size="7" font-family="IBM Plex Mono">gasto</text>
+            <line x1="136" y1="3" x2="148" y2="3" stroke="#7A9A8A" stroke-width="1" stroke-dasharray="2,1.5"/>
+            <text x="151" y="6" fill="#7A9A8A" font-size="7" font-family="IBM Plex Mono">neto</text>
+          </svg>
+        </div>
+        <div class="annotation-block">
+          <div class="ann-row"><span class="ann">38px Mono w600</span><span class="ann-label">Neto — protagonista</span></div>
+          <div class="ann-row"><span class="ann">11px Mono</span><span class="ann-label">Chip horas — esquina derecha</span></div>
+          <div class="ann-row"><span class="ann-green">19px Mono</span><span class="ann-label">Ingresos / Gastos secundarios</span></div>
+          <div class="ann-row"><span class="ann-gray">Recharts BarChart + Line</span><span class="ann-label">6 meses, height 72px</span></div>
+        </div>
+      </div>
+
+      <!-- Estado negativo -->
+      <div class="comp-wrap">
+        <div class="comp-label">Estado: neto negativo ⚠️</div>
+        <div class="hero">
+          <div class="hero-period">Dashboard financiero · marzo 2025</div>
+          <div class="hero-main">
+            <div>
+              <div class="hero-net-label" style="color:var(--alert);">déficit este mes</div>
+              <div class="hero-net-value hero-net-negative">-$420</div>
+            </div>
+            <div style="text-align:right;padding-bottom:5px;">
+              <div style="font-family:var(--mono);font-size:9px;color:var(--text-secondary);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em;">horas de deuda</div>
+              <div class="hrs-chip">-18.6 hrs</div>
+            </div>
+          </div>
+          <div class="hero-secondary">
+            <div class="hero-sec-item">
+              <div class="hero-sec-label">ingresos</div>
+              <div class="hero-sec-value" style="color:var(--accent-light);">$2,400</div>
+            </div>
+            <div class="hero-divider"></div>
+            <div class="hero-sec-item">
+              <div class="hero-sec-label" style="text-align:right;">gastos</div>
+              <div class="hero-sec-value" style="color:var(--alert);">$2,820</div>
+            </div>
+          </div>
+          <div class="retention-bar-bg">
+            <div class="retention-bar-fill" style="width:100%;background:var(--alert);"></div>
+          </div>
+          <div class="retention-labels" style="margin-bottom:10px;">
+            <span class="ret-lbl" style="color:var(--alert);">0% retenido</span>
+            <span class="ret-lbl" style="color:var(--alert);">gastos > ingresos</span>
+          </div>
+          <div style="background:#E8443415;border-radius:8px;padding:8px 10px;border-left:2px solid var(--alert);">
+            <div style="font-family:var(--sans);font-size:11px;color:var(--alert);">Estás gastando más de lo que ganas este mes.</div>
+          </div>
+        </div>
+        <div class="annotation-block">
+          <div class="ann-row"><span class="ann-red">neto negativo</span><span class="ann-label">Label cambia a "déficit" y valor en rojo</span></div>
+          <div class="ann-row"><span class="ann-red">barra 100% roja</span><span class="ann-label">Retention bar overflow state</span></div>
+          <div class="ann-row"><span class="ann-red">alerta inline</span><span class="ann-label">Banner rojo con mensaje — solo en negativo</span></div>
+        </div>
+      </div>
+
+      <!-- Estado sin price_per_hour -->
+      <div class="comp-wrap">
+        <div class="comp-label">Estado: sin Módulo 1 completo</div>
+        <div class="hero">
+          <div class="hero-period">Dashboard financiero · marzo 2025</div>
+          <div class="hero-main">
+            <div>
+              <div class="hero-net-label">retenido este mes</div>
+              <div class="hero-net-value">+$1,582</div>
+            </div>
+            <div style="text-align:right;padding-bottom:5px;">
+              <div style="font-family:var(--mono);font-size:9px;color:var(--text-secondary);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em;">horas de vida</div>
+              <div style="display:inline-flex;align-items:center;padding:4px 9px;border-radius:5px;background:#7A9A8A15;color:var(--text-secondary);font-family:var(--mono);font-size:10px;border:0.5px solid #7A9A8A30;">completa M1</div>
+            </div>
+          </div>
+          <div class="hero-secondary">
+            <div class="hero-sec-item">
+              <div class="hero-sec-label">ingresos</div>
+              <div class="hero-sec-value" style="color:var(--accent-light);">$4,800</div>
+            </div>
+            <div class="hero-divider"></div>
+            <div class="hero-sec-item">
+              <div class="hero-sec-label" style="text-align:right;">gastos</div>
+              <div class="hero-sec-value" style="color:var(--alert);">$3,218</div>
+            </div>
+          </div>
+          <div class="retention-bar-bg">
+            <div class="retention-bar-fill" style="width:67%;"></div>
+          </div>
+          <div class="retention-labels">
+            <span class="ret-lbl">67% retenido</span>
+            <span class="ret-lbl">33% gastado</span>
+          </div>
+        </div>
+        <div class="annotation-block">
+          <div class="ann-row"><span class="ann-gray">chip deshabilitado</span><span class="ann-label">Si no hay price_per_hour → badge gris "completa M1"</span></div>
+          <div class="ann-row"><span class="ann-gray">sin horas en tx</span><span class="ann-label">Las filas de tx no muestran badge dorado</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECCIÓN 3: RECURRING BANNER ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">03 — Recurring Banner</div>
+      <div class="section-subtitle">RecurringBanner.tsx — visible SOLO si hay plantillas pendientes</div>
+    </div>
+    <div class="component-row">
+      <div class="comp-wrap">
+        <div class="comp-label">Banner de sugerencias pendientes</div>
+        <div class="banner">
+          <div class="banner-label">⚡ recurrentes pendientes de aprobar</div>
+          <div class="banner-item">
+            <div class="banner-item-left">
+              <div class="banner-dot" style="background:#ec4899;"></div>
+              <div>
+                <div class="banner-name">Netflix</div>
+                <div class="banner-meta">Entretenimiento · día 15 · 0.8 hrs</div>
+              </div>
+            </div>
+            <div class="approve-btn">✓ Aprobar</div>
+          </div>
+          <div class="banner-item">
+            <div class="banner-item-left">
+              <div class="banner-dot" style="background:#6366f1;"></div>
+              <div>
+                <div class="banner-name">Rent</div>
+                <div class="banner-meta">Vivienda · día 1 · 66.4 hrs</div>
+              </div>
+            </div>
+            <div class="approve-btn">✓ Aprobar</div>
+          </div>
+        </div>
+        <div class="annotation-block">
+          <div class="ann-row"><span class="ann">border-left gold</span><span class="ann-label">border-left: 3px solid #C69B30</span></div>
+          <div class="ann-row"><span class="ann-green">un tap = aprueba</span><span class="ann-label">approveRecurringTransaction(id) → refresca</span></div>
+          <div class="ann-row"><span class="ann-gray">oculto si vacío</span><span class="ann-label">No renderizar si pending_recurring.length === 0</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECCIÓN 4: TABS + LISTAS ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">04 — Transaction Slider</div>
+      <div class="section-subtitle">TransactionSlider.tsx — 3 tabs, slider táctil igual que Módulo 1</div>
+    </div>
+    <div class="component-row" style="align-items:flex-start;">
+
+      <!-- Tab 1: Gastos -->
+      <div class="comp-wrap">
+        <div class="comp-label">Tab 1 — Gastos (lista de transacciones)</div>
+        <div class="tab-bar">
+          <div class="tab active">Gastos</div>
+          <div class="tab">Presupuestos</div>
+          <div class="tab">Recurrentes</div>
+        </div>
+        <div class="tx-list">
+          <div class="sec-label">HOY</div>
+          <div class="tx-row">
+            <div class="tx-left">
+              <div class="tx-dot" style="background:#ec4899;"></div>
+              <div>
+                <div class="tx-name">Netflix</div>
+                <div class="tx-cat">Entretenimiento</div>
+              </div>
+            </div>
+            <div class="tx-right">
+              <div class="tx-amount" style="color:var(--alert);">-$18.00</div>
+              <div class="tx-hrs">0.8 hrs</div>
+            </div>
+          </div>
+          <div class="tx-row">
+            <div class="tx-left">
+              <div class="tx-dot" style="background:#f59e0b;"></div>
+              <div>
+                <div class="tx-name">Walmart</div>
+                <div class="tx-cat">Alimentación</div>
+              </div>
+            </div>
+            <div class="tx-right">
+              <div class="tx-amount" style="color:var(--alert);">-$94.00</div>
+              <div class="tx-hrs">4.2 hrs</div>
+            </div>
+          </div>
+          <div class="sec-label">AYER</div>
+          <div class="tx-row">
+            <div class="tx-left">
+              <div class="tx-dot" style="background:var(--accent-light);"></div>
+              <div>
+                <div class="tx-name">Nómina</div>
+                <div class="tx-cat">Salario</div>
+              </div>
+            </div>
+            <div class="tx-right">
+              <div class="tx-amount" style="color:var(--accent-light);">+$2,400.00</div>
+              <div class="tx-hrs tx-hrs-income">+106.2 hrs</div>
+            </div>
+          </div>
+          <div class="tx-row">
+            <div class="tx-left">
+              <div class="tx-dot" style="background:#3b82f6;"></div>
+              <div>
+                <div class="tx-name">Shell Gas</div>
+                <div class="tx-cat">Transporte</div>
+              </div>
+            </div>
+            <div class="tx-right">
+              <div class="tx-amount" style="color:var(--alert);">-$62.00</div>
+              <div class="tx-hrs">2.7 hrs</div>
+            </div>
+          </div>
+          <div class="sec-label">LUN 24 MAR</div>
+          <div class="tx-row">
+            <div class="tx-left">
+              <div class="tx-dot" style="background:#6366f1;"></div>
+              <div>
+                <div class="tx-name">Rent</div>
+                <div class="tx-cat">Vivienda</div>
+              </div>
+            </div>
+            <div class="tx-right">
+              <div class="tx-amount" style="color:var(--alert);">-$1,500.00</div>
+              <div class="tx-hrs">66.4 hrs</div>
+            </div>
+          </div>
+        </div>
+        <div class="annotation-block">
+          <div class="ann-row"><span class="ann">14px Mono w500</span><span class="ann-label">Monto — protagonista en cada fila</span></div>
+          <div class="ann-row"><span class="ann">9px Mono gold</span><span class="ann-label">Horas debajo del monto — siempre</span></div>
+          <div class="ann-row"><span class="ann-green">9px Mono green</span><span class="ann-label">Horas en ingreso → color verde</span></div>
+          <div class="ann-row"><span class="ann-gray">tap → sheet</span><span class="ann-label">Detalle + Editar / Eliminar</span></div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Presupuestos -->
+      <div class="comp-wrap">
+        <div class="comp-label">Tab 2 — Presupuestos (automáticos vs historial)</div>
+        <div class="tab-bar">
+          <div class="tab">Gastos</div>
+          <div class="tab active">Presupuestos</div>
+          <div class="tab">Recurrentes</div>
+        </div>
+        <div class="budget-list">
+          <!-- OK < 80% -->
+          <div class="budget-row">
+            <div class="budget-top">
+              <div class="budget-name-wrap">
+                <div class="tx-dot" style="background:#ec4899;"></div>
+                <div class="budget-name">Entretenimiento</div>
+                <div class="sparkline">
+                  <div class="spark-bar" style="height:8px;background:#ec489940;"></div>
+                  <div class="spark-bar" style="height:6px;background:#ec489940;"></div>
+                  <div class="spark-bar" style="height:10px;background:#ec489960;"></div>
+                  <div class="spark-bar" style="height:9px;background:#ec489960;"></div>
+                </div>
+              </div>
+              <div class="budget-nums">
+                <div class="budget-spent">$95</div>
+                <div class="budget-avg">prom. $200/mes</div>
+              </div>
+            </div>
+            <div class="prog-bg"><div class="prog-fill prog-ok" style="width:47%;"></div></div>
+            <div class="budget-footer">
+              <span class="budget-footer-lbl">47% del promedio</span>
+              <span class="budget-footer-lbl ok">vas muy bien</span>
+            </div>
+          </div>
+          <!-- WARN 80-100% -->
+          <div class="budget-row">
+            <div class="budget-top">
+              <div class="budget-name-wrap">
+                <div class="tx-dot" style="background:#f59e0b;"></div>
+                <div class="budget-name">Alimentación</div>
+                <div class="sparkline">
+                  <div class="spark-bar" style="height:9px;background:#f59e0b40;"></div>
+                  <div class="spark-bar" style="height:13px;background:#f59e0b60;"></div>
+                  <div class="spark-bar" style="height:10px;background:#f59e0b60;"></div>
+                  <div class="spark-bar" style="height:16px;background:#f59e0b80;"></div>
+                </div>
+              </div>
+              <div class="budget-nums">
+                <div class="budget-spent">$610</div>
+                <div class="budget-avg">prom. $700/mes</div>
+              </div>
+            </div>
+            <div class="prog-bg"><div class="prog-fill prog-warn" style="width:87%;"></div></div>
+            <div class="budget-footer">
+              <span class="budget-footer-lbl">87% del promedio</span>
+              <span class="budget-footer-lbl warn">faltan $90 para el límite</span>
+            </div>
+          </div>
+          <!-- OVER > 100% -->
+          <div class="budget-row">
+            <div class="budget-top">
+              <div class="budget-name-wrap">
+                <div class="tx-dot" style="background:#3b82f6;"></div>
+                <div class="budget-name">Transporte</div>
+                <div class="sparkline">
+                  <div class="spark-bar" style="height:9px;background:#E8443440;"></div>
+                  <div class="spark-bar" style="height:13px;background:#E8443460;"></div>
+                  <div class="spark-bar" style="height:17px;background:#E84434;"></div>
+                  <div class="spark-bar" style="height:19px;background:#E84434;"></div>
+                </div>
+              </div>
+              <div class="budget-nums">
+                <div class="budget-spent" style="color:var(--alert);">$280</div>
+                <div class="budget-avg">prom. $250/mes</div>
+              </div>
+            </div>
+            <div class="prog-bg"><div class="prog-fill prog-over" style="width:100%;"></div></div>
+            <div class="budget-footer">
+              <span class="budget-footer-lbl over">+12% sobre promedio</span>
+              <span class="budget-footer-lbl over">+$30 sobre historial</span>
+            </div>
+          </div>
+          <!-- Con suggested_amount -->
+          <div class="budget-row">
+            <div class="budget-top">
+              <div class="budget-name-wrap">
+                <div class="tx-dot" style="background:#8b5cf6;"></div>
+                <div class="budget-name">Educación</div>
+                <div class="sparkline">
+                  <div class="spark-bar" style="height:8px;background:#8b5cf640;"></div>
+                  <div class="spark-bar" style="height:11px;background:#8b5cf640;"></div>
+                  <div class="spark-bar" style="height:9px;background:#8b5cf640;"></div>
+                  <div class="spark-bar" style="height:7px;background:#8b5cf640;"></div>
+                </div>
+              </div>
+              <div class="budget-nums">
+                <div class="budget-spent">$120</div>
+                <div class="budget-avg">prom. $150 · meta $100</div>
+              </div>
+            </div>
+            <div class="prog-bg" style="position:relative;">
+              <div class="prog-fill prog-warn" style="width:80%;"></div>
+              <!-- Línea de suggested_amount -->
+              <div style="position:absolute;top:-3px;left:66.6%;width:1.5px;height:11px;background:#7A9A8A;border-radius:1px;"></div>
+            </div>
+            <div class="budget-footer">
+              <span class="budget-footer-lbl warn">80% del promedio</span>
+              <span class="budget-footer-lbl" style="color:#7A9A8A;">│ meta personal: $100</span>
+            </div>
+          </div>
+        </div>
+        <div class="annotation-block">
+          <div class="ann-row"><span class="ann-green">verde &lt;80%</span><span class="ann-gray ann">color:var(--accent-light)</span></div>
+          <div class="ann-row"><span class="ann">dorado 80-100%</span><span class="ann-gray ann">color:var(--gold)</span></div>
+          <div class="ann-row"><span class="ann-red">rojo &gt;100%</span><span class="ann-gray ann">color:var(--alert)</span></div>
+          <div class="ann-row"><span class="ann-gray">│ línea gris</span><span class="ann-label">suggested_amount del usuario — opcional</span></div>
+          <div class="ann-row"><span class="ann-gray">sparkline</span><span class="ann-label">4 barras = últimas 4 semanas del mes</span></div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Recurrentes -->
+      <div class="comp-wrap">
+        <div class="comp-label">Tab 3 — Recurrentes</div>
+        <div class="tab-bar">
+          <div class="tab">Gastos</div>
+          <div class="tab">Presupuestos</div>
+          <div class="tab active">Recurrentes</div>
+        </div>
+        <div class="rec-list">
+          <div class="rec-row">
+            <div>
+              <div class="rec-name">Netflix</div>
+              <div class="rec-meta">Entretenimiento · día 15 del mes</div>
+            </div>
+            <div class="rec-right">
+              <div class="rec-amount">-$18</div>
+              <div style="display:flex;gap:4px;margin-top:3px;justify-content:flex-end;">
+                <div class="badge badge-active">activo</div>
+                <div class="badge badge-fixed">fijo</div>
+              </div>
+            </div>
+          </div>
+          <div class="rec-row">
+            <div>
+              <div class="rec-name">Rent</div>
+              <div class="rec-meta">Vivienda · día 1 del mes</div>
+            </div>
+            <div class="rec-right">
+              <div class="rec-amount">-$1,500</div>
+              <div style="display:flex;gap:4px;margin-top:3px;justify-content:flex-end;">
+                <div class="badge badge-active">activo</div>
+                <div class="badge badge-fixed">fijo</div>
+              </div>
+            </div>
+          </div>
+          <div class="rec-row">
+            <div>
+              <div class="rec-name">Gasolina</div>
+              <div class="rec-meta">Transporte · día 7 del mes</div>
+            </div>
+            <div class="rec-right">
+              <div class="rec-amount">-$60</div>
+              <div style="display:flex;gap:4px;margin-top:3px;justify-content:flex-end;">
+                <div class="badge badge-pending">pendiente conf.</div>
+                <div class="badge badge-variable">variable</div>
+              </div>
+            </div>
+          </div>
+          <div class="rec-row">
+            <div>
+              <div class="rec-name">Spotify</div>
+              <div class="rec-meta">Entretenimiento · día 20 del mes</div>
+            </div>
+            <div class="rec-right">
+              <div class="rec-amount">-$11</div>
+              <div style="display:flex;gap:4px;margin-top:3px;justify-content:flex-end;">
+                <div class="badge badge-active">activo</div>
+                <div class="badge badge-fixed">fijo</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="annotation-block">
+          <div class="ann-row"><span class="ann-green">activo</span><span class="ann-label">last_confirmed reciente o fijo</span></div>
+          <div class="ann-row"><span class="ann-gray">pendiente conf.</span><span class="ann-label">ping_frequency_days superado</span></div>
+          <div class="ann-row"><span class="ann-gray">tap → sheet</span><span class="ann-label">Editar / Eliminar / Confirmar activo</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── SECCIÓN 5: MODAL ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">05 — Add Transaction Modal</div>
+      <div class="section-subtitle">AddTransactionModal.tsx — patrón RegisterPaymentModal de Módulo 1</div>
+    </div>
+    <div class="component-row">
+
+      <!-- Modal gasto -->
+      <div class="comp-wrap">
+        <div class="comp-label">Estado: Gasto (default)</div>
+        <div class="modal-wrap">
+          <div class="modal">
+            <div class="modal-header">
+              <div class="modal-title">Nueva transacción</div>
+              <div class="modal-close">✕</div>
+            </div>
+            <div class="type-toggle">
+              <div class="type-btn type-btn-expense">Gasto</div>
+              <div class="type-btn type-btn-income">Ingreso</div>
+            </div>
+            <div class="modal-field">
+              <div class="modal-field-label">Monto</div>
+              <div class="modal-input modal-amount">$94.00</div>
+            </div>
+            <div class="modal-field">
+              <div class="modal-field-label">Categoría</div>
+              <div class="modal-cat-grid">
+                <div class="modal-cat-item selected">
+                  <div class="modal-cat-icon">🍽️</div>
+                  <div class="modal-cat-name">Alimentación</div>
+                </div>
+                <div class="modal-cat-item">
+                  <div class="modal-cat-icon">🚗</div>
+                  <div class="modal-cat-name">Transporte</div>
+                </div>
+                <div class="modal-cat-item">
+                  <div class="modal-cat-icon">🏠</div>
+                  <div class="modal-cat-name">Vivienda</div>
+                </div>
+                <div class="modal-cat-item">
+                  <div class="modal-cat-icon">🎬</div>
+                  <div class="modal-cat-name">Entretenim.</div>
+                </div>
+                <div class="modal-cat-item">
+                  <div class="modal-cat-icon">❤️</div>
+                  <div class="modal-cat-name">Salud</div>
+                </div>
+                <div class="modal-cat-item">
+                  <div class="modal-cat-icon">📦</div>
+                  <div class="modal-cat-name">Otros</div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-field">
+              <div class="modal-field-label">Fecha</div>
+              <div class="modal-input" style="font-size:13px;color:#F2F7F4;">30 de marzo, 2025</div>
+            </div>
+            <div class="modal-recurring-toggle">
+              <div class="modal-recurring-label">¿Es recurrente?</div>
+              <div class="toggle-pill"><div class="toggle-dot"></div></div>
+            </div>
+            <div class="modal-field">
+              <div class="modal-field-label">Notas (opcional)</div>
+              <div class="modal-input" style="font-size:12px;color:var(--text-secondary);">ej: supermercado semanal</div>
+            </div>
+            <button class="modal-save">Registrar gasto</button>
+          </div>
+        </div>
+        <div class="annotation-block">
+          <div class="ann-row"><span class="ann-red">toggle = Gasto</span><span class="ann-label">Botón rojo activo, categorías filtradas por expense</span></div>
+          <div class="ann-row"><span class="ann">28px Mono</span><span class="ann-label">Monto grande, rojo si gasto</span></div>
+          <div class="ann-row"><span class="ann-gray">categorías filtradas</span><span class="ann-label">getCategories('expense') — sin Inversiones</span></div>
+          <div class="ann-row"><span class="ann-gray">bg: #1A2520</span><span class="ann-label">Igual que RegisterPaymentModal de M1</span></div>
+        </div>
+      </div>
+
+      <!-- Modal ingreso -->
+      <div class="comp-wrap">
+        <div class="comp-label">Estado: Ingreso</div>
+        <div class="modal-wrap">
+          <div class="modal">
+            <div class="modal-header">
+              <div class="modal-title">Nueva transacción</div>
+              <div class="modal-close">✕</div>
+            </div>
+            <div class="type-toggle">
+              <div class="type-btn" style="color:var(--text-secondary);">Gasto</div>
+              <div class="type-btn" style="background:var(--accent-light);color:white;border-radius:6px;">Ingreso</div>
+            </div>
+            <div class="modal-field">
+              <div class="modal-field-label">Monto</div>
+              <div class="modal-input modal-amount" style="color:var(--accent-light);">$2,400.00</div>
+            </div>
+            <div class="modal-field">
+              <div class="modal-field-label">Categoría</div>
+              <div class="modal-cat-grid">
+                <div class="modal-cat-item selected" style="border-color:var(--accent-light);background:#3A9E6A15;">
+                  <div class="modal-cat-icon">📈</div>
+                  <div class="modal-cat-name">Inversiones</div>
+                </div>
+                <div class="modal-cat-item">
+                  <div class="modal-cat-icon">📦</div>
+                  <div class="modal-cat-name">Otros</div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-field">
+              <div class="modal-field-label">Fecha</div>
+              <div class="modal-input" style="font-size:13px;color:#F2F7F4;">29 de marzo, 2025</div>
+            </div>
+            <div class="modal-recurring-toggle">
+              <div class="modal-recurring-label">¿Es recurrente?</div>
+              <div class="toggle-pill" style="background:var(--accent);"><div class="toggle-dot" style="left:auto;right:2px;background:white;"></div></div>
+            </div>
+            <div class="modal-field">
+              <div class="modal-field-label">Día del mes</div>
+              <div class="modal-input" style="font-size:13px;color:#F2F7F4;">15</div>
+            </div>
+            <div class="modal-field">
+              <div class="modal-field-label">Notas (opcional)</div>
+              <div class="modal-input" style="font-size:12px;color:var(--text-secondary);"></div>
+            </div>
+            <button class="modal-save modal-save-income">Registrar ingreso</button>
+          </div>
+        </div>
+        <div class="annotation-block">
+          <div class="ann-row"><span class="ann-green">toggle = Ingreso</span><span class="ann-label">Botón verde activo, categorías filtradas por income</span></div>
+          <div class="ann-row"><span class="ann-green">monto verde</span><span class="ann-label">Color del monto cambia con el tipo</span></div>
+          <div class="ann-row"><span class="ann-green">toggle recurrente ON</span><span class="ann-label">Aparece campo "Día del mes"</span></div>
+          <div class="ann-row"><span class="ann-green">botón verde</span><span class="ann-label">"Registrar ingreso" — color según tipo</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── SECCIÓN 6: FAB ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">06 — FAB + Posición</div>
+      <div class="section-subtitle">Botón flotante — position: fixed, bottom 76px, right 20px (sobre bottom nav)</div>
+    </div>
+    <div class="component-row">
+      <div class="comp-wrap">
+        <div class="comp-label">Floating Action Button</div>
+        <div class="fab">+</div>
+        <div class="annotation-block">
+          <div class="ann-row"><span class="ann">48×48px</span><span class="ann-label">border-radius: 50%, bg: #2E7D52</span></div>
+          <div class="ann-row"><span class="ann">fixed</span><span class="ann-label">bottom: 76px (60px nav + 16px), right: 20px</span></div>
+          <div class="ann-row"><span class="ann-gray">abre modal</span><span class="ann-label">AddTransactionModal default tipo "expense"</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECCIÓN 7: ALGORITMOS ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">07 — Fórmulas Clave</div>
+      <div class="section-subtitle">Implementar exactamente — no aproximar</div>
+    </div>
+    <div class="spec-grid">
+      <div class="spec-card" style="grid-column:span 2;">
+        <div class="spec-card-title">Horas de vida por transacción</div>
+        <div style="font-family:var(--mono);font-size:12px;color:#F2F7F4;background:#0E1512;padding:12px;border-radius:8px;margin-bottom:10px;">
+          horas = Math.round((amount / price_per_hour_snapshot) * 10) / 10
+        </div>
+        <div style="font-family:var(--sans);font-size:12px;color:#7A9A8A;line-height:1.6;">
+          • Si price_per_hour_snapshot es null → no mostrar chip dorado<br>
+          • price_per_hour_snapshot se guarda al crear la tx, nunca se recalcula<br>
+          • Gastos → horas doradas negativas · Ingresos → horas verdes positivas
+        </div>
+      </div>
+      <div class="spec-card" style="grid-column:span 2;">
+        <div class="spec-card-title">Neto + Tasa de retención</div>
+        <div style="font-family:var(--mono);font-size:12px;color:#F2F7F4;background:#0E1512;padding:12px;border-radius:8px;margin-bottom:10px;">
+          neto = totalIngresos - totalGastos<br>
+          tasaRetencion = Math.round((neto / totalIngresos) * 100)<br>
+          horasLibres = Math.round((neto / price_per_hour) * 10) / 10
+        </div>
+        <div style="font-family:var(--sans);font-size:12px;color:#7A9A8A;line-height:1.6;">
+          • Si neto &lt; 0 → hero label cambia a "déficit este mes", valor en rojo<br>
+          • Si totalIngresos === 0 → tasaRetencion = 0, no dividir por cero
+        </div>
+      </div>
+      <div class="spec-card" style="grid-column:span 2;">
+        <div class="spec-card-title">avg_amount — Promedio histórico de presupuestos</div>
+        <div style="font-family:var(--mono);font-size:12px;color:#F2F7F4;background:#0E1512;padding:12px;border-radius:8px;margin-bottom:10px;">
+          -- últimos 3 meses COMPLETOS (excluir mes actual)<br>
+          SELECT category_id,<br>
+          &nbsp;&nbsp;SUM(amount) / COUNT(DISTINCT DATE_TRUNC('month', transaction_date)) AS avg_amount<br>
+          FROM transactions<br>
+          WHERE user_id = $1<br>
+          &nbsp;&nbsp;AND type = 'expense'<br>
+          &nbsp;&nbsp;AND transaction_date &gt;= DATE_TRUNC('month', NOW()) - INTERVAL '3 months'<br>
+          &nbsp;&nbsp;AND transaction_date &lt; DATE_TRUNC('month', NOW())<br>
+          GROUP BY category_id
+        </div>
+        <div style="font-family:var(--sans);font-size:12px;color:#7A9A8A;line-height:1.6;">
+          • Ejecutar en createTransaction() y deleteTransaction() — automático, nunca manual<br>
+          • Upsert resultado en budgets con source = 'system'<br>
+          • Si no hay historial → avg_amount = null, no mostrar barra de presupuesto
+        </div>
+      </div>
+      <div class="spec-card" style="grid-column:span 2;">
+        <div class="spec-card-title">Plantilla recurrente pendiente</div>
+        <div style="font-family:var(--mono);font-size:12px;color:#F2F7F4;background:#0E1512;padding:12px;border-radius:8px;margin-bottom:10px;">
+          is_pending = is_active<br>
+          &nbsp;&nbsp;&amp;&amp; day_of_month &lt;= today.getDate()<br>
+          &nbsp;&nbsp;&amp;&amp; !transactions.find(tx =&gt;<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;tx.recurring_template_id === template.id<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&amp;&amp; tx.period_id === periodo_activo.id<br>
+          &nbsp;&nbsp;)
+        </div>
+        <div style="font-family:var(--sans);font-size:12px;color:#7A9A8A;line-height:1.6;">
+          • Solo sugerir si el día ya pasó (day_of_month ≤ hoy)<br>
+          • Al aprobar: createTransaction con recurring_template_id + status 'confirmed'
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="padding-top:24px;border-top:0.5px solid #2E7D5230;display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-family:var(--mono);font-size:10px;color:var(--text-secondary);">Fastlane Compass · Módulo 2 Visual Reference</div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--text-secondary);">DESIGN LOCKED — implementar sin improvisar estilos</div>
+  </div>
+
+</div>
+</body>
+</html>
