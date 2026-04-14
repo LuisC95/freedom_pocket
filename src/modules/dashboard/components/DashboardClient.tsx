@@ -6,6 +6,7 @@ import { HeroCard } from './HeroCard'
 import { RecurringBanner } from './RecurringBanner'
 import { TransactionSlider } from './TransactionSlider'
 import { AddTransactionModal } from './AddTransactionModal'
+import { ChartModal } from './ChartModal'
 import type { DashboardData, Transaction } from '../types'
 
 interface DashboardClientProps {
@@ -15,6 +16,7 @@ interface DashboardClientProps {
 type Modal =
   | { type: 'add' }
   | { type: 'edit'; transaction: Transaction }
+  | { type: 'chart' }
   | null
 
 export function DashboardClient({ data }: DashboardClientProps) {
@@ -39,6 +41,7 @@ export function DashboardClient({ data }: DashboardClientProps) {
         metrics={metrics}
         monthly_history={monthly_history}
         periodo_label={periodoLabel}
+        onExpand={() => setModal({ type: 'chart' })}
       />
 
       {/* Banner recurrentes pendientes */}
@@ -95,6 +98,9 @@ export function DashboardClient({ data }: DashboardClientProps) {
       )}
 
       {/* Modales */}
+      {modal?.type === 'chart' && (
+        <ChartModal onClose={() => setModal(null)} />
+      )}
       {modal?.type === 'add' && periodo_activo && (
         <AddTransactionModal
           periodId={periodo_activo.id}

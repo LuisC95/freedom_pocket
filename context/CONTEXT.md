@@ -209,7 +209,8 @@ src/
 ### Server Actions (`src/modules/dashboard/actions/index.ts`)
 | Action | Descripción |
 |---|---|
-| `getDashboardData()` | Single fetch — período, transacciones, budgets, recurrentes, categorías, ingresos |
+| `getDashboardData()` | Single fetch — período, transacciones, budgets, recurrentes, categorías, ingresos; incluye income_entries en historial mensual |
+| `getMonthlyHistory(months)` | On-demand — N meses de historial (income_entries + transactions) para ChartModal y selector de frame del HeroCard |
 | `createTransaction(data)` | Crea gasto + snapshot de price_per_hour + recalcula presupuestos |
 | `updateTransaction(id, data)` | Edita gasto |
 | `deleteTransaction(id)` | Elimina gasto + recalcula presupuestos |
@@ -242,9 +243,18 @@ src/
   - OFF → solo crea plantilla (botón dice "Guardar plantilla")
 - Error de `createRecurringTemplate` se muestra al usuario
 
+### Gráfico de historial — detalles de implementación
+- Los ingresos del gráfico vienen de `income_entries` (no de `transactions`) — se agregan al `monthlyMap` post-query
+- El historial incluye el **mes actual** (ventana de N meses hacia atrás incluyendo hoy)
+- `getDashboardData()` trae 6 meses por defecto para el HeroCard compacto
+- `getMonthlyHistory(months)` es una server action separada para carga on-demand (3/6/12 meses)
+- El gráfico en HeroCard tiene selector de frame inline (3M/6M/12M) con `useTransition` para fade durante carga
+- Tap en el gráfico abre `ChartModal` en pantalla completa con el mismo selector
+
 ### Componentes UI
-- **`DashboardClient.tsx`** — contenedor cliente, FAB, estado de modales, router.refresh()
-- **`HeroCard.tsx`** — neto protagonista 38px, chip `+X.Xd autonomía`, barra retención, explicación autonomía económica, historial 6 meses (Recharts ComposedChart)
+- **`DashboardClient.tsx`** — contenedor cliente, FAB, estado de modales (`add` | `edit` | `chart`), router.refresh()
+- **`HeroCard.tsx`** — neto protagonista 38px, chip `+X.Xd autonomía`, barra retención, explicación autonomía económica, gráfico historial con selector 3M/6M/12M inline + tap para expandir
+- **`ChartModal.tsx`** — vista fullscreen del gráfico: fondo `#0D1A15`, selector 3M/6M/12M, leyenda, `ResponsiveContainer` con ComposedChart grande
 - **`RecurringBanner.tsx`** — banner dorado "Gastos habituales pendientes", botón "✓ Registrar"
 - **`AddTransactionModal.tsx`** — monto + categoría grid + fecha + notas + toggle habitual + toggle registrar hoy + eliminación de categorías
 - **`RecurringTemplateModal.tsx`** — modal standalone para crear/editar plantillas (no usado desde tab, disponible para uso futuro)
@@ -281,6 +291,9 @@ src/
   - Eliminación de categorías (custom y sistema)
   - Creación de plantillas con/sin registro de gasto hoy
   - Fix: constraint `type` en `recurring_templates` (`expense`/`income`)
+  - Gráfico de historial con ingresos reales desde `income_entries`
+  - Selector de time frame 3M/6M/12M en HeroCard (inline) y en ChartModal (pantalla completa)
+  - `ChartModal` accesible con tap en el gráfico del HeroCard
 
 ### Próximos pasos
 1. ✅ ~~Módulo 1 — Mi Realidad~~

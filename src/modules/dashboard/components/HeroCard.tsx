@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect, useTransition } from 'react'
 import {
   ComposedChart,
   Bar,
@@ -8,7 +9,11 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
+import { getMonthlyHistory } from '../actions'
 import type { DashboardMetrics, MonthlySnapshot } from '../types'
+
+const FRAMES = [3, 6, 12] as const
+type Frame = typeof FRAMES[number]
 
 function fmt(n: number, currency = 'USD') {
   const abs = Math.abs(n)
@@ -28,13 +33,25 @@ interface HeroCardProps {
   metrics: DashboardMetrics
   monthly_history: MonthlySnapshot[]
   periodo_label?: string
+  onExpand?: () => void
 }
 
-export function HeroCard({ metrics, monthly_history, periodo_label }: HeroCardProps) {
+export function HeroCard({ metrics, monthly_history, periodo_label, onExpand }: HeroCardProps) {
   const { net_period, total_income_period, total_expense_period, retention_rate, dias_autonomia, gasto_diario, price_per_hour } = metrics
   const isPositive = net_period >= 0
   const netColor = isPositive ? '#3A9E6A' : '#E84434'
   const retPct = Math.max(0, Math.min(100, retention_rate))
+
+  const [frame, setFrame] = useState<Frame>(6)
+  const [chartData, setChartData] = useState<MonthlySnapshot[]>(monthly_history)
+  const [isPending, startTransition] = useTransition()
+
+  useEffect(() => {
+    startTransition(async () => {
+      const result = await getMonthlyHistory(frame)
+      setChartData(result)
+    })
+  }, [frame])
 
   return (
     <div style={{ backgroundColor: '#1A2520' }} className="rounded-2xl p-5 mb-4">
@@ -127,14 +144,37 @@ export function HeroCard({ metrics, monthly_history, periodo_label }: HeroCardPr
         </div>
       )}
 
-      {/* Gráfica historial 6 meses */}
-      {monthly_history.length > 0 && (
+      {/* Gráfica historial */}
+      {chartData.length > 0 && (
         <>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7A9A8A' }} className="mt-3.5 mb-1.5">
-            historial 6 meses
-          </p>
+          <div className="flex items-center justify-between mt-3.5 mb-1.5">
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7A9A8A' }}>
+              historial {frame}m
+            </p>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {FRAMES.map(f => (
+                <button
+                  key={f}
+                  onClick={() => setFrame(f)}
+                  style={{
+                    padding: '2px 7px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '9px',
+                    backgroundColor: frame === f ? '#3A9E6A' : '#2E7D5215',
+                    color: frame === f ? '#F2F7F4' : '#7A9A8A',
+                  }}
+                >
+                  {f}M
+                </button>
+              ))}
+            </div>
+          </div>
+          <div onClick={onExpand} style={{ cursor: onExpand ? 'pointer' : 'default', opacity: isPending ? 0.5 : 1, transition: 'opacity 0.15s' }}>
           <ResponsiveContainer width="100%" height={72}>
-            <ComposedChart data={monthly_history} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }} barGap={1} barCategoryGap="35%">
               <XAxis
                 dataKey="month_label"
                 tick={{ fontFamily: 'var(--font-mono)', fontSize: 9, fill: '#7A9A8A' }}
@@ -148,8 +188,8 @@ export function HeroCard({ metrics, monthly_history, periodo_label }: HeroCardPr
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 formatter={(value: any) => [fmt(Number(value)), '']}
               />
-              <Bar dataKey="total_income" fill="#3A9E6A" radius={[2, 2, 0, 0]} maxBarSize={20} />
-              <Bar dataKey="total_expense" fill="#E84434" radius={[2, 2, 0, 0]} maxBarSize={20} />
+              <Bar dataKey="total_income" fill="#3A9E6A" radius={[2, 2, 0, 0]} />
+              <Bar dataKey="total_expense" fill="#E84434" radius={[2, 2, 0, 0]} />
               <Line
                 type="monotone"
                 dataKey="net"
@@ -160,6 +200,7 @@ export function HeroCard({ metrics, monthly_history, periodo_label }: HeroCardPr
               />
             </ComposedChart>
           </ResponsiveContainer>
+          </div>
         </>
       )}
     </div>

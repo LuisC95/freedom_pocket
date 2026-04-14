@@ -222,7 +222,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       .select('type, amount, transaction_date')
       .eq('user_id', DEV_USER_ID)
       .gte('transaction_date', seisAtrasStr)
-      .lt('transaction_date', inicioMesStr),
+      .lte('transaction_date', todayStr),
     supabase
       .from('budgets')
       .select('*, transaction_categories(*)')
@@ -252,7 +252,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       .from('income_entries')
       .select('amount, entry_type, entry_date')
       .eq('user_id', DEV_USER_ID)
-      .gte('entry_date', ventanaStr)
+      .gte('entry_date', seisAtrasStr)
       .lte('entry_date', todayStr),
   ])
 
@@ -276,7 +276,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   // ── Monthly history ───────────────────────────────────────────────────────
   const monthlyMap: Map<string, { income: number; expense: number }> = new Map()
   for (let i = 5; i >= 0; i--) {
-    const d = new Date(hoy.getFullYear(), hoy.getMonth() - i - 1, 1)
+    const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1)
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     monthlyMap.set(key, { income: 0, expense: 0 })
   }
@@ -286,6 +286,15 @@ export async function getDashboardData(): Promise<DashboardData> {
       const entry = monthlyMap.get(key)!
       if (tx.type === 'income') entry.income += Number(tx.amount)
       else entry.expense += Number(tx.amount)
+    }
+  }
+  for (const entry of incomeEntriesRaw ?? []) {
+    const key = entry.entry_date.slice(0, 7)
+    if (monthlyMap.has(key)) {
+      const m = monthlyMap.get(key)!
+      const amt = Number(entry.amount)
+      if (entry.entry_type === 'earning') m.income += amt
+      else m.income -= amt
     }
   }
   const monthly_history: MonthlySnapshot[] = Array.from(monthlyMap.entries()).map(([month, v]) => {
@@ -366,7 +375,7 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   // ── Métricas ──────────────────────────────────────────────────────────────
   // Ingresos: entradas reales en la ventana rodante; fallback a proyección mensual
-  const entries = incomeEntriesRaw ?? []
+  const entries = (incomeEntriesRaw ?? []).filter(e => e.entry_date >= ventanaStr)
   const total_income_period = entries.length > 0
     ? entries.reduce((s, e) => {
         const amt = Number(e.amount)
@@ -403,6 +412,68 @@ export async function getDashboardData(): Promise<DashboardData> {
     pending_recurring,
     categories,
   }
+}
+
+// ─── getMonthlyHistory ────────────────────────────────────────────────────────
+
+export async function getMonthlyHistory(months: number): Promise<MonthlySnapshot[]> {
+  const supabase = await createAdminClient()
+  const hoy = new Date()
+  const nAtras = new Date(hoy.getFullYear(), hoy.getMonth() - months, 1)
+  const nAtrasStr = nAtras.toISOString().slice(0, 10)
+  const todayStr = hoy.toISOString().slice(0, 10)
+
+  const [{ data: txRaw }, { data: entriesRaw }] = await Promise.all([
+    supabase
+      .from('transactions')
+      .select('type, amount, transaction_date')
+      .eq('user_id', DEV_USER_ID)
+      .gte('transaction_date', nAtrasStr)
+      .lte('transaction_date', todayStr),
+    supabase
+      .from('income_entries')
+      .select('amount, entry_type, entry_date')
+      .eq('user_id', DEV_USER_ID)
+      .gte('entry_date', nAtrasStr)
+      .lte('entry_date', todayStr),
+  ])
+
+  const monthlyMap = new Map<string, { income: number; expense: number }>()
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    monthlyMap.set(key, { income: 0, expense: 0 })
+  }
+
+  for (const tx of txRaw ?? []) {
+    const key = tx.transaction_date.slice(0, 7)
+    if (monthlyMap.has(key)) {
+      const m = monthlyMap.get(key)!
+      if (tx.type === 'income') m.income += Number(tx.amount)
+      else m.expense += Number(tx.amount)
+    }
+  }
+
+  for (const entry of entriesRaw ?? []) {
+    const key = entry.entry_date.slice(0, 7)
+    if (monthlyMap.has(key)) {
+      const m = monthlyMap.get(key)!
+      const amt = Number(entry.amount)
+      if (entry.entry_type === 'earning') m.income += amt
+      else m.income -= amt
+    }
+  }
+
+  return Array.from(monthlyMap.entries()).map(([month, v]) => {
+    const [, mon] = month.split('-').map(Number)
+    return {
+      month,
+      month_label: MONTH_LABELS[mon - 1],
+      total_income: v.income,
+      total_expense: v.expense,
+      net: v.income - v.expense,
+    }
+  })
 }
 
 // ─── createTransaction ────────────────────────────────────────────────────────
