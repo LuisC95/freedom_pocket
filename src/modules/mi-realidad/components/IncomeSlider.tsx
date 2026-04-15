@@ -14,7 +14,11 @@ function fmtMoney(n: number, currency = 'USD') {
 }
 
 function fmtDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function fmtTime(isoStr: string) {
+  return new Date(isoStr).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })
 }
 
 const INCOME_TYPE_BADGE: Record<IncomeType, string> = {
@@ -30,6 +34,7 @@ const INCOME_TYPE_BADGE: Record<IncomeType, string> = {
 interface PaymentGroup {
   key:             string
   date:            string
+  registeredAt:    string   // created_at del primer entry del batch
   entries:         IncomeEntry[]
   groupName:       string
   totalEarnings:   number
@@ -42,6 +47,7 @@ interface PaymentGroup {
 
 interface IncomeSliderProps {
   ingresos:          IncomeConEntries[]
+  allEntries:        IncomeEntry[]
   periodId?:         string
   deletingId:        string | null
   onNewIncome:       () => void
@@ -56,6 +62,7 @@ interface IncomeSliderProps {
 
 export function IncomeSlider({
   ingresos,
+  allEntries,
   periodId,
   deletingId,
   onNewIncome,
@@ -72,33 +79,40 @@ export function IncomeSlider({
   // Map income_id → type for isHourly check
   const incomeTypeMap = new Map<string, IncomeType>(ingresos.map(i => [i.id, i.type]))
 
-  // Build payment groups from all entries across all incomes
+  // Build payment groups — one group per registerPayment() call (batch_id)
+  // fallback: group by minute of created_at for entries without batch_id
   const groupMap = new Map<string, {
-    entries:     IncomeEntry[]
-    date:        string
-    currency:    string
-    incomeNames: Set<string>
+    entries:      IncomeEntry[]
+    date:         string
+    registeredAt: string
+    currency:     string
+    incomeNames:  Set<string>
   }>()
 
-  for (const income of ingresos) {
-    for (const entry of income.entries) {
-      const key = entry.entry_date
-      if (!groupMap.has(key)) {
-        groupMap.set(key, { entries: [], date: entry.entry_date, currency: entry.currency, incomeNames: new Set() })
-      }
-      const g = groupMap.get(key)!
-      g.entries.push(entry)
-      g.incomeNames.add(entry.incomeName)
+  for (const entry of allEntries) {
+    const key = entry.batch_id ?? entry.created_at.slice(0, 16)
+    if (!groupMap.has(key)) {
+      groupMap.set(key, {
+        entries:      [],
+        date:         entry.entry_date,
+        registeredAt: entry.created_at,
+        currency:     entry.currency,
+        incomeNames:  new Set(),
+      })
     }
+    const g = groupMap.get(key)!
+    g.entries.push(entry)
+    g.incomeNames.add(entry.incomeName)
   }
 
   const groups: PaymentGroup[] = Array.from(groupMap.entries())
-    .map(([key, { entries, date, currency, incomeNames }]) => {
+    .map(([key, { entries, date, registeredAt, currency, incomeNames }]) => {
       const totalEarnings   = entries.filter(e => e.entry_type === 'earning').reduce((s, e) => s + e.amount, 0)
       const totalDeductions = entries.filter(e => e.entry_type === 'deduction').reduce((s, e) => s + e.amount, 0)
       return {
         key,
         date,
+        registeredAt,
         entries,
         groupName: [...incomeNames].join(' + '),
         totalEarnings,
@@ -107,7 +121,7 @@ export function IncomeSlider({
         currency,
       }
     })
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .sort((a, b) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime())
 
   function toggleGroup(key: string) {
     setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }))
@@ -157,10 +171,13 @@ export function IncomeSlider({
                   className="w-full flex items-center px-[14px] py-[11px] gap-[10px] text-left hover:bg-[#FAFCFB] transition-colors"
                   onClick={() => toggleGroup(group.key)}
                 >
-                  {/* Fuente + fecha */}
+                  {/* Fecha de pago + momento de registro */}
                   <div className="min-w-0">
-                    <p className="font-medium text-[13px] text-[#141F19] truncate">{group.groupName}</p>
-                    <p className="text-[11px] text-[#7A9A8A]">{fmtDate(group.date)}</p>
+                    <p className="font-medium text-[13px] text-[#141F19] truncate">
+                      {fmtDate(group.date)}
+                      <span className="font-normal text-[#7A9A8A]"> · {fmtTime(group.registeredAt)}</span>
+                    </p>
+                    <p className="text-[11px] text-[#7A9A8A] truncate">{group.groupName}</p>
                   </div>
 
                   {/* Summary: earn | div | ded | div | net */}

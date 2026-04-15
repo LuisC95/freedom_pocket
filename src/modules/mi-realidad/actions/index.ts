@@ -168,6 +168,7 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
   return {
     periodo_activo: period,
     ingresos: ingresosConEntries,
+    allEntries,
     real_hours,
     precio_real_por_hora,
     estado,
@@ -319,6 +320,8 @@ export async function registerPayment(
   const unauthorized = incomeIds.find(id => !ownedIds.has(id))
   if (unauthorized) return { data: null, error: 'Fuente de ingreso no válida' }
 
+  const batchId = crypto.randomUUID()
+
   const rows = payload.components.map(c => ({
     income_id: c.income_id,
     user_id: DEV_USER_ID,
@@ -329,6 +332,7 @@ export async function registerPayment(
     notes: c.notes,
     entry_type: c.entry_type,
     deduction_category: c.deduction_category,
+    batch_id: batchId,
   }))
 
   const { data, error } = await supabase

@@ -72,6 +72,7 @@ export interface IncomeEntry {
   notes: string | null
   entry_type: EntryType
   deduction_category: DeductionCategory | null  // requerido si entry_type = 'deduction'
+  batch_id: string | null           // UUID compartido por todos los entries de una llamada a registerPayment
   created_at: string
   incomeName: string                // join con incomes.label — resuelto en server action
 }
@@ -159,6 +160,7 @@ export type MiRealidadEstado =
 export interface MiRealidadData {
   periodo_activo: Period | null
   ingresos: IncomeConEntries[]
+  allEntries: IncomeEntry[]             // todos los entries del usuario sin filtro de período
   real_hours: RealHours | null
   precio_real_por_hora: PrecioRealPorHora | null
   estado: MiRealidadEstado

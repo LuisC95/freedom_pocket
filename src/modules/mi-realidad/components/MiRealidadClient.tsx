@@ -487,7 +487,7 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
   const [modal, setModal] = useState<Modal>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const { periodo_activo, ingresos, real_hours, precio_real_por_hora, costoRealDeTrabajar, rendimientoDeTuTiempo } = data
+  const { periodo_activo, ingresos, allEntries, real_hours, precio_real_por_hora, costoRealDeTrabajar, rendimientoDeTuTiempo } = data
 
   function refresh() {
     setModal(null)
@@ -597,6 +597,7 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
       {/* ── Income Slider ── */}
       <IncomeSlider
         ingresos={ingresos}
+        allEntries={allEntries}
         periodId={periodo_activo?.id}
         deletingId={deletingId}
         onNewIncome={() => setModal({ type: 'income_new' })}
