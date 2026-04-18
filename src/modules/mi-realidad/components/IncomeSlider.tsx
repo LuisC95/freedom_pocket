@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import type { Income, IncomeConEntries, IncomeEntry, IncomeType } from '../types'
+import { DEDUCTION_CATEGORY_LABELS } from '../types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ interface IncomeSliderProps {
   onRegisterPayment: () => void
   onEditEntry:       (entry: IncomeEntry, isHourly: boolean) => void
   onDeleteEntry:     (id: string) => void
+  onDeleteBatch:     (ids: string[]) => void
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -71,9 +73,11 @@ export function IncomeSlider({
   onRegisterPayment,
   onEditEntry,
   onDeleteEntry,
+  onDeleteBatch,
 }: IncomeSliderProps) {
-  const [activePanel, setActivePanel]       = useState(0)
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
+  const [activePanel, setActivePanel]             = useState(0)
+  const [expandedGroups, setExpandedGroups]       = useState<Record<string, boolean>>({})
+  const [confirmingDelete, setConfirmingDelete]   = useState<string | null>(null)
   const touchStartX                         = useRef<number | null>(null)
 
   // Map income_id → type for isHourly check
@@ -166,51 +170,87 @@ export function IncomeSlider({
             return (
               <div key={group.key} className="border-[0.5px] border-[#D0DDD6] rounded-xl mb-2 overflow-hidden bg-white">
 
-                {/* Header — clickeable */}
-                <button
-                  className="w-full flex items-center px-[14px] py-[11px] gap-[10px] text-left hover:bg-[#FAFCFB] transition-colors"
-                  onClick={() => toggleGroup(group.key)}
-                >
-                  {/* Fecha de pago + momento de registro */}
-                  <div className="min-w-0">
-                    <p className="font-medium text-[13px] text-[#141F19] truncate">
-                      {fmtDate(group.date)}
-                      <span className="font-normal text-[#7A9A8A]"> · {fmtTime(group.registeredAt)}</span>
-                    </p>
-                    <p className="text-[11px] text-[#7A9A8A] truncate">{group.groupName}</p>
-                  </div>
+                {/* Header — área de toggle + botón eliminar separado */}
+                <div className="flex items-center pr-[10px] hover:bg-[#FAFCFB] transition-colors">
 
-                  {/* Summary: earn | div | ded | div | net */}
-                  <div className="flex items-center gap-[10px] ml-auto shrink-0">
-                    <span className="font-mono text-[12px] text-[#2E7D52]">
-                      +{fmtMoney(group.totalEarnings, group.currency)}
-                    </span>
+                  {/* Área clickeable para expandir */}
+                  <button
+                    className="flex-1 flex items-center px-[14px] py-[11px] gap-[10px] text-left min-w-0"
+                    onClick={() => {
+                      toggleGroup(group.key)
+                      if (confirmingDelete === group.key) setConfirmingDelete(null)
+                    }}
+                  >
+                    {/* Fecha de pago + momento de registro */}
+                    <div className="min-w-0">
+                      <p className="font-medium text-[13px] text-[#141F19] truncate">
+                        {fmtDate(group.date)}
+                        <span className="font-normal text-[#7A9A8A]"> · {fmtTime(group.registeredAt)}</span>
+                      </p>
+                      <p className="text-[11px] text-[#7A9A8A] truncate">{group.groupName}</p>
+                    </div>
 
-                    <div className="w-px h-3 bg-[#D0DDD6]" />
-
-                    {group.totalDeductions > 0 ? (
-                      <span className="font-mono text-[12px] text-[#E24B4A]">
-                        -{fmtMoney(group.totalDeductions, group.currency)}
+                    {/* Summary: earn | div | ded | div | net */}
+                    <div className="flex items-center gap-[10px] ml-auto shrink-0">
+                      <span className="font-mono text-[12px] text-[#2E7D52]">
+                        +{fmtMoney(group.totalEarnings, group.currency)}
                       </span>
-                    ) : (
-                      <span className="text-[12px] text-[#7A9A8A]">—</span>
-                    )}
 
-                    <div className="w-px h-3 bg-[#D0DDD6]" />
+                      <div className="w-px h-3 bg-[#D0DDD6]" />
 
-                    <span className="font-mono text-[13px] font-medium text-[#141F19] min-w-[70px] text-right">
-                      {fmtMoney(group.net, group.currency)}
-                    </span>
-                  </div>
+                      {group.totalDeductions > 0 ? (
+                        <span className="font-mono text-[12px] text-[#E24B4A]">
+                          -{fmtMoney(group.totalDeductions, group.currency)}
+                        </span>
+                      ) : (
+                        <span className="text-[12px] text-[#7A9A8A]">—</span>
+                      )}
+
+                      <div className="w-px h-3 bg-[#D0DDD6]" />
+
+                      <span className="font-mono text-[13px] font-medium text-[#141F19] min-w-[70px] text-right">
+                        {fmtMoney(group.net, group.currency)}
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Botón eliminar batch — inline confirm */}
+                  <button
+                    onClick={() => {
+                      if (confirmingDelete === group.key) {
+                        setConfirmingDelete(null)
+                        onDeleteBatch(group.entries.map(e => e.id))
+                      } else {
+                        setConfirmingDelete(group.key)
+                      }
+                    }}
+                    className={`shrink-0 text-[11px] px-2 py-1 rounded-md transition-colors ml-1 ${
+                      confirmingDelete === group.key
+                        ? 'bg-[#FCEBEB] text-[#A32D2D] font-medium'
+                        : 'text-[#7A9A8A] hover:text-[#E84434]'
+                    }`}
+                    title="Eliminar registro completo"
+                  >
+                    {confirmingDelete === group.key ? '¿Eliminar?' : 'Eliminar'}
+                  </button>
 
                   {/* Chevron */}
-                  <span
-                    className="text-[11px] text-[#7A9A8A] shrink-0 transition-transform duration-200"
-                    style={{ display: 'inline-block', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                  <button
+                    onClick={() => {
+                      toggleGroup(group.key)
+                      if (confirmingDelete === group.key) setConfirmingDelete(null)
+                    }}
+                    className="shrink-0 ml-1 p-1"
                   >
-                    ▼
-                  </span>
-                </button>
+                    <span
+                      className="text-[11px] text-[#7A9A8A] transition-transform duration-200"
+                      style={{ display: 'inline-block', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                    >
+                      ▼
+                    </span>
+                  </button>
+
+                </div>
 
                 {/* Detalle expandible */}
                 {isExpanded && (
@@ -222,7 +262,18 @@ export function IncomeSlider({
                           idx < group.entries.length - 1 ? 'border-b-[0.5px] border-[#D0DDD6]' : ''
                         }`}
                       >
-                        <span className="text-[12px] text-[#7A9A8A] flex-1 truncate">{entry.incomeName}</span>
+                        <div className="flex-1 min-w-0">
+                          {entry.entry_type === 'deduction' ? (
+                            <>
+                              <span className="text-[12px] text-[#141F19] font-medium truncate block">
+                                {entry.deduction_category ? DEDUCTION_CATEGORY_LABELS[entry.deduction_category] : 'Deducción'}
+                              </span>
+                              <span className="text-[10px] text-[#7A9A8A] truncate block">{entry.incomeName}</span>
+                            </>
+                          ) : (
+                            <span className="text-[12px] text-[#7A9A8A] truncate block">{entry.incomeName}</span>
+                          )}
+                        </div>
                         <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 ${
                           entry.entry_type === 'earning'
                             ? 'bg-[#EAF3DE] text-[#3B6D11]'

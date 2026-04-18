@@ -61,6 +61,18 @@ export type DeductionCategory =
   | 'retirement_401k'
   | 'other'
 
+export const DEDUCTION_CATEGORY_LABELS: Record<DeductionCategory, string> = {
+  federal_tax:      'Federal Tax',
+  state_tax:        'State Tax',
+  social_security:  'Social Security',
+  medicare:         'Medicare',
+  health_insurance: 'Health Insurance',
+  dental_insurance: 'Dental Insurance',
+  vision_insurance: 'Vision Insurance',
+  retirement_401k:  '401(k)',
+  other:            'Otro',
+}
+
 export interface IncomeEntry {
   id: string
   income_id: string

@@ -19,6 +19,7 @@ import {
   checkAndUnlockModule2,
   updateIncomeEntry,
   deleteIncomeEntry,
+  deleteIncomeEntries,
 } from '../actions'
 import { RegisterPaymentModal } from './RegisterPaymentModal'
 import { IncomeSlider } from './IncomeSlider'
@@ -508,6 +509,11 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
     router.refresh()
   }
 
+  async function handleDeleteBatch(ids: string[]) {
+    await deleteIncomeEntries(ids)
+    router.refresh()
+  }
+
   // ── Hero derivados ────────────────────────────────────────────────────────
   const heroCurrency = precio_real_por_hora?.currency ?? ingresos[0]?.currency ?? 'USD'
   const desgloseHoras = precio_real_por_hora?.desglose_horas ?? (real_hours ? {
@@ -606,6 +612,7 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
         onRegisterPayment={() => setModal({ type: 'register_payment' })}
         onEditEntry={(entry, isHourly) => setModal({ type: 'entry_edit', entry, isHourly })}
         onDeleteEntry={handleDeleteEntry}
+        onDeleteBatch={handleDeleteBatch}
       />
 
       {/* ── Horas Reales ── */}
@@ -683,11 +690,13 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
           onSaved={refresh}
         />
       )}
-      {modal?.type === 'register_payment' && (
+      {modal?.type === 'register_payment' && periodo_activo && (
         <RegisterPaymentModal
           incomes={ingresos}
+          periodId={periodo_activo.id}
           onClose={() => setModal(null)}
           onSaved={refresh}
+          onIncomeCreated={() => router.refresh()}
         />
       )}
     </>

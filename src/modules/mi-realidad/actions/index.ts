@@ -99,7 +99,7 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
 
   if (!period) {
     return {
-      periodo_activo: null, ingresos: [], real_hours: null, precio_real_por_hora: null, estado: 'sin_datos',
+      periodo_activo: null, ingresos: [], allEntries: [], real_hours: null, precio_real_por_hora: null, estado: 'sin_datos',
       diasDelPeriodo: null, costoRealDeTrabajar: null, rendimientoDeTuTiempo: null, valorRealDeTuTiempo: null,
     }
   }
@@ -281,6 +281,21 @@ export async function deleteIncomeEntry(id: string): Promise<{ error: string | n
   return { error: error?.message ?? null }
 }
 
+// ─── deleteIncomeEntries (batch) ──────────────────────────────────────────────
+
+export async function deleteIncomeEntries(ids: string[]): Promise<{ error: string | null }> {
+  if (ids.length === 0) return { error: null }
+  const supabase = createAdminClient()
+
+  const { error } = await supabase
+    .from('income_entries')
+    .delete()
+    .in('id', ids)
+    .eq('user_id', DEV_USER_ID)
+
+  return { error: error?.message ?? null }
+}
+
 // ─── updateIncomeEntry ────────────────────────────────────────────────────────
 
 export async function updateIncomeEntry(
@@ -354,7 +369,8 @@ Responde SOLO con el JSON, sin texto adicional, sin backticks.
 
 Formato esperado:
 {
-  "pay_period_end": "YYYY-MM-DD o null si no se puede leer",
+  "check_date": "YYYY-MM-DD o null — fecha real de emisión del cheque o depósito (check date, payment date, pay date)",
+  "pay_period_end": "YYYY-MM-DD o null — fecha de fin del período de pago",
   "earnings": [
     {
       "label": "nombre del concepto (ej: Regular Pay, Overtime, Commission)",
@@ -376,7 +392,8 @@ Formato esperado:
 Reglas:
 - Todos los amounts son positivos
 - Si no puedes leer un valor con certeza, ponlo en null
-- Para category, mapea al más cercano de los valores permitidos`
+- Para category, mapea al más cercano de los valores permitidos
+- check_date y pay_period_end son campos distintos — extrae ambos si están presentes`
 
 export async function scanPaystub(
   fileBase64: string,

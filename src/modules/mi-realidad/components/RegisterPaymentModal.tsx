@@ -7,7 +7,8 @@ import type {
   EntryType,
   PaymentComponent,
 } from '../types'
-import { registerPayment, scanPaystub } from '../actions'
+import { DEDUCTION_CATEGORY_LABELS } from '../types'
+import { registerPayment, scanPaystub, createIncome } from '../actions'
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
 
@@ -18,22 +19,44 @@ interface EarningRow {
 }
 
 interface DeductionRow {
+  income_id: string
   category: DeductionCategory
   amount: string
 }
 
-// ─── Opciones de categorías ───────────────────────────────────────────────────
+// ─── Matching determinista (sin AI) ──────────────────────────────────────────
 
-const DEDUCTION_LABELS: Record<DeductionCategory, string> = {
-  federal_tax:      'Federal Tax',
-  state_tax:        'State Tax',
-  social_security:  'Social Security',
-  medicare:         'Medicare',
-  health_insurance: 'Health Insurance',
-  dental_insurance: 'Dental Insurance',
-  vision_insurance: 'Vision Insurance',
-  retirement_401k:  '401(k)',
-  other:            'Otro',
+function normalizeLabel(s: string): string {
+  return s.toLowerCase().trim().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ')
+}
+
+function tokenOverlapScore(a: string, b: string): number {
+  const ta = normalizeLabel(a).split(' ').filter(Boolean)
+  const tb = normalizeLabel(b).split(' ').filter(Boolean)
+  const overlap = ta.filter(t => tb.includes(t)).length
+  return overlap / Math.max(ta.length, tb.length, 1)
+}
+
+function matchIncomeLabel(label: string, incomes: Income[]): Income | null {
+  if (!incomes.length) return null
+  const norm = normalizeLabel(label)
+  // 1. Exacto
+  const exact = incomes.find(i => normalizeLabel(i.label) === norm)
+  if (exact) return exact
+  // 2. Contención
+  const contained = incomes.find(i => {
+    const n = normalizeLabel(i.label)
+    return norm.includes(n) || n.includes(norm)
+  })
+  if (contained) return contained
+  // 3. Mejor overlap de tokens (mínimo 1 token en común)
+  let best: Income | null = null
+  let bestScore = 0
+  for (const inc of incomes) {
+    const s = tokenOverlapScore(label, inc.label)
+    if (s > bestScore) { bestScore = s; best = inc }
+  }
+  return bestScore > 0 ? best : null
 }
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
@@ -51,13 +74,15 @@ function fileToBase64(file: File): Promise<string> {
 
 interface RegisterPaymentModalProps {
   incomes: Income[]
+  periodId: string
   onClose: () => void
   onSaved: () => void
+  onIncomeCreated?: () => void
 }
 
 // ─── Componente ──────────────────────────────────────────────────────────────
 
-export function RegisterPaymentModal({ incomes, onClose, onSaved }: RegisterPaymentModalProps) {
+export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIncomeCreated }: RegisterPaymentModalProps) {
   const today = new Date().toISOString().split('T')[0]
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -91,7 +116,7 @@ export function RegisterPaymentModal({ incomes, onClose, onSaved }: RegisterPaym
 
   // ── Deduction helpers ──────────────────────────────────────────────────────
   const addDeduction = () =>
-    setDeductions(prev => [...prev, { category: 'federal_tax', amount: '' }])
+    setDeductions(prev => [...prev, { income_id: incomes[0]?.id ?? '', category: 'federal_tax', amount: '' }])
 
   const removeDeduction = (i: number) =>
     setDeductions(prev => prev.filter((_, idx) => idx !== i))
@@ -99,7 +124,7 @@ export function RegisterPaymentModal({ incomes, onClose, onSaved }: RegisterPaym
   const updateDeduction = (i: number, field: keyof DeductionRow, val: string) =>
     setDeductions(prev => prev.map((d, idx) => idx === i ? { ...d, [field]: val } : d))
 
-  // ── Scanner ────────────────────────────────────────────────────────────────
+  // ── Scanner con auto-match + auto-crear ───────────────────────────────────
   const getIncome = (id: string) => incomes.find(inc => inc.id === id)
   const isHourly  = (id: string) => getIncome(id)?.type === 'hourly'
 
@@ -116,20 +141,66 @@ export function RegisterPaymentModal({ incomes, onClose, onSaved }: RegisterPaym
         return
       }
       const parsed = data as {
+        check_date?: string
         pay_period_end?: string
         earnings?: { label: string; amount: number; hours?: number | null }[]
         deductions?: { label: string; amount: number; category: DeductionCategory }[]
       }
-      if (parsed.pay_period_end) setEntryDate(parsed.pay_period_end)
+
+      // check_date = fecha real de pago/depósito; fallback a pay_period_end
+      const paystubDate = parsed.check_date ?? parsed.pay_period_end
+      if (paystubDate) setEntryDate(paystubDate)
+
       if (parsed.earnings?.length) {
-        setEarnings(parsed.earnings.map(item => ({
-          income_id: incomes[0]?.id ?? '',
-          amount: item.amount?.toString() ?? '',
-          hours_worked: item.hours?.toString() ?? '',
-        })))
+        // Pool acumulativo: incomes existentes + los que se vayan creando
+        const allKnownIncomes: Income[] = [...incomes]
+        let newIncomeCreated = false
+
+        const resolvedEarnings = await Promise.all(
+          parsed.earnings.map(async item => {
+            const match = matchIncomeLabel(item.label, allKnownIncomes)
+            if (match) {
+              return {
+                income_id: match.id,
+                amount: item.amount?.toString() ?? '',
+                hours_worked: item.hours?.toString() ?? '',
+              }
+            }
+            // Sin match → crear nueva fuente de ingreso
+            const { data: newIncome } = await createIncome({
+              period_id: periodId,
+              household_id: null,
+              contributed_by: '',
+              label: item.label,
+              type: item.hours != null ? 'hourly' : 'fixed',
+              frequency: 'monthly',
+              amount: item.amount ?? 0,
+              currency: 'USD',
+              effective_from: parsed.pay_period_end ?? new Date().toISOString().slice(0, 10),
+              effective_to: null,
+              updates_retroactively: false,
+              user_id: '',
+            })
+            if (newIncome) {
+              allKnownIncomes.push(newIncome)
+              newIncomeCreated = true
+            }
+            return {
+              income_id: newIncome?.id ?? incomes[0]?.id ?? '',
+              amount: item.amount?.toString() ?? '',
+              hours_worked: item.hours?.toString() ?? '',
+            }
+          })
+        )
+
+        setEarnings(resolvedEarnings)
+        // Notificar al padre para que refresque las fuentes sin cerrar el modal
+        if (newIncomeCreated) onIncomeCreated?.()
       }
+
       if (parsed.deductions?.length) {
         setDeductions(parsed.deductions.map(item => ({
+          income_id: incomes[0]?.id ?? '',
           category: item.category,
           amount: item.amount?.toString() ?? '',
         })))
@@ -162,7 +233,7 @@ export function RegisterPaymentModal({ incomes, onClose, onSaved }: RegisterPaym
       ...deductions
         .filter(d => parseFloat(d.amount) > 0)
         .map(d => ({
-          income_id: earnings[0].income_id,
+          income_id: d.income_id || earnings[0].income_id,
           amount: parseFloat(d.amount),
           hours_worked: null,
           entry_type: 'deduction' as EntryType,
@@ -338,19 +409,29 @@ export function RegisterPaymentModal({ incomes, onClose, onSaved }: RegisterPaym
           {/* ── DEDUCCIONES ───────────────────────────────────────────────── */}
           <div>
             <SectionTitle>Deducciones</SectionTitle>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 24px', gap: '6px', marginBottom: '4px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px 24px', gap: '6px', marginBottom: '4px' }}>
+              <ColHeader>Fuente</ColHeader>
               <ColHeader>Categoría</ColHeader>
               <ColHeader align="right">Monto</ColHeader>
               <span />
             </div>
             {deductions.map((row, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 24px', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px 24px', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
+                <select
+                  value={row.income_id}
+                  onChange={e => updateDeduction(i, 'income_id', e.target.value)}
+                  style={selectStyle}
+                >
+                  {incomes.map(inc => (
+                    <option key={inc.id} value={inc.id} style={{ background: '#1A2520', color: '#fff' }}>{inc.label}</option>
+                  ))}
+                </select>
                 <select
                   value={row.category}
                   onChange={e => updateDeduction(i, 'category', e.target.value as DeductionCategory)}
                   style={selectStyle}
                 >
-                  {Object.entries(DEDUCTION_LABELS).map(([val, label]) => (
+                  {Object.entries(DEDUCTION_CATEGORY_LABELS).map(([val, label]) => (
                     <option key={val} value={val} style={{ background: '#1A2520', color: '#fff' }}>{label}</option>
                   ))}
                 </select>
