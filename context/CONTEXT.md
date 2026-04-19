@@ -1,397 +1,422 @@
 # Fastlane Compass — Contexto del Proyecto
-## Estado: M1 ✅ · M2 ✅ · M3 ✅ · M4 🔄 (schema ✅, UI pendiente) · Motor AI ❌
+## Estado: M1 ✅ · M2 ✅ · M3 ✅ · M4 (schema ✅ · UX ✅ · types ✅ · constants ✅ · actions ✅ · mappers ✅ · AIProvider ⏳) · Motor AI ❌
+
+> Memoria activa del proyecto. Lo usan Claude.ai (planning) y Claude Code (implementación).
 
 ---
 
 ## Reglas de trabajo
-- Paso a paso, un paso a la vez
-- Preguntar antes de ejecutar
-- Contraseña para ejecución acelerada: **"al infinito y más allá"**
+- Paso a paso · preguntar antes de ejecutar
+- Contraseña ejecución acelerada: **"al infinito y más allá"**
+- Lenguaje aterrizado · en español
 - Recomendar nueva conversación cuando el contexto se sature
+- Visual-first: mockups > descripciones cuando aplica
+- Presentar opciones antes de decidir
 
 ---
 
-## Stack Técnico
+## Stack
 | Elemento | Decisión |
 |---|---|
 | Framework | Next.js 14 (corriendo 16.2.1) |
-| Base de datos | Supabase (PostgreSQL) — proyecto: Freedom_Pocket (`rkhrwfdhivsvlronfaaf`), us-east-2 |
-| Estilos | Tailwind + shadcn/ui (Radix, preset Nova, Tailwind v3) |
+| DB | Supabase PostgreSQL (`rkhrwfdhivsvlronfaaf`, us-east-2) |
+| Estilos | Tailwind v3 + shadcn/ui preset Nova |
 | Gráficas | Recharts |
-| AI | Claude API (`@anthropic-ai/sdk`) — capa `AIProvider` multi-proveedor (Anthropic/OpenAI/Google) |
+| AI | Capa `AIProvider` multi-proveedor (Anthropic / OpenAI / Google) — ⏳ implementar |
 | Deploy | Vercel |
-| Moneda | ExchangeRate-API (1,500 llamadas/mes) — sin tabla en DB |
+| Moneda | ExchangeRate-API |
+
+## Acceso Dev
+- PIN: `DEV_ACCESS_PIN` = `310595` (cookie `dev_access`)
+- DB: **service_role** via `createAdminClient()` — bypassa RLS siempre
+- `DEV_USER_ID` = `1e04cc3d-2c30-4cf9-a977-bb7209aece3a` (tiene `is_admin=true`)
+- Puerto: 3000
 
 ---
 
-## Acceso (Dev)
-- **Sin Supabase auth** — se saltea hasta lanzamiento público
-- PIN: `DEV_ACCESS_PIN` (.env.local = `310595`) — cookie `dev_access`
-- DB: **service_role key** vía `createAdminClient` — bypassa RLS
-- Usuario: `DEV_USER_ID` en `src/lib/dev-user.ts` = `1e04cc3d-2c30-4cf9-a977-bb7209aece3a`
-- Dev server: puerto 3000
+## Sistema de Diseño
 
----
+### Paleta (nombres internos — ver Rebranding)
+```
+Base       #F2F7F4   Fondo general
+Dark       #1A2520   Sidebar, hero cards
+Acento     #2E7D52   CTAs, estado activo
+Acento +   #3A9E6A   Hover, positivos
+Surface    #EAF0EC   Mini cards, stats
+Premium    #C69B30   Motor AI (gold)
+Alerta     #E84434   Negativo, deudas
+Texto      #141F19   Títulos, valores
+Texto sec  #7A9A8A   Labels, metadata
+Borde      #e0ebe4   Divisorias
+```
 
-## Sistema de Diseño (CERRADO)
+**Tipografía:** IBM Plex Mono (números) · IBM Plex Sans (UI)
+**Layout:** Desktop sidebar 68px · Mobile bottom nav 60px
 
-### Paleta — B Crecimiento
-| Token | Hex | Uso |
-|---|---|---|
-| Base | `#F2F7F4` | Fondo general |
-| Dark | `#1A2520` | Sidebar, hero cards |
-| Acento | `#2E7D52` | CTAs, activo |
-| Acento claro | `#3A9E6A` | Hover, positivos |
-| Surface | `#EAF0EC` | Mini cards, stats |
-| Premium | `#C69B30` | Motor AI chip |
-| Alerta | `#E84434` | Negativo, deudas |
-| Texto primario | `#141F19` | Títulos, valores |
-| Texto secundario | `#7A9A8A` | Labels, metadata |
-
-**Tipografía:** IBM Plex Mono (números/métricas) · IBM Plex Sans (UI/texto)
-**Layout:** Desktop: sidebar fijo 68px + `ml-[68px]` · Mobile: bottom nav 60px + `mb-[60px]`
-
-**Patrones clave:**
-- Página: `<div className="p-4 pb-8 max-w-2xl mx-auto">` + header `h1` 22px + subtítulo 12px `#7A9A8A`
+**Patrones:**
+- Página: `<div className="p-4 pb-8 max-w-2xl mx-auto">` + h1 22px + subtítulo 12px `#7A9A8A`
 - Hero card: `bg-[#1A2520] rounded-xl px-[18px] py-[16px] mb-4`
 - Modal: `fixed inset-0 z-50 … bg-black/60` → `bg-white rounded-2xl p-6 max-w-md`
 - Section header: `text-[13px] font-semibold text-[#141F19]` + botón acción `text-[12px] text-[#2E7D52]`
 
 ---
 
-## Módulos
+## Módulos & Algoritmos
+
 ```
-Fastlane Compass
-├── Módulo 0 — Core (users, households, periods, settings)
-├── Módulo 1 — Mi Realidad Actual ✅
-├── Módulo 2 — Dashboard Financiero ✅
-├── Módulo 3 — Mi Brújula ✅
-├── Módulo 4 — Ideas de Negocio 🔄 (schema completo, pendiente tipos + server actions + UI)
-└── ⚡ Motor AI — Capa transversal ❌
+M0 Core · M1 Mi Realidad ✅ · M2 Dashboard ✅ · M3 Brújula ✅ · M4 Ideas 🔄 · Motor AI ❌
 ```
 
-**Onboarding progresivo:**
-- M1 completo → M2 (`checkAndUnlockModule2`) · 10 tx → M3 · M3 + 1 meta → M4
+8 algoritmos: 1-Precio Real/Hora ✅ · 2-Tracker TX ✅ · 3-Autonomía ✅ · 4-Días Libertad ✅ · 5-Fórmula ✅ · 6-Score Progreso ✅ · 7-CENTS 🔄 · 8-Motor AI ❌
+
+Onboarding: M1 → M2 (10 tx) → M3 → M4 (M3 + 1 meta).
 
 ---
 
 ## Base de Datos
-- **Migraciones aplicadas directo en Supabase** vía MCP (`apply_migration`)
-- `supabase/migrations/` y `supabase/seed/` locales son **OBSOLETOS** — no usar
-- Todos los `user_id` FK → `profiles.id`
-- `update_updated_at_column()` vive en schema `public` (no `storage`)
+
+- Migraciones aplicadas vía MCP `apply_migration` · `supabase/migrations|seed/` locales OBSOLETAS
+- Todo `user_id` FK → `profiles.id`
+- `update_updated_at_column()` vive en schema `public`
+- **Generated types en `src/types/database.types.ts`** — regenerar vía MCP `generate_typescript_types` después de cada migración
 
 | Módulo | Tablas |
 |---|---|
-| 0 — Core | `profiles` ⚠️ (ver nota is_admin), `user_settings`, `periods`, `module_unlocks`, `households`, `household_members` |
-| 1 — Realidad | `incomes`, `income_entries`, `real_hours` |
-| 2 — Dashboard | `transaction_categories`, `recurring_templates`, `transactions`, `budgets` |
-| 3 — Brújula | `assets`, `liabilities`, `businesses`, `freedom_goals`, `progress_score_history` |
-| 4 — Ideas | `idea_sessions`, `ideas`, `idea_deep_dives`, `idea_session_messages` |
-| Infraestructura tiers | `user_subscriptions`, `user_api_keys`, `ai_usage_logs` ✅ creadas |
+| M0 | `profiles` *(+ `is_admin` bool)*, `user_settings`, `periods`, `module_unlocks`, `households`, `household_members` |
+| M1 | `incomes`, `income_entries`, `real_hours` |
+| M2 | `transaction_categories`, `recurring_templates`, `transactions`, `budgets` |
+| M3 | `assets`, `asset_snapshots`, `liabilities`, `businesses`, `business_cents_scores`, `freedom_goals`, `progress_score_history` |
+| M4 | `idea_sessions`, `ideas`, `idea_deep_dives`, `idea_session_messages` |
+| Tiers | `user_subscriptions`, `user_api_keys`, `ai_usage_logs` |
 | Motor AI | `ai_context_items`, `ai_recommendations` |
 
-### ⚠️ Campo nuevo en `profiles`
-```sql
-is_admin BOOLEAN NOT NULL DEFAULT FALSE
-```
-Usuarios con `is_admin = true` están exentos de todos los límites de tier y AI.
-DEV_USER_ID tiene `is_admin = true`. Para exentar a otro usuario: `UPDATE profiles SET is_admin = TRUE WHERE id = '...'`.
+`is_admin=true` → exento de todos los límites de tier y AI.
 
 ---
 
 ## Estructura de Carpetas
+
 ```
 src/
-├── app/(protected)/
-│   ├── layout.tsx               ← PIN auth + sidebar + bottom nav
+├── app/(protected)/            ← PIN auth + sidebar + bottom nav
 │   ├── dashboard/page.tsx
-│   ├── mi-realidad/page.tsx     ← header + período activo guard
-│   ├── brujula/page.tsx         ← header (score + level) + BrujulaClient
-│   └── [ideas|motor-ai]/page.tsx  ← stubs
+│   ├── mi-realidad/page.tsx
+│   ├── brujula/page.tsx
+│   └── [ideas|motor-ai]/page.tsx
 ├── modules/
-│   ├── mi-realidad/
-│   │   ├── types/index.ts
-│   │   ├── actions/index.ts     ← 11 server actions
-│   │   └── components/
-│   │       ├── MiRealidadClient.tsx
-│   │       ├── RegisterPaymentModal.tsx
-│   │       └── IncomeSlider.tsx
-│   ├── dashboard/
-│   │   ├── types/index.ts
-│   │   ├── actions/index.ts     ← 14 server actions
-│   │   └── components/
-│   │       ├── DashboardClient.tsx, HeroCard.tsx, RecurringBanner.tsx
-│   │       ├── AddTransactionModal.tsx, ChartModal.tsx
-│   │       ├── RecurringTemplateModal.tsx, TransactionSlider.tsx
-│   └── brujula/
-│       ├── types/index.ts
-│       ├── actions/index.ts     ← getBrujulaData + CRUD assets/liabilities/businesses/goals
-│       └── components/
-│           ├── BrujulaClient.tsx
-│           ├── AssetModal.tsx, LiabilityModal.tsx
-│           ├── BusinessModal.tsx, FreedomGoalModal.tsx
+│   ├── mi-realidad/   types · actions (11) · components
+│   ├── dashboard/     types · actions (14) · components
+│   ├── brujula/       types · actions · components
+│   └── ideas/         types ✅ · constants ✅ · mappers ✅ · actions ✅ · ai/ ⏳
+├── types/
+│   ├── actions.ts              ← ActionResult<T> global
+│   └── database.types.ts       ← autogenerado por Supabase (NO editar a mano)
 └── lib/
-    ├── supabase/server.ts       ← createClient + createAdminClient
-    └── dev-user.ts              ← DEV_USER_ID
+    ├── supabase/server.ts      ← createClient + createAdminClient
+    └── dev-user.ts
 ```
 
 ---
 
-## Los 8 Algoritmos
-| # | Nombre | Estado |
-|---|---|---|
-| 1 | Precio Real por Hora | ✅ M1 |
-| 2 | Tracker de Transacciones | ✅ M2 |
-| 3 | Autonomía Económica (días libres) | ✅ M2 |
-| 4 | Días de Libertad | ✅ M3 |
-| 5 | Fórmula Fastlane | ✅ M3 |
-| 6 | Score de Progreso (4 dimensiones) | ✅ M3 |
-| 7 | Design Thinking + Evaluación de Ideas (CENTS) | 🔄 M4 |
-| 8 | Motor AI Transversal | ❌ Global |
-
----
-
-## Módulo 1 — Mi Realidad (COMPLETO ✅)
-_[sin cambios — ver versiones previas de CONTEXT.md]_
-
-## Módulo 2 — Dashboard Financiero (COMPLETO ✅)
-_[sin cambios — ver versiones previas de CONTEXT.md]_
-
-## Módulo 3 — Mi Brújula (COMPLETO ✅)
-_[sin cambios — ver versiones previas de CONTEXT.md]_
-
----
-
-# 🆕 MÓDULO 4 — Ideas de Negocio (SCHEMA ✅ · UI PENDIENTE)
+# 🆕 MÓDULO 4 — Ideas de Negocio
 
 ## Filosofía
-M4 implementa el **Algoritmo 7** de DeMarco: Design Thinking + Evaluación CENTS.
-No es una pantalla, es un **proceso/embudo**:
+M4 es un **embudo**, no una pantalla. Implementa Algoritmo 7 (CENTS de DeMarco) en 4 fases:
 
 ```
-GENERAR → EVALUAR → PROFUNDIZAR → INCUBAR
-Design Thinking  CENTS (5 mandamientos)  Deep Dive AI  Business en M3
+Discovery → Ideation → Evaluación → Deep Dive → (promover a Operando = crea negocio en M3)
 ```
 
-### Los 5 Mandamientos CENTS de DeMarco
-1. **C**ontrol — ¿tú estás al volante?
-2. **E**ntrada (Barrera) — ¿hay barrera de entrada suficiente?
-3. **N**ecesidad — ¿resuelve un problema real?
-4. **T**iempo — ¿se desvincula de tu tiempo?
-5. **S**cala — ¿puede llegar a millones?
-
----
-
-## Schema M4 — Estado final post-migraciones (16-abr-2026)
+## Schema M4 (verificado 18-abr-2026)
 
 ### `idea_sessions`
-| Columna | Tipo | Notas |
+| Col | Tipo | Notas |
 |---|---|---|
 | `id` | uuid PK | |
-| `user_id` | uuid FK → profiles.id ON DELETE CASCADE | |
-| `entry_point` | text NOT NULL | CHECK: `sin_idea` / `idea_vaga` / `idea_clara` |
+| `user_id` | uuid FK profiles.id CASCADE | |
+| `entry_point` | text NOT NULL | `sin_idea` / `idea_vaga` / `idea_clara` |
 | `raw_input` | text | NOT NULL si entry_point != 'sin_idea' |
-| `status` | text NOT NULL DEFAULT 'in_progress' | CHECK: `in_progress` / `completed` / `abandoned` |
-| `started_at` | timestamptz DEFAULT now() | |
-| `completed_at` | timestamptz | NOT NULL si status='completed' |
+| `status` | text NOT NULL DEFAULT `in_progress` | `in_progress` / `completed` / `abandoned` |
+| `started_at`, `completed_at` | timestamptz | |
 
 ### `ideas`
-| Columna | Tipo | Notas |
+| Col | Tipo | Notas |
 |---|---|---|
 | `id` | uuid PK | |
-| `user_id` | uuid FK → profiles.id ON DELETE CASCADE | |
-| `session_id` | uuid FK → idea_sessions.id ON DELETE SET NULL | nullable — permite ideas sueltas |
-| `title` | text NOT NULL | |
-| `concept` | text NOT NULL | |
-| `need_identified` | text | |
-| `fastlane_potential` | text | |
-| `business_model` | text | CHECK: `saas` / `producto_fisico` / `servicio` / `contenido` / `renta` / `custom` |
-| `cents_score_control` | integer | CHECK 1–10, nullable |
-| `cents_score_entry` | integer | CHECK 1–10, nullable |
-| `cents_score_need` | integer | CHECK 1–10, nullable |
-| `cents_score_time` | integer | CHECK 1–10, nullable |
-| `cents_score_scale` | integer | CHECK 1–10, nullable |
-| `cents_preliminary_score` | integer **GENERATED ALWAYS** | Suma de los 5 (0–50). Calculado por DB. |
-| `status` | text NOT NULL DEFAULT 'generated' | CHECK: `generated` / `committed` / `validando` / `construyendo` / `operando` / `discarded` |
-| `committed_at` | timestamptz | NOT NULL si status != generated/discarded |
-| `created_at`, `updated_at` | timestamptz | |
+| `user_id` | uuid FK profiles.id CASCADE | |
+| `session_id` | uuid FK idea_sessions.id SET NULL | nullable (ideas sueltas) |
+| `title`, `concept` | text NOT NULL | |
+| `need_identified`, `fastlane_potential` | text | nullable |
+| `business_model` | text | `saas` / `producto_fisico` / `servicio` / `contenido` / `renta` / `custom` |
+| `cents_score_{control,entry,need,time,scale}` | int 1-10 nullable | |
+| `cents_preliminary_score` | **int GENERATED ALWAYS** | Suma 0-50, nunca escribir directo. `null` si no hay ningún score (preservado en mappers — ver C1 más abajo) |
+| `status` | text DEFAULT `generated` | `generated` / `committed` / `validando` / `construyendo` / `operando` / `discarded` |
+| `committed_at`, `promoted_at` | timestamptz nullable | |
+| `discarded_at`, `discard_reason` | timestamptz + text nullable | Agregados 18-abr-2026 (migración `add_discard_fields_to_ideas`). Usados por `discardIdea`. |
+| `created_at`, `updated_at` | timestamptz NOT NULL | |
 
-**Nota:** `cents_preliminary_score` es GENERATED STORED — nunca se escribe directamente, la DB lo calcula. La validación "operando requiere los 5 scores completos" va en la capa de aplicación.
+### `idea_deep_dives` (1-a-1 con ideas)
+| Col | Pregunta UX (lenguaje plano) |
+|---|---|
+| `idea_id` FK | |
+| `market_analysis` | ¿Cuánta gente tiene este problema? |
+| `competition_analysis` | ¿Quién más intenta resolver esto? |
+| `revenue_model` | ¿Cómo vas a cobrar? |
+| `required_resources` | ¿Qué necesitás para arrancar? |
+| `time_to_first_revenue` | ¿En cuánto tiempo primer cliente pagando? |
+| `first_steps` | ¿Próximos 3 pasos concretos? |
+| `validation_metrics` | ¿Cómo vas a saber si funciona? |
+| `ai_notes` | respuestas AI guardadas (**no cuenta para `fields_completed`**) |
 
-### `idea_deep_dives`
-| Columna | Tipo | Notas |
+### `idea_session_messages` (chat segmentado por fase)
+| Col | Tipo | Notas |
 |---|---|---|
-| `id` | uuid PK | |
-| `idea_id` | uuid FK | |
-| `market_analysis` | text | → Mandamiento Escala |
-| `competition_analysis` | text | → Mandamiento Entrada |
-| `revenue_model` | text | → Mandamiento Necesidad |
-| `required_resources` | text | → Mandamiento Control |
-| `time_to_first_revenue` | text | → Mandamiento Tiempo |
-| `first_steps` | text | → Ejecución |
-| `validation_metrics` | text | → Ejecución |
-| `ai_notes` | text | Respuestas AI guardadas (evita re-consultar) |
-| `created_at`, `updated_at` | timestamptz | |
-
-### `idea_session_messages`
-| Columna | Tipo | Notas |
-|---|---|---|
-| `id` | uuid PK | |
-| `session_id` | uuid NOT NULL | |
+| `session_id` | uuid FK NOT NULL | |
+| `user_id` | uuid FK NOT NULL | denormalizado para queries sin JOIN |
 | `role` | text NOT NULL | `user` / `assistant` |
 | `content` | text NOT NULL | |
-| `phase` | text NOT NULL | `discovery` / `ideation` / `evaluation` / `deep_dive` |
-| `sequence_order` | integer NOT NULL | |
-| `created_at` | timestamptz DEFAULT now() | |
-| `user_id` | uuid NOT NULL FK → profiles.id | Denormalizado para queries de consumo sin JOIN |
-| `provider` | text NOT NULL | CHECK: `anthropic` / `openai` / `google` |
-| `model` | text NOT NULL | Ej: `claude-sonnet-4-6`, `gpt-4o` |
-| `tokens_input` | integer NOT NULL DEFAULT 0 | 0 en mensajes role=user |
-| `tokens_output` | integer NOT NULL DEFAULT 0 | 0 en mensajes role=user |
-| `cost_usd` | numeric(10,6) NOT NULL DEFAULT 0 | Pre-calculado al momento de la llamada |
-| `response_time_ms` | integer | nullable |
+| `phase` | text NOT NULL | `discovery` / `ideation` / `evaluation` / `deep_dive` — **clave para costos** |
+| `sequence_order` | int NOT NULL | calculado en action (MAX + 1) |
+| `provider` | text NOT NULL | `anthropic` / `openai` / `google` — nombre real, **no** `ai_provider` |
+| `model` | text NOT NULL | `claude-sonnet-4-6` etc. — nombre real, **no** `ai_model` |
+| `tokens_input`, `tokens_output` | int NOT NULL default 0 | |
+| `cost_usd` | numeric(10,6) NOT NULL | Supabase devuelve `string` → `mapMessage` convierte con `Number()` |
+| `response_time_ms` | int nullable | |
 
-**Nota:** el costo total se atribuye al mensaje `role='assistant'`. Los mensajes `role='user'` llevan tokens/cost en 0, pero `provider` y `model` siempre completos.
+**Regla:** mensajes `role='user'` llevan `tokens_input`, `tokens_output`, `cost_usd` en 0, pero `provider` y `model` siempre completos (del provider resuelto).
+
+**⚠️ No existe columna `is_byok`** — si se necesita distinguir, lookup en `user_subscriptions.tier`.
 
 ---
 
-## Infraestructura Multi-Tier (CREADA ✅)
+## 🎨 Decisiones UX locked-in
 
-### Modelo de monetización — 4 tiers
-| Tier | Nombre | Precio | AI | Fase lanzamiento |
-|---|---|---|---|---|
-| 1 | Free | $0 | Sin AI (M4 solo formularios CENTS) | **Activo ahora** |
-| 2 | Pro | $5–7/mes | Features premium NO-AI | Fase 2 (3–6 meses) |
-| 3 | Pro + AI (BYOK) | $5–7 + costo de su key | Usuario trae su key | **Activo ahora** |
-| 4 | Premium AI | $19–29/mes | AI incluido, infra propia | Fase 3 (6–12 meses) |
+### 3 Entry points
+| Entry | Cuándo | Ruta |
+|---|---|---|
+| `sin_idea` | No sabe qué hacer | AI pregunta skills → discovery largo |
+| `idea_vaga` | Tiene algo vago | AI refina → ideation directo |
+| `idea_clara` | La tiene clara | Va directo a evaluación CENTS |
+
+### CENTS anti-bias
+Scoring con lenguaje plano (sin jerga del framework) + anclas concretas 1=X, 10=Y. Sugerencias AI van **colapsadas** con link "Ver qué opina la AI" — user puntúa primero, ve AI después.
+
+### Feature pendiente: sugerencia AI de score inicial
+Hook de conversión Free → BYOK/Premium. Free ve idea sin puntuar (`score=null`, UI muestra `—/50`) + CTA "¿Querés que la AI te sugiera un score inicial?" — requiere AI. Implementar en Fase 3. **Depende de que `mappers.ts` preserve `null` en `cents_preliminary_score` (decisión C1 tomada — ya aplicada).**
+
+---
+
+## 🔧 Diseño técnico M4 (decisiones locked-in)
+
+### Archivos producidos
+```
+src/
+├── types/
+│   ├── actions.ts              ✅ ActionResult<T> global
+│   └── database.types.ts       ✅ generated por Supabase MCP
+└── modules/ideas/
+    ├── constants.ts            ✅ metadata UX (labels, preguntas, anclas)
+    ├── mappers.ts              ✅ 4 mappers puros (Raw → Domain)
+    ├── types/
+    │   └── index.ts            ✅ Row types vía Omit<Raw, ...> + literal unions
+    └── actions/                ✅ 16 actions implementadas
+        ├── sessions.ts         ✅ 4 actions (createSession, getSession, completeSession, abandonSession)
+        ├── messages.ts         ✅ 1 action (sendMessage) — compilable, requiere AIProvider en runtime
+        ├── ideas.ts            ✅ 4 actions (createIdeaFromSession, getIdea, listIdeas, updateCENTS)
+        ├── transitions.ts      ✅ 5 actions (commitIdea, startValidando, startConstruyendo, promoteToOperando, discardIdea)
+        └── deepDive.ts         ✅ 2 actions (upsertDeepDiveField, getDeepDive)
+
+⏳ Pendientes de diseño:
+    ai/resolver.ts              ← resolveAIProvider(userId)
+    ai/provider.ts              ← capa AIProvider
+```
+
+### Decisiones arquitectónicas (no re-discutir)
+
+| # | Decisión |
+|---|---|
+| 1 | **`ActionResult<T>`** — discriminated union `{ ok: true, data } \| { ok: false, error }`. Todas las actions la devuelven. |
+| 2 | **Campos derivados** (`cents_complete`, `fields_completed`, `is_complete`) los calculan los mappers. No la UI ni los actions. |
+| 3 | **`sendMessage`** resuelve suscripción y key antes de llamar al AIProvider. El provider no sabe de suscripciones. |
+| 4 | **`promoteToOperando`** usa transacción SQL vía `rpc()` → función `promote_idea_to_operando`. Atómica (idea + business en M3). ⏳ función SQL pendiente. |
+| 5 | **`sequence_order`** = `MAX + 1` en el action. Chat es estrictamente secuencial, no hay race condition realista. |
+| 6 | **Mappers centralizados** por tabla. `cost_usd string → number` vive en `mapMessage`. |
+| 7 | **`listIdeas`** filtra solo por `status`. Paginación y otros filtros se agregan si aparece el caso. |
+| 8 | **`is_admin`** es responsabilidad del AIProvider, no de las actions. |
+| 9 | **Flags opcionales** en `getSession` (`includeMessages`, `includeIdeas`) y `getIdea` (`includeDeepDive`, `includeSession`). Evita queries innecesarias en listas. |
+| 10 | **`sendMessage`** devuelve `{ userMessage, assistantMessage }` — no re-fetchea historial. UI hace append local. |
+| 11 | **Helper `assertValidTransition()`** central contra `IDEA_STATUS_TRANSITIONS` de constants.ts. 5 transiciones lo usan. |
+| 12 | **`upsertDeepDiveField`** acepta los 8 campos editables (7 plan + `ai_notes`) con whitelist de seguridad. |
+| 13 | **Types refactor:** Row types heredan de `Database['public']['Tables'][...]['Row']` con `Omit + intersection` para preservar literal unions. No declarar Row types a mano. |
+| 14 | **Mappers reciben Raw** (generated types), hacen el cast a literal unions internamente (decisión A1). Los 14 actions no hacen casts. |
+| 15 | **`isFilled()` en mapDeepDive** valida null + whitespace (decisión B2 — defensa barata contra edge cases futuros). |
+| 16 | **`cents_preliminary_score` pass-through `number \| null`** (decisión C1). `null` = no puntuado aún, `0-50` = puntuado. No normalizar. Habilita feature AI futuro + mejor UX en listados. |
+
+### Contrato `AIProvider` (para implementar)
+```typescript
+interface AIProvider {
+  provider: 'anthropic' | 'openai' | 'google'
+  model:    string
+  chat(input: {
+    messages: { role: 'user' | 'assistant'; content: string }[]
+    system?:  string
+  }): Promise<ActionResult<{
+    content:           string
+    provider:          string
+    model:             string
+    tokens_input:      number
+    tokens_output:     number
+    cost_usd:          number
+    response_time_ms?: number
+  }>>
+}
+```
+
+### Lógica obligatoria del AIProvider
+1. Check `profiles.is_admin` → si `true`, bypass TODO
+2. Check `user_subscriptions.tier` → features/modelos habilitados
+3. Get key: `vault.decrypted_secrets` (BYOK) o env key (premium)
+4. Call al proveedor correspondiente
+5. UPSERT en `ai_usage_logs` con tokens + costo
+6. Solo envía mensajes de la fase activa (control de tokens)
+
+---
+
+## 🏗️ Infraestructura Multi-Tier
+
+### 4 Tiers
+| Tier | Precio | AI | Fase lanzamiento |
+|---|---|---|---|
+| Free | $0 | Sin AI — M4 solo formularios CENTS | **Activo ahora** |
+| Pro | $5-7/mes | Premium NO-AI (households, exports) | Fase 2 (3-6 meses) |
+| Pro + BYOK | $5-7/mes + key propia | Usuario trae su key | **Activo ahora** |
+| Premium AI | $19-29/mes | Todo incluido, infra nuestra | Fase 3 (6-12 meses) |
 
 ### `user_subscriptions`
-| Columna | Tipo | Notas |
-|---|---|---|
-| `id` | uuid PK | |
-| `user_id` | uuid NOT NULL UNIQUE FK → profiles.id | Una fila por usuario |
-| `tier` | text NOT NULL DEFAULT 'free' | CHECK: `free` / `pro` / `pro_byok` / `premium_ai` |
-| `status` | text NOT NULL DEFAULT 'active' | CHECK: `active` / `cancelled` / `past_due` / `trialing` |
-| `stripe_customer_id` | text | nullable |
-| `stripe_subscription_id` | text | nullable |
-| `current_period_start/end` | timestamptz | nullable |
-| `cancel_at_period_end` | boolean DEFAULT false | |
-| `created_at`, `updated_at` | timestamptz | |
+Una fila por usuario (incluido Free), sin histórico. `tier` / `status` / Stripe nullable / periodos / `cancel_at_period_end`.
 
-**Seed:** DEV_USER_ID tiene `tier='free'`, `status='active'`.
+### `user_api_keys` (BYOK con Supabase Vault)
+Las keys **NUNCA** en la tabla — solo `vault_secret_id`. `key_hint` guarda últimos 4 chars. Índice único: una key activa por proveedor por usuario (`WHERE is_active=TRUE`).
 
-### `user_api_keys`
-| Columna | Tipo | Notas |
-|---|---|---|
-| `id` | uuid PK | |
-| `user_id` | uuid NOT NULL FK → profiles.id | |
-| `provider` | text NOT NULL | CHECK: `anthropic` / `openai` / `google` |
-| `vault_secret_id` | uuid NOT NULL | Referencia a `vault.secrets.id`. **Nunca guardar la key en texto.** |
-| `key_hint` | text NOT NULL | Últimos 4 chars para mostrar en UI (ej: `...xy4K`) |
-| `is_active` | boolean DEFAULT true | |
-| `last_used_at` | timestamptz | |
-| `created_at`, `updated_at` | timestamptz | |
-
-**Índice único:** solo una key activa por usuario+proveedor (`WHERE is_active = TRUE`).
-
-**Flujo Vault:**
 ```typescript
-// Guardar key
+// Guardar
 const secret_id = await supabase.rpc('vault.create_secret', {
-  secret: apiKeyPlainText,
-  name: `${userId}_${provider}_${Date.now()}`,
+  secret: apiKeyPlainText, name: `${userId}_${provider}_${Date.now()}`
 });
 await supabase.from('user_api_keys').insert({
-  user_id, provider, vault_secret_id: secret_id,
-  key_hint: apiKeyPlainText.slice(-4),
+  user_id, provider, vault_secret_id: secret_id, key_hint: apiKeyPlainText.slice(-4)
 });
 
-// Leer key para usarla
-const { data: keyRow } = await supabase
-  .from('user_api_keys')
+// Leer
+const { data: keyRow } = await supabase.from('user_api_keys')
   .select('vault_secret_id')
   .eq('user_id', userId).eq('provider', provider).eq('is_active', true).single();
-
-const { data: secret } = await supabase
-  .from('vault.decrypted_secrets')
-  .select('decrypted_secret')
-  .eq('id', keyRow.vault_secret_id).single();
+const { data: secret } = await supabase.from('vault.decrypted_secrets')
+  .select('decrypted_secret').eq('id', keyRow.vault_secret_id).single();
 ```
 
-### `ai_usage_logs`
-| Columna | Tipo | Notas |
-|---|---|---|
-| `id` | uuid PK | |
-| `user_id` | uuid NOT NULL FK → profiles.id | |
-| `provider` | text NOT NULL | CHECK: `anthropic` / `openai` / `google` |
-| `year_month` | text NOT NULL | Formato `YYYY-MM` (ej: `2026-04`) |
-| `feature` | text NOT NULL | `ideas_chat` / `motor_ai` / `paystub_scan` / etc. |
-| `total_tokens_input` | integer DEFAULT 0 | Acumulado del mes |
-| `total_tokens_output` | integer DEFAULT 0 | Acumulado del mes |
-| `total_cost_usd` | numeric(10,6) DEFAULT 0 | Acumulado del mes |
-| `request_count` | integer DEFAULT 0 | Acumulado del mes |
-| `last_request_at` | timestamptz | |
-| `created_at`, `updated_at` | timestamptz | |
-
-**Constraint único:** `(user_id, provider, year_month, feature)` — una fila por combinación, el AIProvider hace UPSERT incrementando los totales.
-
-**Flujo UPSERT (implementar con 2 pasos SELECT + UPDATE en AIProvider):**
-```typescript
-await supabase.from('ai_usage_logs').upsert({
-  user_id, provider,
-  year_month: new Date().toISOString().slice(0, 7),
-  feature: 'ideas_chat',
-  // NOTA: usar stored procedure o SELECT+UPDATE para sumar, no reemplazar
-}, { onConflict: 'user_id,provider,year_month,feature' });
-```
+### `ai_usage_logs` (agregado mensual)
+UPSERT por `(user_id, provider, year_month, feature)`. `year_month` = `YYYY-MM`. `feature` ej: `ideas_chat`, `motor_ai`, `paystub_scan`. UPSERT real requiere stored procedure o SELECT+UPDATE (no reemplazar).
 
 ---
 
-## Capa AIProvider — Pendiente implementar
+## 📋 Migraciones SQL pendientes
 
-Todas las llamadas AI deben pasar por una capa de abstracción `AIProvider` que:
-1. Chequea `profiles.is_admin` — si true, bypassa todos los límites
-2. Chequea `user_subscriptions.tier` para saber qué modelo/feature está habilitado
-3. Obtiene la key del usuario desde `vault.decrypted_secrets` (BYOK) o usa la key de entorno (dev/premium)
-4. Hace la llamada al proveedor correspondiente
-5. Hace UPSERT en `ai_usage_logs` con tokens y costo
-6. Guarda el mensaje en `idea_session_messages` con todos los campos BYOK
+### ✅ Aplicadas
 
-Soporta: `anthropic` / `openai` / `google` — selección por usuario.
+- `add_discard_fields_to_ideas` (18-abr-2026) — agregó `discarded_at` y `discard_reason` a `ideas`
+
+### ⏳ Pendientes
+
+**Función `promote_idea_to_operando(p_idea_id, p_user_id, p_business_name)`**
+
+Atómica. Debe:
+1. Verificar ownership + status=`construyendo`
+2. Verificar deep_dive con los 7 campos completos (sin `ai_notes`)
+3. INSERT en `businesses` con `business_name`
+4. UPDATE `ideas` → `status='operando'`, `promoted_at=now()`
+5. RETURN el row actualizado de `ideas`
+
+Schema de `businesses` ya verificado (tiene `source_idea_id` FK).
+
+---
+
+## 🐞 Deuda técnica pre-existente (no bloqueante)
+
+Errores de TypeScript detectados durante Fase A M4 que **ya existían antes** de los cambios. No relacionados con M4 — abrir sesión dedicada cuando haya tiempo:
+
+| Archivo | Error |
+|---|---|
+| `references/RegisterPaymentModal.reference.tsx:41` | Cannot find name `RegisterPaymentPayload` |
+| `src/modules/dashboard/components/TransactionSlider.tsx:98` | Cannot find name `fmtHours` |
+
+Type-check de todo lo demás: ✅ limpio.
+
+---
+
+## ⚠️ Rebranding legal pre-deploy
+
+Términos de MJ DeMarco (IP registrada) a reemplazar antes del launch:
+- `CENTS`, `Fastlane`, `Fastlane Formula`, `Fastlane Compass`
+- `Freedom Days`, `La Vía Rápida`, `millonario`, `vía rápida del millonario`
+
+**Sí se pueden usar:** conceptos económicos (desvincular dinero del tiempo, barreras de entrada, ingreso pasivo, escalabilidad). Son ideas comunes.
+
+**Scope:** UI copy + nombres de módulos + identificadores en código + nombres en DB. Sesión dedicada antes del deploy.
 
 ---
 
 ## 🧭 Punto de partida para la próxima sesión
 
-El schema está completo. El siguiente paso es:
+**M4 Fase A ✅ cerrada:** schema + UX + types + constants + mappers.
+**M4 Fase B ✅ cerrada:** 16 actions implementadas + `src/types/actions.ts`. Type-check limpio (solo 2 errores pre-existentes M2 + 1 esperado `ai/resolver` pendiente).
 
-1. **Diseñar `types/index.ts` para M4** — tipos TypeScript que reflejen el schema actualizado
-2. **Diseñar `actions/index.ts` para M4** — server actions (getIdeas, createSession, saveMessage, scoreCENTS, etc.)
-3. **Diseñar capa `AIProvider`** — wrapper multi-proveedor con lógica de tier + is_admin + usage logging
-4. **Diseñar UI de M4** — flujo de 3 entry points (`sin_idea` / `idea_vaga` / `idea_clara`) + mockups
-5. **Diseñar flujo BYOK onboarding** — UI para que el usuario ingrese su key
-6. **Handoff a Claude Code** para implementación
+**Próximo paso — Fase C:**
+1. Función SQL `promote_idea_to_operando()` — Claude.ai diseña + aplica vía MCP
+2. Capa `AIProvider` + `resolveAIProvider()` — Claude.ai diseña
+3. Action 15 (`sendMessage`) — implementa una vez que AIProvider existe
+4. Flujo BYOK onboarding UI
+
+**Después — Fase D:**
+- Rebranding legal antes de deploy
+- Deuda técnica pre-existente (M2)
 
 ---
 
 ## Aprendizajes operativos (conservar)
 
-- **Schema verification antes de migrar:** siempre `information_schema.tables` + `information_schema.columns` antes de `apply_migration`
-- **`execute_sql` vs `apply_migration`:** `execute_sql` para lecturas y data; `apply_migration` solo para DDL
-- **Un SELECT por llamada:** si se ejecutan múltiples SELECTs en `execute_sql`, solo retorna el último
-- **Constraints con nombres únicos por tabla:** usar sufijos descriptivos (`_logic_check` vs `_category_check`)
-- **Función trigger en schema correcto:** `update_updated_at_column()` debe vivir en `public`, no en `storage`. Si el STEP 0 la detecta en otro schema, crearla con `CREATE OR REPLACE FUNCTION public.update_updated_at_column()` antes de las migraciones
-- **Mostrar opciones visuales antes de decidir:** Luis es visual, prefiere mockups interactivos sobre descripción textual
-- **`createAdminClient()` siempre:** nunca SSR client para datos
-- **`CONTEXT.md` como memoria activa:** se reemplaza entre sesiones con versión actualizada. El archivo lo usa tanto Claude.ai (planning) como Claude Code (implementación)
+**Supabase MCP:**
+- Verificar schema antes de migrar: `information_schema.tables` + `information_schema.columns` con `table_schema='public'`
+- `execute_sql` (data + lecturas) vs `apply_migration` (DDL) — nunca mezclar
+- Un SELECT por call en `execute_sql` (múltiples devuelve solo el último)
+- `execute_sql` con `DROP CONSTRAINT IF EXISTS` como workaround si `apply_migration` con mismo nombre ya fue registrada
+- `createAdminClient()` siempre — nunca SSR client para data
+- **Post-migración: regenerar `database.types.ts` vía `generate_typescript_types` MCP**
+- `generated types` tipa columnas con CHECK constraint como `string` genérico — resolver con `Omit<Raw, ...> & { campo: LiteralUnion }` en los Row types del dominio
+
+**Flujo de trabajo:**
+- Mockups interactivos > descripciones — Luis decide más rápido con visuales
+- Presentar opciones A/B/C antes de decidir, no asumir
+- `CONTEXT.md` como memoria activa entre sesiones
+- Handoffs detallados cuando la ventana se llena → nueva conversación limpia
+- **Verificar schema real antes de cerrar código** — no asumir nombres de columnas, `information_schema.columns` es la fuente de verdad
+- **Verificar imports de módulos existentes antes de asumir rutas** — el handoff de M4 usaba `@/lib/supabase/admin` pero el proyecto usa `@/lib/supabase/server`. Antes de aceptar un handoff, cruzar los imports con los módulos ya funcionando
+- **`conversation_search` puede rescatar diseños previos** — antes de reinventar algo "perdido", buscar si ya se diseñó en otra sesión
+- **Distinguir "diseñado en Claude.ai" vs "implementado en filesystem"** — no asumir que ✅ en CONTEXT.md significa que el archivo existe en disco
+
+**Patrones TypeScript:**
+- Literal unions derivadas de `typeof CONSTANT[number]['key']` (single source of truth)
+- Domain types con campos derivados opcionales (`cents_complete?`, `is_complete?`)
+- Discriminated unions para errores (`ActionResult<T>`)
+- Row types vía `Omit<Database['public']['Tables'][X]['Row'], campos_literal> & { campos_literal: LiteralUnion }` — hereda cambios de schema automáticamente
+- Mappers reciben Raw (generated), devuelven Domain — casts concentrados en un solo archivo
 
 ---
 
-## Tools y recursos
-- **Supabase MCP:** `execute_sql` + `apply_migration` con project_id `rkhrwfdhivsvlronfaaf`
-- **Claude Code:** creación e implementación de archivos
-- **Claude Vision API:** integrada en M1 (paystub scanner)
-- **Recharts:** todas las visualizaciones de datos
+## Tools
+- **Supabase MCP:** `execute_sql` + `apply_migration` + `generate_typescript_types` con project_id `rkhrwfdhivsvlronfaaf`
+- **Claude Code:** implementación de archivos (delegado desde Claude.ai)
+- **Claude Vision:** integrada en M1 (paystub scanner)
+- **Recharts:** visualizaciones
 - **Vercel:** deploy
-- **Fuente conceptual:** "La Vía Rápida del Millonario" / "The Millionaire Fastlane" (MJ DeMarco)
+- **Fuente conceptual:** "La Vía Rápida del Millonario" (MJ DeMarco) — ver Rebranding
