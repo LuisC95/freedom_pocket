@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-
-const VALID_USER_IDS = new Set(
-  [process.env.DEV_USER_ID_LUIS, process.env.DEV_USER_ID_PAREJA].filter(Boolean) as string[]
-)
+import { VALID_USER_IDS } from '@/lib/dev-auth'
 
 export function proxy(request: NextRequest) {
   // Si no hay usuarios dev configurados, app pública — no bloquear
@@ -15,7 +12,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Verificar cookie: ahora guarda userId, no el PIN
+  // Verificar cookie: guarda userId (no el PIN)
   const devCookie = request.cookies.get('dev_access')
   if (devCookie?.value && VALID_USER_IDS.has(devCookie.value)) return NextResponse.next()
 

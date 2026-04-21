@@ -3,10 +3,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/shared/layout/Sidebar'
 import { BottomNav } from '@/components/shared/navigation/BottomNav'
-
-const VALID_USER_IDS = new Set(
-  [process.env.DEV_USER_ID_LUIS, process.env.DEV_USER_ID_PAREJA].filter(Boolean) as string[]
-)
+import { VALID_USER_IDS } from '@/lib/dev-auth'
 
 async function isAuthenticated(): Promise<boolean> {
   if (VALID_USER_IDS.size > 0) {
