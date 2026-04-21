@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const DEV_PIN = process.env.DEV_ACCESS_PIN
+const VALID_USER_IDS = new Set(
+  [process.env.DEV_USER_ID_LUIS, process.env.DEV_USER_ID_PAREJA].filter(Boolean) as string[]
+)
 
 export function proxy(request: NextRequest) {
-  // Si no hay PIN configurado, app pública — no bloquear
-  if (!DEV_PIN) return NextResponse.next()
+  // Si no hay usuarios dev configurados, app pública — no bloquear
+  if (VALID_USER_IDS.size === 0) return NextResponse.next()
 
   // Rutas que siempre pasan sin PIN
   const { pathname } = request.nextUrl
@@ -13,9 +15,9 @@ export function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Verificar cookie de acceso
-  const pinCookie = request.cookies.get('dev_access')
-  if (pinCookie?.value === DEV_PIN) return NextResponse.next()
+  // Verificar cookie: ahora guarda userId, no el PIN
+  const devCookie = request.cookies.get('dev_access')
+  if (devCookie?.value && VALID_USER_IDS.has(devCookie.value)) return NextResponse.next()
 
   // Sin acceso → redirigir al login de dev
   const loginUrl = new URL('/dev-login', request.url)

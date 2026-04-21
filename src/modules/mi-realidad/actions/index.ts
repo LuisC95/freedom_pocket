@@ -1,7 +1,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/server'
-import { DEV_USER_ID } from '@/lib/dev-user'
+import { getDevUserId } from '@/lib/dev-user'
 import Anthropic from '@anthropic-ai/sdk'
 import type {
   Income,
@@ -88,6 +88,7 @@ return {
 // ─── getMiRealidadData ────────────────────────────────────────────────────────
 
 export async function getMiRealidadData(): Promise<MiRealidadData> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { data: period } = await supabase
@@ -184,6 +185,7 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
 export async function createIncome(
   data: IncomeInsert
 ): Promise<{ data: Income | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { data: row, error } = await supabase
@@ -201,6 +203,7 @@ export async function createIncome(
 export async function updateIncome(
   data: IncomeUpdate
 ): Promise<{ data: Income | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { id, ...fields } = data
@@ -220,6 +223,7 @@ export async function updateIncome(
 // ─── deleteIncome ─────────────────────────────────────────────────────────────
 
 export async function deleteIncome(id: string): Promise<{ error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { error } = await supabase
@@ -236,6 +240,7 @@ export async function deleteIncome(id: string): Promise<{ error: string | null }
 export async function upsertRealHours(
   data: RealHoursUpsert
 ): Promise<{ data: RealHours | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { data: existing } = await supabase
@@ -270,6 +275,7 @@ export async function upsertRealHours(
 // ─── deleteIncomeEntry ────────────────────────────────────────────────────────
 
 export async function deleteIncomeEntry(id: string): Promise<{ error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { error } = await supabase
@@ -284,6 +290,7 @@ export async function deleteIncomeEntry(id: string): Promise<{ error: string | n
 // ─── deleteIncomeEntries (batch) ──────────────────────────────────────────────
 
 export async function deleteIncomeEntries(ids: string[]): Promise<{ error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   if (ids.length === 0) return { error: null }
   const supabase = createAdminClient()
 
@@ -302,6 +309,7 @@ export async function updateIncomeEntry(
   id: string,
   fields: { amount: number; entry_date: string; hours_worked: number | null; notes: string | null }
 ): Promise<{ data: IncomeEntry | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { data: row, error } = await supabase
@@ -321,6 +329,7 @@ export async function updateIncomeEntry(
 export async function registerPayment(
   payload: RegisterPaymentPayload
 ): Promise<{ data: IncomeEntry[] | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   // Validar que todos los income_ids pertenecen al usuario
@@ -399,6 +408,7 @@ export async function scanPaystub(
   fileBase64: string,
   mimeType: string
 ): Promise<{ data: unknown | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const client = new Anthropic()
   const isPdf = mimeType === 'application/pdf'
 
@@ -445,6 +455,7 @@ export async function scanPaystub(
 // ─── checkAndUnlockModule2 ────────────────────────────────────────────────────
 
 export async function checkAndUnlockModule2(): Promise<void> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { data: existing } = await supabase

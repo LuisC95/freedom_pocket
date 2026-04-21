@@ -2,6 +2,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/server'
+import { getDevUserId }     from '@/lib/dev-user'
 import { ActionResult }       from '@/types/actions'
 import {
   IdeaSession,
@@ -9,8 +10,6 @@ import {
 } from '@/modules/ideas/types'
 import { ENTRY_POINTS } from '@/modules/ideas/constants'
 import { mapSession, mapMessage, mapIdea } from '@/modules/ideas/mappers'
-
-const DEV_USER_ID = '1e04cc3d-2c30-4cf9-a977-bb7209aece3a'
 
 // ─────────────────────────────────────────────
 // 1. createSession
@@ -20,6 +19,7 @@ export async function createSession(
   input: CreateSessionInput
 ): Promise<ActionResult<IdeaSession>> {
   try {
+    const DEV_USER_ID = await getDevUserId()
     const entryPoint = ENTRY_POINTS.find(e => e.key === input.entry_point)
     if (!entryPoint) {
       return { ok: false, error: 'entry_point inválido' }
@@ -64,6 +64,7 @@ export async function getSession(
   options: GetSessionOptions = {}
 ): Promise<ActionResult<IdeaSession>> {
   try {
+    const DEV_USER_ID = await getDevUserId()
     const supabase = createAdminClient()
 
     const { data, error } = await supabase
@@ -132,6 +133,7 @@ async function updateSessionStatus(
   newStatus: 'completed' | 'abandoned'
 ): Promise<ActionResult<IdeaSession>> {
   try {
+    const DEV_USER_ID = await getDevUserId()
     const supabase = createAdminClient()
 
     const { data: existing, error: fetchError } = await supabase

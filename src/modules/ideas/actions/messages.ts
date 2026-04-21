@@ -2,12 +2,11 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/server'
+import { getDevUserId }     from '@/lib/dev-user'
 import { ActionResult }       from '@/types/actions'
 import { IdeaMessage, SendMessageInput } from '@/modules/ideas/types'
 import { mapMessage }         from '@/modules/ideas/mappers'
 import { resolveAIProvider }  from '@/modules/ideas/ai/resolver'
-
-const DEV_USER_ID = '1e04cc3d-2c30-4cf9-a977-bb7209aece3a'
 
 // ─────────────────────────────────────────────
 // 5. sendMessage
@@ -31,6 +30,7 @@ export async function sendMessage(
   input: SendMessageInput
 ): Promise<ActionResult<SendMessageResult>> {
   try {
+    const DEV_USER_ID = await getDevUserId()
     const supabase = createAdminClient()
 
     // ── 1. Verificar sesión activa ───────────────────────────────

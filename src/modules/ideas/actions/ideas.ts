@@ -2,6 +2,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/server'
+import { getDevUserId }     from '@/lib/dev-user'
 import { ActionResult }       from '@/types/actions'
 import {
   Idea,
@@ -11,8 +12,6 @@ import {
 } from '@/modules/ideas/types'
 import { mapIdea, mapDeepDive, mapSession } from '@/modules/ideas/mappers'
 
-const DEV_USER_ID = '1e04cc3d-2c30-4cf9-a977-bb7209aece3a'
-
 // ─────────────────────────────────────────────
 // 6. createIdeaFromSession
 // ─────────────────────────────────────────────
@@ -21,6 +20,7 @@ export async function createIdeaFromSession(
   input: CreateIdeaFromSessionInput
 ): Promise<ActionResult<Idea>> {
   try {
+    const DEV_USER_ID = await getDevUserId()
     if (!input.title?.trim())   return { ok: false, error: 'La idea necesita un título' }
     if (!input.concept?.trim()) return { ok: false, error: 'La idea necesita un concepto' }
 
@@ -75,6 +75,7 @@ export async function getIdea(
   options: GetIdeaOptions = {}
 ): Promise<ActionResult<Idea>> {
   try {
+    const DEV_USER_ID = await getDevUserId()
     const supabase = createAdminClient()
 
     const { data, error } = await supabase
@@ -126,6 +127,7 @@ export async function listIdeas(
   filter: ListIdeasInput = {}
 ): Promise<ActionResult<Idea[]>> {
   try {
+    const DEV_USER_ID = await getDevUserId()
     const supabase = createAdminClient()
 
     let query = supabase
@@ -156,6 +158,7 @@ export async function updateCENTS(
   input: UpdateCENTSInput
 ): Promise<ActionResult<Idea>> {
   try {
+    const DEV_USER_ID = await getDevUserId()
     // Validación de rango 1-10 por score recibido
     for (const [key, value] of Object.entries(input.scores)) {
       if (typeof value !== 'number' || value < 1 || value > 10) {

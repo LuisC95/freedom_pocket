@@ -1,7 +1,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/server'
-import { DEV_USER_ID } from '@/lib/dev-user'
+import { getDevUserId } from '@/lib/dev-user'
 import type {
   Asset, AssetInsert, AssetUpdate,
   Liability, LiabilityInsert, LiabilityUpdate,
@@ -173,6 +173,7 @@ function calcularScore(
 // ─── getBrujulaData ───────────────────────────────────────────────────────────
 
 export async function getBrujulaData(): Promise<BrujulaData> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const hoy = new Date()
 
@@ -301,6 +302,7 @@ export async function getBrujulaData(): Promise<BrujulaData> {
 // ─── Assets CRUD ──────────────────────────────────────────────────────────────
 
 export async function createAsset(data: AssetInsert): Promise<{ data: Asset | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const { data: row, error } = await supabase
     .from('assets')
@@ -312,6 +314,7 @@ export async function createAsset(data: AssetInsert): Promise<{ data: Asset | nu
 }
 
 export async function updateAsset(data: AssetUpdate): Promise<{ data: Asset | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const { id, ...fields } = data
   const { data: row, error } = await supabase
@@ -326,6 +329,7 @@ export async function updateAsset(data: AssetUpdate): Promise<{ data: Asset | nu
 }
 
 export async function deleteAsset(id: string): Promise<{ error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const { error } = await supabase.from('assets').delete().eq('id', id).eq('user_id', DEV_USER_ID)
   return { error: error?.message ?? null }
@@ -334,6 +338,7 @@ export async function deleteAsset(id: string): Promise<{ error: string | null }>
 // ─── Liabilities CRUD ─────────────────────────────────────────────────────────
 
 export async function createLiability(data: LiabilityInsert): Promise<{ data: Liability | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const { data: row, error } = await supabase
     .from('liabilities')
@@ -345,6 +350,7 @@ export async function createLiability(data: LiabilityInsert): Promise<{ data: Li
 }
 
 export async function updateLiability(data: LiabilityUpdate): Promise<{ data: Liability | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const { id, ...fields } = data
   const { data: row, error } = await supabase
@@ -359,6 +365,7 @@ export async function updateLiability(data: LiabilityUpdate): Promise<{ data: Li
 }
 
 export async function deleteLiability(id: string): Promise<{ error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const { error } = await supabase.from('liabilities').delete().eq('id', id).eq('user_id', DEV_USER_ID)
   return { error: error?.message ?? null }
@@ -367,6 +374,7 @@ export async function deleteLiability(id: string): Promise<{ error: string | nul
 // ─── Businesses CRUD ──────────────────────────────────────────────────────────
 
 export async function createBusiness(data: BusinessInsert): Promise<{ data: Business | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const { data: row, error } = await supabase
     .from('businesses')
@@ -378,6 +386,7 @@ export async function createBusiness(data: BusinessInsert): Promise<{ data: Busi
 }
 
 export async function updateBusiness(data: BusinessUpdate): Promise<{ data: Business | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const { id, ...fields } = data
   const { data: row, error } = await supabase
@@ -392,6 +401,7 @@ export async function updateBusiness(data: BusinessUpdate): Promise<{ data: Busi
 }
 
 export async function deleteBusiness(id: string): Promise<{ error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const { error } = await supabase.from('businesses').delete().eq('id', id).eq('user_id', DEV_USER_ID)
   return { error: error?.message ?? null }
@@ -400,6 +410,7 @@ export async function deleteBusiness(id: string): Promise<{ error: string | null
 // ─── Freedom Goals CRUD ───────────────────────────────────────────────────────
 
 export async function createFreedomGoal(data: FreedomGoalInsert): Promise<{ data: FreedomGoal | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const { data: row, error } = await supabase
     .from('freedom_goals')
@@ -411,6 +422,7 @@ export async function createFreedomGoal(data: FreedomGoalInsert): Promise<{ data
 }
 
 export async function updateFreedomGoal(data: FreedomGoalUpdate): Promise<{ data: FreedomGoal | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const { id, ...fields } = data
   const { data: row, error } = await supabase
@@ -425,6 +437,7 @@ export async function updateFreedomGoal(data: FreedomGoalUpdate): Promise<{ data
 }
 
 export async function deleteFreedomGoal(id: string): Promise<{ error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const { error } = await supabase.from('freedom_goals').delete().eq('id', id).eq('user_id', DEV_USER_ID)
   return { error: error?.message ?? null }

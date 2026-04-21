@@ -2,6 +2,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/server'
+import { getDevUserId }     from '@/lib/dev-user'
 import { ActionResult }       from '@/types/actions'
 import {
   Idea,
@@ -11,8 +12,6 @@ import {
 } from '@/modules/ideas/types'
 import { IDEA_STATUS_TRANSITIONS } from '@/modules/ideas/constants'
 import { mapIdea } from '@/modules/ideas/mappers'
-
-const DEV_USER_ID = '1e04cc3d-2c30-4cf9-a977-bb7209aece3a'
 
 // ─────────────────────────────────────────────
 // Helpers internos
@@ -29,13 +28,13 @@ function assertValidTransition(
   return null
 }
 
-async function fetchIdeaForTransition(ideaId: string) {
+async function fetchIdeaForTransition(ideaId: string, userId: string) {
   const supabase = createAdminClient()
   const { data } = await supabase
     .from('ideas')
     .select('id, status, title')
     .eq('id', ideaId)
-    .eq('user_id', DEV_USER_ID)
+    .eq('user_id', userId)
     .single()
   return data ?? null
 }
@@ -46,7 +45,8 @@ async function fetchIdeaForTransition(ideaId: string) {
 
 export async function commitIdea(ideaId: string): Promise<ActionResult<Idea>> {
   try {
-    const idea = await fetchIdeaForTransition(ideaId)
+    const DEV_USER_ID = await getDevUserId()
+    const idea = await fetchIdeaForTransition(ideaId, DEV_USER_ID)
     if (!idea) return { ok: false, error: 'Idea no encontrada' }
 
     const transitionError = assertValidTransition(idea.status, 'committed')
@@ -76,7 +76,8 @@ export async function commitIdea(ideaId: string): Promise<ActionResult<Idea>> {
 
 export async function startValidando(ideaId: string): Promise<ActionResult<Idea>> {
   try {
-    const idea = await fetchIdeaForTransition(ideaId)
+    const DEV_USER_ID = await getDevUserId()
+    const idea = await fetchIdeaForTransition(ideaId, DEV_USER_ID)
     if (!idea) return { ok: false, error: 'Idea no encontrada' }
 
     const transitionError = assertValidTransition(idea.status, 'validando')
@@ -103,7 +104,8 @@ export async function startValidando(ideaId: string): Promise<ActionResult<Idea>
 
 export async function startConstruyendo(ideaId: string): Promise<ActionResult<Idea>> {
   try {
-    const idea = await fetchIdeaForTransition(ideaId)
+    const DEV_USER_ID = await getDevUserId()
+    const idea = await fetchIdeaForTransition(ideaId, DEV_USER_ID)
     if (!idea) return { ok: false, error: 'Idea no encontrada' }
 
     const transitionError = assertValidTransition(idea.status, 'construyendo')
@@ -136,7 +138,8 @@ export async function promoteToOperando(
   input: PromoteToOperandoInput
 ): Promise<ActionResult<Idea>> {
   try {
-    const idea = await fetchIdeaForTransition(input.idea_id)
+    const DEV_USER_ID = await getDevUserId()
+    const idea = await fetchIdeaForTransition(input.idea_id, DEV_USER_ID)
     if (!idea) return { ok: false, error: 'Idea no encontrada' }
 
     const transitionError = assertValidTransition(idea.status, 'operando')
@@ -169,7 +172,8 @@ export async function discardIdea(
   input: DiscardIdeaInput
 ): Promise<ActionResult<Idea>> {
   try {
-    const idea = await fetchIdeaForTransition(input.idea_id)
+    const DEV_USER_ID = await getDevUserId()
+    const idea = await fetchIdeaForTransition(input.idea_id, DEV_USER_ID)
     if (!idea) return { ok: false, error: 'Idea no encontrada' }
 
     const transitionError = assertValidTransition(idea.status, 'discarded')

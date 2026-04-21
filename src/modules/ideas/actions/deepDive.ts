@@ -2,6 +2,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/server'
+import { getDevUserId }     from '@/lib/dev-user'
 import { ActionResult }       from '@/types/actions'
 import {
   IdeaDeepDive,
@@ -10,8 +11,6 @@ import {
 } from '@/modules/ideas/types'
 import { DEEP_DIVE_FIELDS } from '@/modules/ideas/constants'
 import { mapDeepDive } from '@/modules/ideas/mappers'
-
-const DEV_USER_ID = '1e04cc3d-2c30-4cf9-a977-bb7209aece3a'
 
 // Whitelist de seguridad: solo estos campos pueden escribirse vía upsert.
 // Previene SQL injection por nombre de columna arbitrario.
@@ -30,6 +29,7 @@ export async function upsertDeepDiveField(
   input: UpsertDeepDiveFieldInput
 ): Promise<ActionResult<IdeaDeepDive>> {
   try {
+    const DEV_USER_ID = await getDevUserId()
     if (!VALID_FIELDS.includes(input.field)) {
       return { ok: false, error: `Campo '${input.field}' no es válido` }
     }
@@ -98,6 +98,7 @@ export async function getDeepDive(
   ideaId: string
 ): Promise<ActionResult<IdeaDeepDive | null>> {
   try {
+    const DEV_USER_ID = await getDevUserId()
     const supabase = createAdminClient()
 
     const { data: idea } = await supabase

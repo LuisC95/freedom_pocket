@@ -1,7 +1,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/server'
-import { DEV_USER_ID } from '@/lib/dev-user'
+import { getDevUserId } from '@/lib/dev-user'
 import type {
   Transaction,
   TransactionInsert,
@@ -72,19 +72,20 @@ function mapTransaction(raw: any): Transaction {
 
 async function getPricePerHour(
   supabase: ReturnType<typeof createAdminClient>,
-  periodId: string
+  periodId: string,
+  userId: string
 ): Promise<number | null> {
   const { data: settings } = await supabase
     .from('user_settings')
     .select('precio_hora_referencia')
-    .eq('user_id', DEV_USER_ID)
+    .eq('user_id', userId)
     .single()
 
   if (settings?.precio_hora_referencia) return Number(settings.precio_hora_referencia)
 
   const [{ data: incomes }, { data: hours }] = await Promise.all([
-    supabase.from('incomes').select('amount, frequency').eq('user_id', DEV_USER_ID).eq('period_id', periodId),
-    supabase.from('real_hours').select('contracted_hours_per_week, extra_hours_per_week, commute_minutes_per_day, preparation_minutes_per_day, mental_load_hours_per_week, working_days_per_week').eq('user_id', DEV_USER_ID).eq('period_id', periodId).single(),
+    supabase.from('incomes').select('amount, frequency').eq('user_id', userId).eq('period_id', periodId),
+    supabase.from('real_hours').select('contracted_hours_per_week, extra_hours_per_week, commute_minutes_per_day, preparation_minutes_per_day, mental_load_hours_per_week, working_days_per_week').eq('user_id', userId).eq('period_id', periodId).single(),
   ])
 
   if (!incomes?.length || !hours) return null
@@ -155,6 +156,7 @@ function isTemplatePending(
 // ─── getDashboardData ─────────────────────────────────────────────────────────
 
 export async function getDashboardData(): Promise<DashboardData> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { data: period } = await supabase
@@ -256,7 +258,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       .lte('entry_date', todayStr),
   ])
 
-  const pricePerHour = await getPricePerHour(supabase, period.id)
+  const pricePerHour = await getPricePerHour(supabase, period.id, DEV_USER_ID)
 
   // ── Transactions → TransactionGroup[] ────────────────────────────────────
   const transactions: Transaction[] = (txRaw ?? []).map(mapTransaction)
@@ -417,6 +419,7 @@ export async function getDashboardData(): Promise<DashboardData> {
 // ─── getMonthlyHistory ────────────────────────────────────────────────────────
 
 export async function getMonthlyHistory(months: number): Promise<MonthlySnapshot[]> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = await createAdminClient()
   const hoy = new Date()
   const nAtras = new Date(hoy.getFullYear(), hoy.getMonth() - months, 1)
@@ -481,6 +484,7 @@ export async function getMonthlyHistory(months: number): Promise<MonthlySnapshot
 export async function createTransaction(
   data: TransactionInsert
 ): Promise<{ data: Transaction | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { data: period } = await supabase
@@ -490,7 +494,7 @@ export async function createTransaction(
     .eq('is_active', true)
     .single()
 
-  const pricePerHour = period ? await getPricePerHour(supabase, period.id) : null
+  const pricePerHour = period ? await getPricePerHour(supabase, period.id, DEV_USER_ID) : null
 
   const { data: row, error } = await supabase
     .from('transactions')
@@ -505,7 +509,7 @@ export async function createTransaction(
 
   if (error) return { data: null, error: error.message }
 
-  await recalculateBudgetAvgs()
+  await recalculateBudgetAvgs(DEV_USER_ID)
   return { data: mapTransaction(row), error: null }
 }
 
@@ -515,6 +519,7 @@ export async function updateTransaction(
   id: string,
   data: Partial<Omit<TransactionInsert, 'period_id'>>
 ): Promise<{ data: Transaction | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { data: row, error } = await supabase
@@ -532,6 +537,7 @@ export async function updateTransaction(
 // ─── deleteTransaction ────────────────────────────────────────────────────────
 
 export async function deleteTransaction(id: string): Promise<{ error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { error } = await supabase
@@ -542,7 +548,7 @@ export async function deleteTransaction(id: string): Promise<{ error: string | n
 
   if (error) return { error: error.message }
 
-  await recalculateBudgetAvgs()
+  await recalculateBudgetAvgs(DEV_USER_ID)
   return { error: null }
 }
 
@@ -551,6 +557,7 @@ export async function deleteTransaction(id: string): Promise<{ error: string | n
 export async function getCategories(
   applies_to?: 'expense' | 'income' | 'both'
 ): Promise<TransactionCategory[]> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   let query = supabase
@@ -580,6 +587,7 @@ export async function createCategory(data: {
   color?: string | null
   icon?: string | null
 }): Promise<{ data: TransactionCategory | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { data: row, error } = await supabase
@@ -598,6 +606,7 @@ export async function deleteCategory(
   id: string,
   replacementCategoryId?: string
 ): Promise<{ error: string | null; hasLinkedTransactions?: boolean }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   // Check if category has linked transactions
@@ -661,6 +670,7 @@ export async function upsertBudget(
   category_id: string,
   suggested_amount: number
 ): Promise<{ error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { data: existing } = await supabase
@@ -693,7 +703,7 @@ export async function upsertBudget(
 
 // ─── recalculateBudgetAvgs ────────────────────────────────────────────────────
 
-async function recalculateBudgetAvgs(): Promise<void> {
+async function recalculateBudgetAvgs(userId: string): Promise<void> {
   const supabase = createAdminClient()
 
   const hoy = new Date()
@@ -703,7 +713,7 @@ async function recalculateBudgetAvgs(): Promise<void> {
   const { data: txs } = await supabase
     .from('transactions')
     .select('category_id, amount, transaction_date')
-    .eq('user_id', DEV_USER_ID)
+    .eq('user_id', userId)
     .eq('type', 'expense')
     .gte('transaction_date', tresMesesAtras.toISOString().slice(0, 10))
     .lt('transaction_date', inicioMesActual.toISOString().slice(0, 10))
@@ -726,7 +736,7 @@ async function recalculateBudgetAvgs(): Promise<void> {
     const { data: existing } = await supabase
       .from('budgets')
       .select('id, source')
-      .eq('user_id', DEV_USER_ID)
+      .eq('user_id', userId)
       .eq('category_id', category_id)
       .single()
 
@@ -737,7 +747,7 @@ async function recalculateBudgetAvgs(): Promise<void> {
         .eq('id', existing.id)
     } else {
       await supabase.from('budgets').insert({
-        user_id: DEV_USER_ID,
+        user_id: userId,
         category_id,
         expense_type: 'variable',
         source: 'system',
@@ -751,6 +761,7 @@ async function recalculateBudgetAvgs(): Promise<void> {
 // ─── getPendingRecurringTransactions ─────────────────────────────────────────
 
 export async function getPendingRecurringTransactions(): Promise<RecurringTemplate[]> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { data: period } = await supabase
@@ -790,6 +801,7 @@ export async function getPendingRecurringTransactions(): Promise<RecurringTempla
 export async function approveRecurringTransaction(
   template_id: string
 ): Promise<{ error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const [{ data: template }, { data: period }] = await Promise.all([
@@ -800,7 +812,7 @@ export async function approveRecurringTransaction(
   if (!template) return { error: 'Plantilla no encontrada' }
   if (!period) return { error: 'Sin período activo' }
 
-  const pricePerHour = await getPricePerHour(supabase, period.id)
+  const pricePerHour = await getPricePerHour(supabase, period.id, DEV_USER_ID)
 
   const { error } = await supabase.from('transactions').insert({
     user_id: DEV_USER_ID,
@@ -824,7 +836,7 @@ export async function approveRecurringTransaction(
     .update({ last_confirmed_at: new Date().toISOString() })
     .eq('id', template_id)
 
-  await recalculateBudgetAvgs()
+  await recalculateBudgetAvgs(DEV_USER_ID)
   return { error: null }
 }
 
@@ -833,6 +845,7 @@ export async function approveRecurringTransaction(
 export async function createRecurringTemplate(
   data: RecurringTemplateInsert
 ): Promise<{ data: RecurringTemplate | null; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { data: row, error } = await supabase
@@ -858,6 +871,7 @@ export async function updateRecurringTemplate(
   id: string,
   data: Partial<RecurringTemplateInsert>
 ): Promise<{ error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { error } = await supabase
@@ -872,6 +886,7 @@ export async function updateRecurringTemplate(
 // ─── deleteRecurringTemplate ──────────────────────────────────────────────────
 
 export async function deleteRecurringTemplate(id: string): Promise<{ error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { error } = await supabase
@@ -886,6 +901,7 @@ export async function deleteRecurringTemplate(id: string): Promise<{ error: stri
 // ─── confirmRecurringTemplate ─────────────────────────────────────────────────
 
 export async function confirmRecurringTemplate(id: string): Promise<{ error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
   const { error } = await supabase
