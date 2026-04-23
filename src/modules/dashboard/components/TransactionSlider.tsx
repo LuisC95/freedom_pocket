@@ -10,6 +10,10 @@ function fmt(n: number, currency = 'USD') {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 0 }).format(n)
 }
 
+function fmtHours(h: number) {
+  return h >= 1 ? `${h.toFixed(1)}h` : `${(h * 60).toFixed(0)}min`
+}
+
 function fmtAutonomy(days: number) {
   const abs = Math.abs(days)
   if (abs >= 1) return `${abs.toFixed(1)}d`

@@ -48,15 +48,20 @@ const navItems = [
   },
 ]
 
-export function BottomNav() {
+interface BottomNavProps {
+  isAdmin?: boolean
+}
+
+export function BottomNav({ isAdmin = false }: BottomNavProps) {
   const pathname = usePathname()
+  const visibleItems = navItems.filter(item => item.href !== '/ideas' || isAdmin)
 
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-40 flex md:hidden items-center justify-around h-[60px] px-2"
       style={{ backgroundColor: 'var(--color-sidebar)' }}
     >
-      {navItems.map((item) => {
+      {visibleItems.map((item) => {
         const isActive = pathname.startsWith(item.href)
         return (
           <Link

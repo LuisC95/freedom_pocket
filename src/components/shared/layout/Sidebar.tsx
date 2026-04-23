@@ -48,8 +48,13 @@ const navItems = [
   },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  isAdmin?: boolean
+}
+
+export function Sidebar({ isAdmin = false }: SidebarProps) {
   const pathname = usePathname()
+  const visibleItems = navItems.filter(item => item.href !== '/ideas' || isAdmin)
 
   return (
     <aside
@@ -66,7 +71,7 @@ export function Sidebar() {
 
       {/* Nav items */}
       <nav className="flex flex-col items-center gap-1 flex-1">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const isActive = pathname.startsWith(item.href)
           return (
             <Link

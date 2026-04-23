@@ -64,30 +64,32 @@ export const CENTS_DIMENSIONS = [
 // Fases del embudo
 // ──────────────────────────────────────────────────────────
 
+// Fases en español — validado contra CHECK constraint real en DB (20-abr-2026).
+// CONTEXT.md usa nombres en inglés pero están incorrectos. Estos son los correctos.
 export const PHASES = [
   {
-    key:       'discovery',
+    key:       'observar',
     order:     1,
-    label:     'Descubrimiento',
+    label:     'Observar',
     objective: 'Encontrar oportunidades que encajen con vos',
   },
   {
-    key:       'ideation',
+    key:       'definir',
     order:     2,
-    label:     'Aterrizaje',
-    objective: 'Convertir una idea vaga en algo concreto',
+    label:     'Definir',
+    objective: 'Delimitar el problema concreto',
   },
   {
-    key:       'evaluation',
+    key:       'idear',
     order:     3,
-    label:     'Evaluación',
-    objective: 'Puntuar las 5 dimensiones de la idea',
+    label:     'Idear',
+    objective: 'Proponer ideas concretas de negocio',
   },
   {
-    key:       'deep_dive',
+    key:       'evaluar',
     order:     4,
-    label:     'Plan detallado',
-    objective: 'Completar los 7 campos del plan de negocio',
+    label:     'Evaluar',
+    objective: 'Puntuar las 5 dimensiones con CENTS',
   },
 ] as const
 
@@ -100,21 +102,21 @@ export const ENTRY_POINTS = [
     key:                'sin_idea',
     label:              'No tengo idea aún',
     description:        'Explorá oportunidades con ayuda de la AI',
-    start_phase:        'discovery',
+    start_phase:        'observar',
     requires_raw_input: false,
   },
   {
     key:                'idea_vaga',
     label:              'Tengo algo vago',
     description:        'Aterrizá y refiná tu idea con preguntas dirigidas',
-    start_phase:        'ideation',
+    start_phase:        'definir',
     requires_raw_input: true,
   },
   {
     key:                'idea_clara',
     label:              'Ya la tengo clara',
-    description:        'Andá directo a evaluar el potencial',
-    start_phase:        'evaluation',
+    description:        'Andá directo a evaluarla con CENTS',
+    start_phase:        'evaluar',
     requires_raw_input: true,
   },
 ] as const
@@ -194,6 +196,7 @@ export const DEEP_DIVE_FIELDS = [
 
 export const AI_PROVIDERS = [
   { key: 'anthropic', label: 'Anthropic (Claude)' },
+  { key: 'deepseek',  label: 'DeepSeek' },
   { key: 'openai',    label: 'OpenAI (GPT)' },
   { key: 'google',    label: 'Google (Gemini)' },
 ] as const

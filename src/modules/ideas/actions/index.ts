@@ -1,5 +1,4 @@
-'use server'
-
+// Barrel de re-exportaciones — cada módulo declara su propio 'use server'
 export * from './sessions'
 export * from './messages'
 export * from './ideas'
