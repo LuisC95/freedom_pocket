@@ -53,9 +53,13 @@ type RawIdeaRow         = Database['public']['Tables']['ideas']['Row']
 type RawIdeaDeepDiveRow = Database['public']['Tables']['idea_deep_dives']['Row']
 type RawIdeaMessageRow  = Database['public']['Tables']['idea_session_messages']['Row']
 
-export type IdeaSessionRow = Omit<RawIdeaSessionRow, 'entry_point' | 'status'> & {
-  entry_point: EntryPoint
-  status:      SessionStatus
+export type IdeaSessionRow = Omit<
+  RawIdeaSessionRow,
+  'entry_point' | 'status' | 'current_phase'
+> & {
+  entry_point:   EntryPoint
+  status:        SessionStatus
+  current_phase: Phase
 }
 
 export type IdeaRow = Omit<RawIdeaRow, 'status' | 'business_model'> & {
@@ -182,6 +186,11 @@ export interface SendMessageInput {
   session_id: string
   phase:      Phase
   content:    string                 // mensaje del usuario
+}
+
+export interface ToggleMessagePinInput {
+  message_id: string
+  is_pinned: boolean
 }
 
 // ══════════════════════════════════════════════════════════

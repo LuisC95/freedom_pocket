@@ -59,7 +59,8 @@ export function mapSession(row: RawIdeaSessionRow): IdeaSession {
   return {
     ...row,
     entry_point: row.entry_point as EntryPoint,
-    status:      row.status      as SessionStatus,
+    status: row.status as SessionStatus,
+    current_phase: (row.current_phase as Phase | undefined) ?? 'observar',
   }
 }
 
@@ -133,5 +134,8 @@ export function mapMessage(row: RawIdeaMessageRow): IdeaMessage {
     phase:    row.phase    as Phase,
     provider: row.provider as AIProvider,
     cost_usd: Number(row.cost_usd) || 0,
+    is_pinned: Boolean(row.is_pinned),
+    pinned_at: row.pinned_at ?? null,
+    pinned_by: row.pinned_by ?? null,
   }
 }

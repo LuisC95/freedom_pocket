@@ -627,8 +627,11 @@ export type Database = {
           cost_usd: number
           created_at: string
           id: string
+          is_pinned: boolean
           model: string
           phase: string
+          pinned_at: string | null
+          pinned_by: string | null
           provider: string
           response_time_ms: number | null
           role: string
@@ -643,8 +646,11 @@ export type Database = {
           cost_usd?: number
           created_at?: string
           id?: string
+          is_pinned?: boolean
           model: string
           phase: string
+          pinned_at?: string | null
+          pinned_by?: string | null
           provider: string
           response_time_ms?: number | null
           role: string
@@ -659,8 +665,11 @@ export type Database = {
           cost_usd?: number
           created_at?: string
           id?: string
+          is_pinned?: boolean
           model?: string
           phase?: string
+          pinned_at?: string | null
+          pinned_by?: string | null
           provider?: string
           response_time_ms?: number | null
           role?: string
@@ -690,27 +699,33 @@ export type Database = {
       idea_sessions: {
         Row: {
           completed_at: string | null
+          current_phase: string
           entry_point: string
           id: string
           raw_input: string | null
+          ready_to_save: boolean
           started_at: string
           status: string
           user_id: string
         }
         Insert: {
           completed_at?: string | null
+          current_phase?: string
           entry_point: string
           id?: string
           raw_input?: string | null
+          ready_to_save?: boolean
           started_at?: string
           status?: string
           user_id: string
         }
         Update: {
           completed_at?: string | null
+          current_phase?: string
           entry_point?: string
           id?: string
           raw_input?: string | null
+          ready_to_save?: boolean
           started_at?: string
           status?: string
           user_id?: string

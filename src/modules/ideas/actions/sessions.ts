@@ -34,10 +34,12 @@ export async function createSession(
     const { data, error } = await supabase
       .from('idea_sessions')
       .insert({
-        user_id:     DEV_USER_ID,
-        entry_point: input.entry_point,
-        raw_input:   input.raw_input?.trim() ?? null,
-        status:      'in_progress',
+        user_id:       DEV_USER_ID,
+        entry_point:   input.entry_point,
+        raw_input:     input.raw_input?.trim() ?? null,
+        status:        'in_progress',
+        current_phase: entryPoint.start_phase,
+        ready_to_save: false,
       })
       .select()
       .single()
