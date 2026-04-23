@@ -6,59 +6,112 @@
 
 @layer base {
   :root {
-    /* Fastlane Compass — design tokens */
-    --color-base: #F2F7F4;
-    --color-sidebar: #1A2520;
-    --color-accent: #2E7D52;
-    --color-accent-hover: #3A9E6A;
-    --color-premium: #C69B30;
-    --color-danger: #E84434;
-    --color-card-dark: #243028;
-    --color-surface: #FFFFFF;
+    /* ── Fastlane Compass Design Tokens ── */
+
+    /* Backgrounds */
+    --fc-base:          #F2F7F4;
+    --fc-surface:       #EAF0EC;
+    --fc-surface-white: #FFFFFF;
+
+    /* Dark */
+    --fc-dark:          #1A2520;
+    --fc-card-dark:     #243028;
+
+    /* Accent – Green */
+    --fc-accent:        #2E7D52;
+    --fc-accent-hover:  #3A9E6A;
+    --fc-accent-ghost:  #2E7D5228;
+
+    /* Premium – Gold */
+    --fc-gold:          #C69B30;
+    --fc-gold-bg:       #C69B3018;
+    --fc-gold-border:   #C69B3040;
+
+    /* Danger */
+    --fc-danger:        #E84434;
+    --fc-danger-bg:     #E8443418;
+
+    /* Typography */
+    --fc-text-primary:   #141F19;
+    --fc-text-secondary: #7A9A8A;
+    --fc-text-on-dark:   #F2F7F4;
+    --fc-text-muted:     rgba(255,255,255,0.30);
+
+    /* Borders */
+    --fc-border-light:  #EAF0EC;
+    --fc-border-dark:   rgba(255,255,255,0.08);
+    --fc-border-accent: rgba(46,125,82,0.25);
+
+    /* Score */
+    --fc-score-mint:    #5DCAA5;
+
+    /* Semantic */
+    --fc-color-positive: var(--fc-accent-hover);
+    --fc-color-negative: var(--fc-danger);
+    --fc-color-premium:  var(--fc-gold);
+    --fc-color-neutral:  var(--fc-text-secondary);
 
     /* Typography */
     --font-sans: 'IBM Plex Sans', sans-serif;
     --font-mono: 'IBM Plex Mono', monospace;
 
-    /* shadcn/ui tokens */
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
-  }
+    /* Type scale */
+    --fc-text-micro: 9px;
+    --fc-text-xs:    10px;
+    --fc-text-sm:    11px;
+    --fc-text-base:  13px;
+    --fc-text-md:    14px;
+    --fc-text-lg:    16px;
+    --fc-text-xl:    19px;
+    --fc-text-2xl:   22px;
+    --fc-text-hero:  38px;
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    /* Radii */
+    --fc-radius-sm:   6px;
+    --fc-radius-md:   8px;
+    --fc-radius-lg:   12px;
+    --fc-radius-xl:   16px;
+    --fc-radius-2xl:  20px;
+    --fc-radius-full: 9999px;
+
+    /* Shadows */
+    --fc-shadow-card:  0 1px 3px rgba(20,31,25,0.08), 0 1px 2px rgba(20,31,25,0.04);
+    --fc-shadow-modal: 0 20px 60px rgba(0,0,0,0.35);
+    --fc-shadow-fab:   0 4px 16px rgba(46,125,82,0.4);
+
+    /* Layout */
+    --fc-sidebar-width:     68px;
+    --fc-bottomnav-height:  64px;
+    --fc-content-max:       672px;
+
+    /* ── shadcn/ui tokens (mapped to design system) ── */
+    --background: 0 0% 100%;
+    --foreground: 160 20% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 160 20% 9%;
+    --primary: 150 47% 33%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 150 20% 93%;
+    --secondary-foreground: 160 20% 9%;
+    --muted: 150 20% 93%;
+    --muted-foreground: 160 14% 55%;
+    --accent: 150 20% 93%;
+    --accent-foreground: 160 20% 9%;
+    --destructive: 4 78% 56%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 150 20% 93%;
+    --input: 150 20% 93%;
+    --ring: 150 47% 33%;
+    --radius: 0.75rem;
+
+    /* ── Legacy aliases (backward compat) ── */
+    --color-base:     var(--fc-base);
+    --color-sidebar:  var(--fc-dark);
+    --color-accent:   var(--fc-accent);
+    --color-premium:  var(--fc-gold);
+    --color-danger:   var(--fc-danger);
+    --color-card-dark: var(--fc-card-dark);
+    --color-surface:  var(--fc-surface-white);
   }
 }
 
@@ -67,8 +120,179 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--fc-base);
+    color: var(--fc-text-primary);
     font-family: var(--font-sans);
-    background-color: var(--color-base);
   }
+}
+
+@layer components {
+  /* ── Typography ── */
+  .fc-label-micro {
+    font-family: var(--font-mono);
+    font-size: var(--fc-text-micro);
+    font-weight: 400;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--fc-text-secondary);
+  }
+
+  .fc-label-micro-accent {
+    font-family: var(--font-mono);
+    font-size: var(--fc-text-micro);
+    font-weight: 400;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--fc-accent-hover);
+  }
+
+  .fc-value-hero {
+    font-family: var(--font-mono);
+    font-size: var(--fc-text-hero);
+    font-weight: 600;
+    line-height: 1;
+    color: var(--fc-accent-hover);
+  }
+
+  .fc-value-xl {
+    font-family: var(--font-mono);
+    font-size: var(--fc-text-xl);
+    font-weight: 500;
+    color: var(--fc-text-primary);
+  }
+
+  .fc-value-lg {
+    font-family: var(--font-mono);
+    font-size: var(--fc-text-lg);
+    font-weight: 600;
+    color: var(--fc-text-primary);
+  }
+
+  .fc-value-base {
+    font-family: var(--font-mono);
+    font-size: var(--fc-text-base);
+    font-weight: 500;
+    color: var(--fc-text-primary);
+  }
+
+  .fc-h1 {
+    font-family: var(--font-sans);
+    font-size: var(--fc-text-2xl);
+    font-weight: 700;
+    color: var(--fc-text-primary);
+    line-height: 1.2;
+  }
+
+  .fc-h2 {
+    font-family: var(--font-sans);
+    font-size: var(--fc-text-base);
+    font-weight: 600;
+    color: var(--fc-text-primary);
+  }
+
+  .fc-body {
+    font-family: var(--font-sans);
+    font-size: var(--fc-text-sm);
+    font-weight: 400;
+    color: var(--fc-text-secondary);
+    line-height: 1.5;
+  }
+
+  /* ── Cards ── */
+  .fc-hero-card {
+    background-color: var(--fc-dark);
+    border-radius: var(--fc-radius-2xl);
+    padding: 20px;
+  }
+
+  .fc-stat-card {
+    background-color: var(--fc-surface);
+    border-radius: var(--fc-radius-lg);
+    padding: 12px;
+  }
+
+  .fc-card {
+    background-color: var(--fc-surface-white);
+    border: 1px solid var(--fc-border-light);
+    border-radius: var(--fc-radius-lg);
+    box-shadow: var(--fc-shadow-card);
+    padding: 14px;
+  }
+
+  /* ── Chips ── */
+  .fc-chip-gold {
+    background-color: var(--fc-gold-bg);
+    border: 0.5px solid var(--fc-gold-border);
+    border-radius: var(--fc-radius-full);
+    padding: 4px 10px;
+    font-family: var(--font-mono);
+    font-size: var(--fc-text-sm);
+    color: var(--fc-gold);
+  }
+
+  .fc-chip-danger {
+    background-color: var(--fc-danger-bg);
+    border-radius: var(--fc-radius-sm);
+    padding: 4px 8px;
+    font-family: var(--font-mono);
+    font-size: var(--fc-text-sm);
+    color: var(--fc-danger);
+  }
+
+  /* ── Tabs ── */
+  .fc-tabs {
+    background-color: var(--fc-surface);
+    border-radius: var(--fc-radius-full);
+    padding: 4px;
+    display: flex;
+    gap: 4px;
+  }
+
+  .fc-tab {
+    flex: 1;
+    padding: 6px 12px;
+    border-radius: var(--fc-radius-full);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fc-text-secondary);
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    transition: all 0.15s;
+  }
+
+  .fc-tab.active {
+    background: var(--fc-surface-white);
+    color: var(--fc-text-primary);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  /* ── Buttons ── */
+  .fc-btn-primary {
+    background-color: var(--fc-accent);
+    color: #fff;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: var(--fc-radius-full);
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.15s;
+  }
+  .fc-btn-primary:hover { background-color: var(--fc-accent-hover); }
+
+  .fc-btn-ghost {
+    background: transparent;
+    color: var(--fc-accent);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: color 0.15s;
+  }
+  .fc-btn-ghost:hover { color: var(--fc-accent-hover); }
 }

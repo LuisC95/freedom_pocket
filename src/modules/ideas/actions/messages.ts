@@ -8,92 +8,58 @@ import {
   IdeaMessage,
   SendMessageInput,
   ToggleMessagePinInput,
+  PhaseSummariesMap,
+  PhaseReadySignal,
+  AssistantUIData,
 } from '@/modules/ideas/types'
 import { mapMessage } from '@/modules/ideas/mappers'
 import { resolveAIProvider } from '@/modules/ideas/ai/resolver'
 import { trackUsage } from '@/modules/ideas/ai/usage'
 import { normalizeProviderForStorage } from '@/modules/ideas/ai/provider'
 import { PHASES } from '@/modules/ideas/constants'
+import { buildSystemPromptForPhase } from '@/modules/ideas/ai/prompts'
+import { parseAssistantResponse } from '@/modules/ideas/ai/structured'
 
-const CONTEXT_WINDOW_HOURS = 72
-const CONTEXT_RECENT_MAX_MESSAGES = 60
-
-function getNextPhase(currentPhase: string): string | null {
-  const currentIndex = PHASES.findIndex(phase => phase.key === currentPhase)
-  if (currentIndex === -1) return null
-  return PHASES[currentIndex + 1]?.key ?? null
+interface PostgrestLikeError {
+  code?: string
+  message?: string
+  details?: string
+  hint?: string
 }
 
-function buildSystemPromptForPhase(phase: string): string {
-  const nextPhase = getNextPhase(phase)
-
-  return `Eres un coach de emprendimiento para Fastlane Compass. Guiás al usuario
-paso a paso por una conversación continua, en español, tono cercano, sin jerga
-innecesaria. Nunca reinicies el contexto: usá toda la conversación previa.
-
-Fase actual: ${phase.toUpperCase()}.
-${nextPhase ? `Siguiente fase posible: ${nextPhase.toUpperCase()}.` : 'Esta es la última fase del flujo.'}
-
-Objetivos por fase:
-- OBSERVAR: descubrir skills, intereses, ventajas, problemas observados y patrones.
-- DEFINIR: convertir lo anterior en un problema concreto, una persona concreta y un contexto claro.
-- IDEAR: proponer ideas de negocio específicas y ayudar a elegir una con más potencial.
-- EVALUAR: analizar la idea elegida con criterio práctico y ayudar a dejarla lista para guardarse.
-
-Reglas de avance:
-- Vos decidís cuándo pasar de fase.
-- Solo podés quedarte en la fase actual o avanzar una sola fase.
-- No avances si todavía faltan señales claras de comprensión.
-- Cuando avances, decilo de forma natural dentro del mensaje para el usuario.
-- Hacé una pregunta concreta por turno salvo que estés resumiendo o cerrando una fase.
-
-Metadatos obligatorios al FINAL del mensaje:
-- Siempre agregá en la última línea exactamente un bloque XML de una sola línea.
-- Formato: <fastlane_meta next_phase="${phase}" ready_to_save="false" />
-- Reemplazá next_phase por la fase que corresponde después de tu análisis.
-- ready_to_save="true" solo si la idea ya está suficientemente definida/evaluada para mostrar el formulario de guardado.
-- No expliques este bloque. No lo menciones. No agregues nada después del bloque XML.
-
-Ejemplo válido:
-<fastlane_meta next_phase="${nextPhase ?? phase}" ready_to_save="${nextPhase ? 'false' : 'true'}" />`
-}
-
-interface ParsedAssistantControl {
-  content: string
-  nextPhase: SendMessageInput['phase']
-  readyToSave: boolean
-}
-
-function parseAssistantControl(
-  rawContent: string,
-  currentPhase: SendMessageInput['phase'],
-  currentReadyToSave: boolean
-): ParsedAssistantControl {
-  const fallback: ParsedAssistantControl = {
-    content: rawContent.trim(),
-    nextPhase: currentPhase,
-    readyToSave: currentReadyToSave,
-  }
-
-  const metaMatch = rawContent.match(
-    /<fastlane_meta\s+next_phase="([^"]+)"\s+ready_to_save="([^"]+)"\s*\/>\s*$/i
+function hasMissingColumnError(
+  error: PostgrestLikeError | null,
+  column: string
+): boolean {
+  if (!error) return false
+  const blob = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase()
+  return (
+    error.code === '42703' ||
+    blob.includes(`'${column.toLowerCase()}'`) ||
+    blob.includes(`"${column.toLowerCase()}"`) ||
+    blob.includes(`${column.toLowerCase()} column`) ||
+    blob.includes('schema cache')
   )
-  if (!metaMatch) return fallback
+}
 
-  const [, requestedPhase, readyToSaveRaw] = metaMatch
-  const allowedPhases = new Set(
-    [currentPhase, getNextPhase(currentPhase)].filter(Boolean)
+function hasLegacySessionSchemaError(error: PostgrestLikeError | null): boolean {
+  return (
+    hasMissingColumnError(error, 'current_phase') ||
+    hasMissingColumnError(error, 'ready_to_save') ||
+    hasMissingColumnError(error, 'phase_summaries')
   )
+}
 
-  const nextPhase = allowedPhases.has(requestedPhase)
-    ? (requestedPhase as SendMessageInput['phase'])
-    : currentPhase
+function hasPinnedSchemaError(error: PostgrestLikeError | null): boolean {
+  return (
+    hasMissingColumnError(error, 'is_pinned') ||
+    hasMissingColumnError(error, 'pinned_at') ||
+    hasMissingColumnError(error, 'pinned_by')
+  )
+}
 
-  return {
-    content: rawContent.replace(metaMatch[0], '').trim(),
-    nextPhase,
-    readyToSave: readyToSaveRaw.toLowerCase() === 'true',
-  }
+function hasUiDataSchemaError(error: PostgrestLikeError | null): boolean {
+  return hasMissingColumnError(error, 'ui_data')
 }
 
 interface SendMessageResult {
@@ -102,13 +68,11 @@ interface SendMessageResult {
   activePhase: SendMessageInput['phase']
   phaseChanged: boolean
   readyToSave: boolean
+  phaseSuggestion: PhaseReadySignal | null
 }
 
-interface ContextMessageRow {
-  id: string
-  role: string
-  content: string
-  sequence_order: number
+function isValidPhase(value: string | undefined): value is SendMessageInput['phase'] {
+  return !!value && PHASES.some(phase => phase.key === value)
 }
 
 export async function sendMessage(
@@ -118,12 +82,40 @@ export async function sendMessage(
     const DEV_USER_ID = await getDevUserId()
     const supabase = createAdminClient()
 
-    const { data: session, error: sessionError } = await supabase
+    const primarySessionResult = await supabase
       .from('idea_sessions')
-      .select('id, status, current_phase, ready_to_save')
+      .select('id, status, current_phase, ready_to_save, phase_summaries')
       .eq('id', input.session_id)
       .eq('user_id', DEV_USER_ID)
       .single()
+
+    let session = primarySessionResult.data as {
+      id: string
+      status: string
+      current_phase?: string
+      ready_to_save?: boolean
+      phase_summaries?: PhaseSummariesMap | null
+    } | null
+    let sessionError = primarySessionResult.error
+
+    if (sessionError && hasLegacySessionSchemaError(sessionError)) {
+      const fallbackSessionResult = await supabase
+        .from('idea_sessions')
+        .select('id, status')
+        .eq('id', input.session_id)
+        .eq('user_id', DEV_USER_ID)
+        .single()
+
+      session = fallbackSessionResult.data
+        ? {
+            ...fallbackSessionResult.data,
+            current_phase: input.phase,
+            ready_to_save: false,
+            phase_summaries: {},
+          }
+        : null
+      sessionError = fallbackSessionResult.error
+    }
 
     if (sessionError || !session) {
       return { ok: false, error: 'Sesión no encontrada' }
@@ -132,7 +124,16 @@ export async function sendMessage(
       return { ok: false, error: 'La sesión ya no está activa' }
     }
 
-    const activePhase = session.current_phase as SendMessageInput['phase']
+    const activePhase = isValidPhase(input.phase)
+      ? input.phase
+      : isValidPhase(session.current_phase)
+        ? session.current_phase
+        : 'observar'
+    const currentReadyToSave = Boolean(session.ready_to_save)
+    const phaseSummaries: PhaseSummariesMap =
+      session.phase_summaries && typeof session.phase_summaries === 'object'
+        ? session.phase_summaries
+        : {}
 
     const providerResult = await resolveAIProvider(DEV_USER_ID)
     if (!providerResult.ok) return { ok: false, error: providerResult.error }
@@ -149,21 +150,23 @@ export async function sendMessage(
 
     const nextOrder = (maxRow?.sequence_order ?? 0) + 1
 
+    const userInsert = {
+      session_id: input.session_id,
+      user_id: DEV_USER_ID,
+      role: 'user',
+      content: input.content.trim(),
+      phase: activePhase,
+      sequence_order: nextOrder,
+      provider: storageProvider,
+      model: aiProvider.model,
+      tokens_input: 0,
+      tokens_output: 0,
+      cost_usd: 0,
+    }
+
     const { data: userRow, error: insertError } = await supabase
       .from('idea_session_messages')
-      .insert({
-        session_id: input.session_id,
-        user_id: DEV_USER_ID,
-        role: 'user',
-        content: input.content.trim(),
-        phase: activePhase,
-        sequence_order: nextOrder,
-        provider: storageProvider,
-        model: aiProvider.model,
-        tokens_input: 0,
-        tokens_output: 0,
-        cost_usd: 0,
-      })
+      .insert(userInsert)
       .select()
       .single()
 
@@ -174,80 +177,81 @@ export async function sendMessage(
       }
     }
 
-    const cutoffISO = new Date(
-      Date.now() - CONTEXT_WINDOW_HOURS * 60 * 60 * 1000
-    ).toISOString()
+    const { data: history, error: historyError } = await supabase
+      .from('idea_session_messages')
+      .select('role, content')
+      .eq('session_id', input.session_id)
+      .eq('phase', activePhase)
+      .order('sequence_order', { ascending: true })
 
-    const [pinnedResult, recentResult] = await Promise.all([
-      supabase
-        .from('idea_session_messages')
-        .select('id, role, content, sequence_order')
-        .eq('session_id', input.session_id)
-        .eq('is_pinned', true)
-        .order('sequence_order', { ascending: true }),
-      supabase
-        .from('idea_session_messages')
-        .select('id, role, content, sequence_order')
-        .eq('session_id', input.session_id)
-        .gte('created_at', cutoffISO)
-        .order('sequence_order', { ascending: false })
-        .limit(CONTEXT_RECENT_MAX_MESSAGES),
-    ])
-
-    if (pinnedResult.error || recentResult.error) {
+    if (historyError) {
       return {
         ok: false,
-        error: `Error al construir contexto: ${pinnedResult.error?.message ?? recentResult.error?.message ?? 'sin detalle'}`,
+        error: `Error al construir contexto: ${historyError.message}`,
       }
     }
 
-    const contextMap = new Map<string, ContextMessageRow>()
-    for (const row of pinnedResult.data ?? []) contextMap.set(row.id, row)
-    for (const row of recentResult.data ?? []) contextMap.set(row.id, row)
-
-    const contextRows = Array.from(contextMap.values()).sort(
-      (a, b) => a.sequence_order - b.sequence_order
-    )
-
-    const contextMessages = contextRows.map(row => ({
-      role: row.role as 'user' | 'assistant',
-      content: row.content,
+    const messages = (history ?? []).map(message => ({
+      role: message.role as 'user' | 'assistant',
+      content: message.content,
     }))
 
-    const systemPrompt = buildSystemPromptForPhase(activePhase)
+    const systemPrompt = buildSystemPromptForPhase(activePhase, phaseSummaries)
     const aiResult = await aiProvider.chat({
-      messages: contextMessages,
+      messages,
       system: systemPrompt,
     })
     if (!aiResult.ok) return { ok: false, error: aiResult.error }
 
-    const assistantStorageProvider = normalizeProviderForStorage(
-      aiResult.data.provider
-    )
-    const control = parseAssistantControl(
-      aiResult.data.content,
-      activePhase,
-      session.ready_to_save
-    )
+    const parsed = parseAssistantResponse(aiResult.data.content)
+    if (!parsed.parse_ok) {
+      console.warn(
+        `[ideas.sendMessage] META parse failed (session=${input.session_id}, phase=${activePhase})`
+      )
+    }
 
-    const { data: assistantRow, error: assistantError } = await supabase
-      .from('idea_session_messages')
-      .insert({
-        session_id: input.session_id,
-        user_id: DEV_USER_ID,
-        role: 'assistant',
-        content: control.content,
-        phase: control.nextPhase,
-        sequence_order: nextOrder + 1,
-        provider: assistantStorageProvider,
-        model: aiResult.data.model,
-        tokens_input: aiResult.data.tokens_input,
-        tokens_output: aiResult.data.tokens_output,
-        cost_usd: aiResult.data.cost_usd,
-        response_time_ms: aiResult.data.response_time_ms ?? null,
-      })
-      .select()
-      .single()
+    const assistantStorageProvider = normalizeProviderForStorage(aiResult.data.provider)
+    const assistantInsertBase = {
+      session_id: input.session_id,
+      user_id: DEV_USER_ID,
+      role: 'assistant',
+      content: parsed.message || aiResult.data.content,
+      phase: activePhase,
+      sequence_order: nextOrder + 1,
+      provider: assistantStorageProvider,
+      model: aiResult.data.model,
+      tokens_input: aiResult.data.tokens_input,
+      tokens_output: aiResult.data.tokens_output,
+      cost_usd: aiResult.data.cost_usd,
+      response_time_ms: aiResult.data.response_time_ms ?? null,
+    }
+
+    // Intento primero con ui_data; si la columna todavía no existe, reintento sin ella.
+    let assistantRow: Record<string, unknown> | null = null
+    let assistantError: PostgrestLikeError | null = null
+    {
+      const withUiData = {
+        ...assistantInsertBase,
+        ui_data: parsed.meta,
+      }
+      const attempt = await supabase
+        .from('idea_session_messages')
+        .insert(withUiData)
+        .select()
+        .single()
+      assistantRow = attempt.data as Record<string, unknown> | null
+      assistantError = attempt.error
+    }
+
+    if (assistantError && hasUiDataSchemaError(assistantError)) {
+      const attempt = await supabase
+        .from('idea_session_messages')
+        .insert(assistantInsertBase)
+        .select()
+        .single()
+      assistantRow = attempt.data as Record<string, unknown> | null
+      assistantError = attempt.error
+    }
 
     if (assistantError || !assistantRow) {
       return {
@@ -259,13 +263,13 @@ export async function sendMessage(
     const { error: sessionUpdateError } = await supabase
       .from('idea_sessions')
       .update({
-        current_phase: control.nextPhase,
-        ready_to_save: control.readyToSave,
+        current_phase: activePhase,
+        ready_to_save: currentReadyToSave,
       })
       .eq('id', input.session_id)
       .eq('user_id', DEV_USER_ID)
 
-    if (sessionUpdateError) {
+    if (sessionUpdateError && !hasLegacySessionSchemaError(sessionUpdateError)) {
       return {
         ok: false,
         error: `Error al actualizar estado de la sesión: ${sessionUpdateError.message}`,
@@ -281,14 +285,20 @@ export async function sendMessage(
       cost_usd: aiResult.data.cost_usd,
     })
 
+    // Si la columna ui_data no existe todavía, garantizo el meta en memoria
+    // para que la UI pueda usar options/phase_ready igual en esta respuesta.
+    const assistantMessage = mapMessage(assistantRow as never)
+    const meta: AssistantUIData | null = assistantMessage.ui_data ?? parsed.meta
+
     return {
       ok: true,
       data: {
         userMessage: mapMessage(userRow),
-        assistantMessage: mapMessage(assistantRow),
-        activePhase: control.nextPhase,
-        phaseChanged: control.nextPhase !== activePhase,
-        readyToSave: control.readyToSave,
+        assistantMessage: { ...assistantMessage, ui_data: meta },
+        activePhase,
+        phaseChanged: false,
+        readyToSave: currentReadyToSave,
+        phaseSuggestion: meta?.phase_ready ?? null,
       },
     }
   } catch (e) {
@@ -319,6 +329,12 @@ export async function toggleMessagePin(
       .single()
 
     if (error || !data) {
+      if (hasPinnedSchemaError(error)) {
+        return {
+          ok: false,
+          error: 'Pin no disponible todavía: aplica la migración más reciente y recarga.',
+        }
+      }
       return {
         ok: false,
         error: `No se pudo actualizar el pin: ${error?.message ?? 'mensaje no encontrado'}`,

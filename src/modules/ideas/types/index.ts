@@ -82,10 +82,49 @@ export type IdeaMessageRow = Omit<RawIdeaMessageRow, 'role' | 'phase' | 'provide
 //    o calcula algo. No todos los actions los devuelven — son hints.
 // ══════════════════════════════════════════════════════════
 
+// Payload de UI estructurado que la IA emite dentro del bloque META
+// al final de cada respuesta. Se persiste en idea_session_messages.ui_data.
+export interface AssistantOption {
+  id: string
+  label: string
+  /** Si está presente, al hacer click se abre un input para que el usuario elabore. */
+  detail_prompt?: string
+}
+
+export interface PhaseReadySignal {
+  target: Phase
+  reason: string
+}
+
+export interface AssistantUIData {
+  options?: AssistantOption[]
+  phase_ready?: PhaseReadySignal | null
+  /** Marcador especial para mensajes que representan un evento (no prosa). */
+  kind?: 'phase_transition' | 'option_click'
+  /** Solo para kind='phase_transition'. */
+  from?: Phase
+  to?: Phase
+  summary?: string
+  /** Solo para kind='option_click'. Útil para analytics. */
+  option_id?: string
+}
+
+// Resumen generado al cerrar una fase; se inyecta como contexto
+// en el system prompt de fases posteriores.
+export interface PhaseSummary {
+  summary: string
+  generated_at: string
+  model: string
+  tokens: number
+}
+
+export type PhaseSummariesMap = Partial<Record<Phase, PhaseSummary>>
+
 export interface IdeaSession extends IdeaSessionRow {
   ideas?:          Idea[]
   messages?:       IdeaMessage[]
   messages_count?: number
+  phase_summaries: PhaseSummariesMap
 }
 
 export interface Idea extends IdeaRow {
@@ -104,6 +143,7 @@ export interface IdeaDeepDive extends IdeaDeepDiveRow {
 
 export interface IdeaMessage extends IdeaMessageRow {
   session?: IdeaSession
+  ui_data: AssistantUIData | null
 }
 
 // ══════════════════════════════════════════════════════════

@@ -302,19 +302,21 @@ export function TransactionSlider({
   return (
     <div>
       {/* Tabs */}
-      <div style={{ display: 'flex', backgroundColor: 'white', borderRadius: '10px 10px 0 0', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', backgroundColor: '#EAF0EC', borderRadius: '9999px', padding: '4px', gap: '4px', marginBottom: '16px' }}>
         {TABS.map((t, i) => (
           <button
             key={t}
             onClick={() => setTab(i)}
             style={{
-              flex: 1, textAlign: 'center', padding: '10px 4px',
-              fontFamily: 'var(--font-sans)', fontSize: '11px',
-              color: tab === i ? '#2E7D52' : '#7A9A8A',
-              backgroundColor: 'white',
-              borderTop: 'none', borderLeft: 'none', borderRight: 'none',
-              borderBottom: tab === i ? '2px solid #2E7D52' : '2px solid transparent',
+              flex: 1, textAlign: 'center', padding: '7px 4px',
+              fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
+              color: tab === i ? '#141F19' : '#7A9A8A',
+              backgroundColor: tab === i ? '#FFFFFF' : 'transparent',
+              border: 'none',
+              borderRadius: '9999px',
+              boxShadow: tab === i ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
               cursor: 'pointer',
+              transition: 'all 0.15s',
             }}
           >
             {t}
@@ -324,7 +326,7 @@ export function TransactionSlider({
 
       {/* Tab 1 — Gastos */}
       {tab === 0 && (
-        <div style={{ backgroundColor: 'white', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}>
+        <div style={{ backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden' }}>
           {transaction_groups.length === 0 ? (
             <div style={{ padding: '24px', textAlign: 'center' }}>
               <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#7A9A8A' }}>Sin transacciones este período</p>
@@ -377,7 +379,7 @@ export function TransactionSlider({
 
       {/* Tab 2 — Presupuestos */}
       {tab === 1 && (
-        <div style={{ backgroundColor: 'white', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}>
+        <div style={{ backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden' }}>
           {budgets.length === 0 ? (
             <div style={{ padding: '24px', textAlign: 'center' }}>
               <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#7A9A8A' }}>Los presupuestos aparecerán automáticamente al registrar gastos</p>
@@ -429,7 +431,7 @@ export function TransactionSlider({
 
       {/* Tab 3 — Habituales */}
       {tab === 2 && (
-        <div style={{ backgroundColor: 'white', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}>
+        <div style={{ backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden' }}>
 
           {recurring_templates.length === 0 ? (
             <div style={{ padding: '24px', textAlign: 'center' }}>

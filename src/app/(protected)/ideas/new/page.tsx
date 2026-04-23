@@ -15,7 +15,7 @@ export default async function NewIdeaPage({ searchParams }: NewIdeaPageProps) {
 
   if (!sessionId) redirect('/ideas')
 
-  const result = await getSession(sessionId, { includeMessages: true })
+  const result = await getSession(sessionId, { includeMessages: true, includeIdeas: true })
   if (!result.ok) redirect('/ideas')
 
   const session = result.data

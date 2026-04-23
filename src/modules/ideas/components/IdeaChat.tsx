@@ -2,22 +2,28 @@
 
 import { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import type { IdeaSession, IdeaMessage, Phase, AIProvider } from '@/modules/ideas/types'
+import type {
+  IdeaSession,
+  IdeaMessage,
+  Phase,
+  AIProvider,
+  PhaseSummariesMap,
+  AssistantOption,
+} from '@/modules/ideas/types'
 import { PHASES, ENTRY_POINTS } from '@/modules/ideas/constants'
 import {
   sendMessage,
   createIdeaFromSession,
-  toggleMessagePin,
+  acceptPhaseTransition,
 } from '@/modules/ideas/actions'
 import { PhaseIndicator } from './PhaseIndicator'
+import { MessageOptionsPicker } from './MessageOptionsPicker'
+import { PhaseAdvanceSuggestion } from './PhaseAdvanceSuggestion'
+import { PreviousPhaseContext } from './PreviousPhaseContext'
+import { PhaseDivider } from './PhaseDivider'
 
 interface IdeaChatProps {
   session: IdeaSession
-}
-
-function getOptimisticProvider(session: IdeaSession): AIProvider {
-  const lastProvider = session.messages?.at(-1)?.provider
-  return lastProvider ?? 'anthropic'
 }
 
 function getPhasesFromEntryPoint(entryPoint: string): Phase[] {
@@ -29,15 +35,14 @@ function getPhasesFromEntryPoint(entryPoint: string): Phase[] {
 
 function getInitialPhase(session: IdeaSession, availablePhases: Phase[]): Phase {
   if (availablePhases.includes(session.current_phase)) return session.current_phase
-
   const lastPhase = session.messages?.at(-1)?.phase
   if (lastPhase && availablePhases.includes(lastPhase)) return lastPhase
-
   return availablePhases[0]
 }
 
-function getPhaseLabel(phase: Phase): string {
-  return PHASES.find(item => item.key === phase)?.label ?? phase
+function getOptimisticProvider(messages: IdeaMessage[]): AIProvider {
+  const lastProvider = messages.at(-1)?.provider
+  return lastProvider ?? 'anthropic'
 }
 
 export function IdeaChat({ session }: IdeaChatProps) {
@@ -46,13 +51,17 @@ export function IdeaChat({ session }: IdeaChatProps) {
   const [currentPhase, setCurrentPhase] = useState<Phase>(
     getInitialPhase(session, availablePhases)
   )
-  const [messages, setMessages] = useState<IdeaMessage[]>(session.messages ?? [])
+  const [allMessages, setAllMessages] = useState<IdeaMessage[]>(session.messages ?? [])
+  const [phaseSummaries, setPhaseSummaries] = useState<PhaseSummariesMap>(
+    session.phase_summaries ?? {}
+  )
   const [input, setInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
-  const [pinPending, startPinTransition] = useTransition()
+  const [advancePending, startAdvanceTransition] = useTransition()
+  const [dismissedSuggestion, setDismissedSuggestion] = useState<string | null>(null)
 
-  const [showSaveForm, setShowSaveForm] = useState(Boolean(session.ready_to_save))
+  const [showSaveForm, setShowSaveForm] = useState(false)
   const [saveTitle, setSaveTitle] = useState('')
   const [saveConcept, setSaveConcept] = useState('')
   const [savePending, startSaveTransition] = useTransition()
@@ -60,18 +69,37 @@ export function IdeaChat({ session }: IdeaChatProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  const messages = allMessages.filter(message => message.phase === currentPhase)
+  const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant')
+  const lastAssistantMeta = lastAssistant?.ui_data ?? null
+  const pickerOptions =
+    lastAssistantMeta?.kind !== 'phase_transition' && lastAssistantMeta?.options
+      ? lastAssistantMeta.options
+      : null
+  const phaseReady =
+    lastAssistantMeta?.kind !== 'phase_transition' && lastAssistantMeta?.phase_ready
+      ? lastAssistantMeta.phase_ready
+      : null
+  const showSuggestion =
+    !!phaseReady && !pending && dismissedSuggestion !== lastAssistant?.id
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, pending, pinPending, showSaveForm])
+  }, [messages.length, pending, showSaveForm, advancePending])
 
   useEffect(() => {
     if (!pending) textareaRef.current?.focus()
-  }, [pending])
+  }, [pending, currentPhase, showSaveForm])
 
-  function handleSend() {
-    const content = input.trim()
+  function handlePhaseChange(phase: Phase) {
+    setCurrentPhase(phase)
+    setInput('')
+    setError(null)
+    setShowSaveForm(false)
+  }
+
+  function doSend(content: string, extraUiData?: IdeaMessage['ui_data']) {
     if (!content || pending) return
-
     setError(null)
     setInput('')
 
@@ -82,8 +110,8 @@ export function IdeaChat({ session }: IdeaChatProps) {
       role: 'user',
       content,
       phase: currentPhase,
-      sequence_order: (messages.at(-1)?.sequence_order ?? 0) + 1,
-      provider: getOptimisticProvider(session),
+      sequence_order: (allMessages.at(-1)?.sequence_order ?? 0) + 1,
+      provider: getOptimisticProvider(allMessages),
       model: '',
       tokens_input: 0,
       tokens_output: 0,
@@ -93,9 +121,9 @@ export function IdeaChat({ session }: IdeaChatProps) {
       is_pinned: false,
       pinned_at: null,
       pinned_by: null,
+      ui_data: extraUiData ?? null,
     }
-
-    setMessages(prev => [...prev, optimisticMsg])
+    setAllMessages(prev => [...prev, optimisticMsg])
 
     startTransition(async () => {
       const result = await sendMessage({
@@ -103,199 +131,173 @@ export function IdeaChat({ session }: IdeaChatProps) {
         phase: currentPhase,
         content,
       })
-
       if (!result.ok) {
-        setMessages(prev => prev.filter(message => message.id !== optimisticMsg.id))
+        setAllMessages(prev => prev.filter(message => message.id !== optimisticMsg.id))
         setError(
           result.error === 'AI_NOT_AVAILABLE'
-            ? 'AI no disponible para este usuario. Contacta al admin.'
+            ? 'AI no disponible para este usuario. Contactá al admin.'
             : result.error
         )
         return
       }
-
-      setMessages(prev => [
+      setAllMessages(prev => [
         ...prev.filter(message => message.id !== optimisticMsg.id),
         result.data.userMessage,
         result.data.assistantMessage,
       ])
-      setCurrentPhase(result.data.activePhase)
-      setShowSaveForm(result.data.readyToSave)
     })
   }
 
-  function handleTogglePin(message: IdeaMessage) {
-    if (message.id.startsWith('opt-')) return
+  function handleSend() {
+    doSend(input.trim())
+  }
 
+  function handleOptionPick(content: string, option: AssistantOption) {
+    doSend(content, { kind: 'option_click', option_id: option.id })
+  }
+
+  function handleAcceptPhase(target: Phase) {
+    if (advancePending) return
     setError(null)
-    const previousPinned = message.is_pinned
-    const nextPinned = !previousPinned
-
-    setMessages(prev =>
-      prev.map(item =>
-        item.id === message.id
-          ? {
-              ...item,
-              is_pinned: nextPinned,
-              pinned_at: nextPinned ? new Date().toISOString() : null,
-              pinned_by: nextPinned ? session.user_id : null,
-            }
-          : item
-      )
-    )
-
-    startPinTransition(async () => {
-      const result = await toggleMessagePin({
-        message_id: message.id,
-        is_pinned: nextPinned,
+    startAdvanceTransition(async () => {
+      const result = await acceptPhaseTransition({
+        session_id: session.id,
+        from_phase: currentPhase,
+        to_phase: target,
       })
-
       if (!result.ok) {
-        setMessages(prev =>
-          prev.map(item =>
-            item.id === message.id
-              ? {
-                  ...item,
-                  is_pinned: previousPinned,
-                  pinned_at: message.pinned_at,
-                  pinned_by: message.pinned_by,
-                }
-              : item
-          )
-        )
         setError(result.error)
         return
       }
-
-      setMessages(prev =>
-        prev.map(item => (item.id === message.id ? result.data : item))
-      )
+      setPhaseSummaries(result.data.session.phase_summaries ?? {})
+      setAllMessages(prev => {
+        const exists = prev.some(m => m.id === result.data.transitionMessage.id)
+        return exists ? prev : [...prev, result.data.transitionMessage]
+      })
+      setCurrentPhase(target)
+      setInput('')
     })
+  }
+
+  function handleNextPhase() {
+    const currentIdx = availablePhases.indexOf(currentPhase)
+    const next = availablePhases[currentIdx + 1]
+    if (next) handleAcceptPhase(next)
+    else setShowSaveForm(true)
   }
 
   function handleSaveIdea() {
     if (!saveTitle.trim() || !saveConcept.trim()) return
-
     startSaveTransition(async () => {
       const result = await createIdeaFromSession({
         session_id: session.id,
         title: saveTitle.trim(),
         concept: saveConcept.trim(),
       })
-
       if (!result.ok) {
         setError(result.error)
         return
       }
-
       router.push(`/ideas/${result.data.id}`)
     })
   }
 
+  const isLastPhase = availablePhases.indexOf(currentPhase) === availablePhases.length - 1
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      <div style={{
-        padding: '12px 16px',
-        borderBottom: '1px solid #E4EDE8',
-        backgroundColor: '#fff',
-        position: 'sticky', top: 0, zIndex: 10,
-      }}>
+      <div
+        style={{
+          padding: '12px 16px',
+          borderBottom: '1px solid #E4EDE8',
+          backgroundColor: '#fff',
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+        }}
+      >
         <PhaseIndicator currentPhase={currentPhase} />
-        <p style={{
-          margin: '8px 0 0',
-          fontSize: 12,
-          color: '#7A9A8A',
-          fontFamily: 'var(--font-sans)',
-        }}>
-          Contexto de AI: mensajes fijados + ventana temporal de 72h.
-        </p>
+        {availablePhases.length > 1 && (
+          <div className="flex gap-1 overflow-x-auto mt-2">
+            {availablePhases.map(phase => {
+              const meta = PHASES.find(item => item.key === phase)
+              return (
+                <button
+                  key={phase}
+                  onClick={() => handlePhaseChange(phase)}
+                  style={{
+                    padding: '3px 10px',
+                    borderRadius: 20,
+                    fontSize: 10,
+                    fontFamily: 'var(--font-sans)',
+                    border: `1px solid ${currentPhase === phase ? '#3A9E6A' : '#E4EDE8'}`,
+                    backgroundColor: currentPhase === phase ? '#F0FBF4' : '#fff',
+                    color: currentPhase === phase ? '#3A9E6A' : '#7A9A8A',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {meta?.label ?? phase}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}
+      >
+        <PreviousPhaseContext currentPhase={currentPhase} summaries={phaseSummaries} />
+
         {messages.length === 0 && (
           <div style={{ textAlign: 'center', padding: '32px 0' }}>
             <p style={{ fontSize: 13, color: '#7A9A8A', fontFamily: 'var(--font-sans)' }}>
-              Envia tu primer mensaje para empezar la conversación.
+              Enviá tu primer mensaje para empezar la conversación.
             </p>
           </div>
         )}
 
-        {messages.map((msg, index) => {
-          const previousPhase = index > 0 ? messages[index - 1].phase : null
-          const showPhaseDivider = msg.role === 'assistant' && msg.phase !== previousPhase
-
+        {messages.map(message => {
+          if (message.ui_data?.kind === 'phase_transition' && message.ui_data.from && message.ui_data.to) {
+            return (
+              <PhaseDivider
+                key={message.id}
+                from={message.ui_data.from}
+                to={message.ui_data.to}
+                summary={message.ui_data.summary}
+              />
+            )
+          }
           return (
-            <div key={msg.id}>
-              {showPhaseDivider && (
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
-                  <div style={{
-                    padding: '5px 10px',
-                    borderRadius: 999,
-                    backgroundColor: '#F0FBF4',
-                    border: '1px solid #D7EADD',
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: '#3A9E6A',
-                    fontFamily: 'var(--font-sans)',
-                  }}>
-                    Nueva fase: {getPhaseLabel(msg.phase)}
-                  </div>
-                </div>
-              )}
-
-              <div style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                <div style={{ maxWidth: '80%' }}>
-                  <div style={{
-                    padding: '10px 14px',
-                    borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                    backgroundColor: msg.role === 'user' ? '#3A9E6A' : '#F0FBF4',
-                    color: msg.role === 'user' ? '#fff' : '#141F19',
-                    fontSize: 13,
-                    fontFamily: 'var(--font-sans)',
-                    lineHeight: 1.5,
-                    whiteSpace: 'pre-wrap',
-                  }}>
-                    {msg.content}
-                  </div>
-
-                  <div style={{
-                    marginTop: 6,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                    gap: 8,
-                  }}>
-                    {msg.is_pinned && (
-                      <span style={{
-                        fontSize: 11,
-                        color: '#3A9E6A',
-                        fontWeight: 600,
-                        fontFamily: 'var(--font-sans)',
-                      }}>
-                        Fijo en contexto
-                      </span>
-                    )}
-                    {!msg.id.startsWith('opt-') && (
-                      <button
-                        type="button"
-                        disabled={pinPending}
-                        onClick={() => handleTogglePin(msg)}
-                        style={{
-                          border: 'none',
-                          background: 'transparent',
-                          padding: 0,
-                          fontSize: 11,
-                          color: '#7A9A8A',
-                          fontFamily: 'var(--font-sans)',
-                          cursor: pinPending ? 'default' : 'pointer',
-                          opacity: pinPending ? 0.6 : 1,
-                        }}
-                      >
-                        {msg.is_pinned ? 'Desfijar' : 'Fijar'}
-                      </button>
-                    )}
-                  </div>
-                </div>
+            <div
+              key={message.id}
+              style={{
+                display: 'flex',
+                justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start',
+              }}
+            >
+              <div
+                style={{
+                  maxWidth: '80%',
+                  padding: '10px 14px',
+                  borderRadius: message.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                  backgroundColor: message.role === 'user' ? '#3A9E6A' : '#F0FBF4',
+                  color: message.role === 'user' ? '#fff' : '#141F19',
+                  fontSize: 13,
+                  fontFamily: 'var(--font-sans)',
+                  lineHeight: 1.5,
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {message.content}
               </div>
             </div>
           )
@@ -303,36 +305,90 @@ export function IdeaChat({ session }: IdeaChatProps) {
 
         {pending && (
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <div style={{
-              padding: '10px 16px',
-              borderRadius: '16px 16px 16px 4px',
-              backgroundColor: '#F0FBF4',
-              color: '#7A9A8A',
-              fontSize: 13,
-              fontFamily: 'var(--font-sans)',
-            }}>
+            <div
+              style={{
+                padding: '10px 16px',
+                borderRadius: '16px 16px 16px 4px',
+                backgroundColor: '#F0FBF4',
+                color: '#7A9A8A',
+                fontSize: 13,
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
               ...
             </div>
           </div>
         )}
 
+        {pickerOptions && !pending && !showSaveForm && (
+          <MessageOptionsPicker
+            options={pickerOptions}
+            disabled={pending || advancePending}
+            onPick={handleOptionPick}
+          />
+        )}
+
+        {showSuggestion && phaseReady && (
+          <PhaseAdvanceSuggestion
+            signal={phaseReady}
+            currentPhase={currentPhase}
+            pending={advancePending}
+            onAccept={handleAcceptPhase}
+            onDismiss={() => setDismissedSuggestion(lastAssistant?.id ?? null)}
+          />
+        )}
+
+        {messages.length > 0 && !pending && !showSaveForm && !showSuggestion && (
+          <div style={{ textAlign: 'center', marginTop: 8 }}>
+            <button
+              onClick={handleNextPhase}
+              disabled={advancePending}
+              style={{
+                padding: '8px 16px',
+                borderRadius: 20,
+                fontSize: 12,
+                fontFamily: 'var(--font-sans)',
+                fontWeight: 600,
+                border: '1.5px solid #3A9E6A',
+                backgroundColor: '#F0FBF4',
+                color: '#3A9E6A',
+                cursor: advancePending ? 'not-allowed' : 'pointer',
+                opacity: advancePending ? 0.6 : 1,
+              }}
+            >
+              {advancePending
+                ? 'Resumiendo fase...'
+                : isLastPhase
+                  ? 'Guardar idea y continuar →'
+                  : 'Siguiente fase →'}
+            </button>
+          </div>
+        )}
+
         {showSaveForm && (
-          <div style={{
-            border: '1.5px solid #E4EDE8',
-            borderRadius: 12,
-            padding: '16px',
-            backgroundColor: '#fff',
-            marginTop: 8,
-          }}>
-            <p style={{ fontSize: 14, fontWeight: 600, color: '#141F19', fontFamily: 'var(--font-sans)', margin: '0 0 6px' }}>
-              La idea ya está lista para guardarse
-            </p>
-            <p style={{ fontSize: 12, color: '#7A9A8A', fontFamily: 'var(--font-sans)', margin: '0 0 12px' }}>
-              Pone un título y una descripción breve para convertir esta conversación en una idea.
+          <div
+            style={{
+              border: '1.5px solid #E4EDE8',
+              borderRadius: 12,
+              padding: '16px',
+              backgroundColor: '#fff',
+              marginTop: 8,
+            }}
+          >
+            <p
+              style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#141F19',
+                fontFamily: 'var(--font-sans)',
+                margin: '0 0 12px',
+              }}
+            >
+              Guardá tu idea
             </p>
             <input
               value={saveTitle}
-              onChange={e => setSaveTitle(e.target.value)}
+              onChange={event => setSaveTitle(event.target.value)}
               placeholder="Título de la idea..."
               style={{
                 width: '100%',
@@ -349,7 +405,7 @@ export function IdeaChat({ session }: IdeaChatProps) {
             />
             <textarea
               value={saveConcept}
-              onChange={e => setSaveConcept(e.target.value)}
+              onChange={event => setSaveConcept(event.target.value)}
               placeholder="Concepto en una frase..."
               rows={2}
               style={{
@@ -380,16 +436,23 @@ export function IdeaChat({ session }: IdeaChatProps) {
                 fontWeight: 600,
                 fontFamily: 'var(--font-sans)',
                 cursor: 'pointer',
-                opacity: (savePending || !saveTitle.trim() || !saveConcept.trim()) ? 0.5 : 1,
+                opacity: savePending || !saveTitle.trim() || !saveConcept.trim() ? 0.5 : 1,
               }}
             >
-              {savePending ? 'Guardando...' : 'Guardar idea ->'}
+              {savePending ? 'Guardando...' : 'Guardar idea →'}
             </button>
           </div>
         )}
 
         {error && (
-          <p style={{ fontSize: 12, color: '#E84434', fontFamily: 'var(--font-sans)', textAlign: 'center' }}>
+          <p
+            style={{
+              fontSize: 12,
+              color: '#E84434',
+              fontFamily: 'var(--font-sans)',
+              textAlign: 'center',
+            }}
+          >
             {error}
           </p>
         )}
@@ -398,21 +461,23 @@ export function IdeaChat({ session }: IdeaChatProps) {
       </div>
 
       {!showSaveForm && (
-        <div style={{
-          padding: '12px 16px',
-          borderTop: '1px solid #E4EDE8',
-          backgroundColor: '#fff',
-          display: 'flex',
-          gap: 8,
-          alignItems: 'flex-end',
-        }}>
+        <div
+          style={{
+            padding: '12px 16px',
+            borderTop: '1px solid #E4EDE8',
+            backgroundColor: '#fff',
+            display: 'flex',
+            gap: 8,
+            alignItems: 'flex-end',
+          }}
+        >
           <textarea
             ref={textareaRef}
             value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
+            onChange={event => setInput(event.target.value)}
+            onKeyDown={event => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault()
                 handleSend()
               }
             }}
@@ -448,11 +513,11 @@ export function IdeaChat({ session }: IdeaChatProps) {
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              opacity: (pending || !input.trim()) ? 0.5 : 1,
+              opacity: pending || !input.trim() ? 0.5 : 1,
               flexShrink: 0,
             }}
           >
-            ^
+            ↑
           </button>
         </div>
       )}

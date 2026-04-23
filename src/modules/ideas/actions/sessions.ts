@@ -11,6 +11,35 @@ import {
 import { ENTRY_POINTS } from '@/modules/ideas/constants'
 import { mapSession, mapMessage, mapIdea } from '@/modules/ideas/mappers'
 
+interface PostgrestLikeError {
+  code?: string
+  message?: string
+  details?: string
+  hint?: string
+}
+
+function hasMissingColumnError(
+  error: PostgrestLikeError | null,
+  column: string
+): boolean {
+  if (!error) return false
+  const blob = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase()
+  return (
+    error.code === '42703' ||
+    blob.includes(`'${column.toLowerCase()}'`) ||
+    blob.includes(`"${column.toLowerCase()}"`) ||
+    blob.includes(`${column.toLowerCase()} column`) ||
+    blob.includes('schema cache')
+  )
+}
+
+function hasLegacySessionSchemaError(error: PostgrestLikeError | null): boolean {
+  return (
+    hasMissingColumnError(error, 'current_phase') ||
+    hasMissingColumnError(error, 'ready_to_save')
+  )
+}
+
 // ─────────────────────────────────────────────
 // 1. createSession
 // ─────────────────────────────────────────────
@@ -31,7 +60,7 @@ export async function createSession(
 
     const supabase = createAdminClient()
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('idea_sessions')
       .insert({
         user_id:       DEV_USER_ID,
@@ -43,6 +72,22 @@ export async function createSession(
       })
       .select()
       .single()
+
+    if (error && hasLegacySessionSchemaError(error)) {
+      const fallback = await supabase
+        .from('idea_sessions')
+        .insert({
+          user_id: DEV_USER_ID,
+          entry_point: input.entry_point,
+          raw_input: input.raw_input?.trim() ?? null,
+          status: 'in_progress',
+        })
+        .select()
+        .single()
+
+      data = fallback.data
+      error = fallback.error
+    }
 
     if (error) return { ok: false, error: error.message }
 

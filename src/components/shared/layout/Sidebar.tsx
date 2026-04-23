@@ -59,12 +59,12 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
   return (
     <aside
       className="fixed left-0 top-0 z-40 hidden md:flex flex-col items-center w-[68px] h-screen py-4 gap-2"
-      style={{ backgroundColor: 'var(--color-sidebar)' }}
+      style={{ backgroundColor: 'var(--fc-dark)' }}
     >
       {/* Logo */}
       <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 font-bold text-sm text-white shrink-0"
-        style={{ backgroundColor: 'var(--color-accent)', fontFamily: 'var(--font-mono)' }}
+        className="w-10 h-10 rounded-full flex items-center justify-center mb-3 font-bold text-sm text-white shrink-0"
+        style={{ backgroundColor: 'var(--fc-accent)', fontFamily: 'var(--font-mono)', boxShadow: '0 2px 10px rgba(46,125,82,0.45)' }}
       >
         FC
       </div>
@@ -78,7 +78,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex flex-col items-center gap-1 w-14 py-2.5 px-1 rounded-xl transition-colors',
+                'flex flex-col items-center gap-1 w-14 py-[9px] px-1 rounded-full transition-colors',
                 isActive ? 'text-[#3A9E6A]' : 'text-[#6A8A7A] hover:text-[#3A9E6A]'
               )}
               style={isActive ? { backgroundColor: '#2E7D5228' } : undefined}
@@ -95,7 +95,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
       {/* Avatar */}
       <div
         className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0"
-        style={{ backgroundColor: 'var(--color-accent)', fontFamily: 'var(--font-sans)' }}
+        style={{ backgroundColor: 'var(--fc-accent)', fontFamily: 'var(--font-sans)' }}
       >
         JD
       </div>

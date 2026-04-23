@@ -1,6 +1,7 @@
 // Barrel de re-exportaciones — cada módulo declara su propio 'use server'
 export * from './sessions'
 export * from './messages'
+export * from './phases'
 export * from './ideas'
 export * from './transitions'
 export * from './deepDive'

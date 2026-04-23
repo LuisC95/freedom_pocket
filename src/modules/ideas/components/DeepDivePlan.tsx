@@ -19,6 +19,10 @@ export function DeepDivePlan({ ideaId, deepDive, readOnly = false }: DeepDivePla
     }
     return init
   })
+  const [aiNotes, setAiNotes] = useState<string>(
+    ((deepDive as Record<string, unknown> | null)?.ai_notes as string) ?? ''
+  )
+  const [showAiNotes, setShowAiNotes] = useState(false)
   const [saving, setSaving] = useState<Record<string, boolean>>({})
   const debounceRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
@@ -33,6 +37,13 @@ export function DeepDivePlan({ ideaId, deepDive, readOnly = false }: DeepDivePla
       await upsertDeepDiveField({ idea_id: ideaId, field: key as DeepDiveField, value })
       setSaving(prev => ({ ...prev, [key]: false }))
     }, 800)
+  }
+
+  async function handleAiNotesBlur() {
+    if (readOnly) return
+    setSaving(prev => ({ ...prev, ai_notes: true }))
+    await upsertDeepDiveField({ idea_id: ideaId, field: 'ai_notes', value: aiNotes })
+    setSaving(prev => ({ ...prev, ai_notes: false }))
   }
 
   return (
@@ -80,6 +91,62 @@ export function DeepDivePlan({ ideaId, deepDive, readOnly = false }: DeepDivePla
           />
         </div>
       ))}
+
+      <div style={{ borderTop: '1px solid #E4EDE8', paddingTop: 6 }}>
+        <button
+          type="button"
+          onClick={() => setShowAiNotes(prev => !prev)}
+          style={{
+            border: 'none',
+            background: 'transparent',
+            padding: 0,
+            fontSize: 12,
+            fontWeight: 600,
+            color: '#3A9E6A',
+            fontFamily: 'var(--font-sans)',
+            cursor: 'pointer',
+          }}
+        >
+          {showAiNotes ? 'Ocultar notas AI' : 'Ver notas AI (opcional)'}
+        </button>
+
+        {showAiNotes && (
+          <div style={{ marginTop: 8 }}>
+            <div className="flex items-center justify-between mb-1">
+              <label style={{ fontSize: 12, color: '#7A9A8A', fontFamily: 'var(--font-sans)' }}>
+                Contexto extra generado por AI
+              </label>
+              {saving.ai_notes && (
+                <span style={{ fontSize: 10, color: '#7A9A8A', fontFamily: 'var(--font-sans)' }}>
+                  guardando...
+                </span>
+              )}
+            </div>
+            <textarea
+              value={aiNotes}
+              onChange={e => setAiNotes(e.target.value)}
+              onBlur={handleAiNotesBlur}
+              readOnly={readOnly}
+              rows={3}
+              placeholder={readOnly ? '—' : 'Notas internas de contexto...'}
+              style={{
+                width: '100%',
+                border: '1.5px solid #E4EDE8',
+                borderRadius: 8,
+                padding: '8px 10px',
+                fontSize: 12,
+                color: '#141F19',
+                fontFamily: 'var(--font-sans)',
+                resize: 'none',
+                backgroundColor: readOnly ? '#FAFAFA' : '#fff',
+                outline: 'none',
+                boxSizing: 'border-box',
+                lineHeight: 1.5,
+              }}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

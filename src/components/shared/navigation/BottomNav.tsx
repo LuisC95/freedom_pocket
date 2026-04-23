@@ -58,8 +58,15 @@ export function BottomNav({ isAdmin = false }: BottomNavProps) {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 flex md:hidden items-center justify-around h-[60px] px-2"
-      style={{ backgroundColor: 'var(--color-sidebar)' }}
+      className="fixed z-40 flex md:hidden items-center justify-around h-[64px] px-4"
+      style={{
+        backgroundColor: 'var(--fc-dark)',
+        bottom: '12px',
+        left: '16px',
+        right: '16px',
+        borderRadius: '9999px',
+        boxShadow: '8px 8px 20px rgba(10,18,14,0.45), -4px -4px 12px rgba(40,60,48,0.25)',
+      }}
     >
       {visibleItems.map((item) => {
         const isActive = pathname.startsWith(item.href)
@@ -68,7 +75,7 @@ export function BottomNav({ isAdmin = false }: BottomNavProps) {
             key={item.href}
             href={item.href}
             className={cn(
-              'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors',
+              'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-full transition-colors',
               isActive ? 'text-[#3A9E6A]' : 'text-[#6A8A7A] hover:text-[#3A9E6A]'
             )}
             style={isActive ? { backgroundColor: '#2E7D5222' } : undefined}

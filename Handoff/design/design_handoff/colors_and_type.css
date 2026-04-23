@@ -1,0 +1,273 @@
+/* ============================================================
+   FASTLANE COMPASS — Design Tokens & Typography
+   Palette: "B Crecimiento"
+   Fonts: IBM Plex Mono (numbers) + IBM Plex Sans (UI)
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+/* ── Base Color Tokens ────────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --fc-base:          #F2F7F4;   /* App background */
+  --fc-surface:       #EAF0EC;   /* Mini cards, stat bg */
+  --fc-surface-white: #FFFFFF;   /* Card/modal surfaces */
+
+  /* Dark (sidebar, hero cards, modals) */
+  --fc-dark:          #1A2520;   /* Sidebar, bottom nav, hero cards */
+  --fc-card-dark:     #243028;   /* Slightly lighter dark card */
+
+  /* Accent – Green */
+  --fc-accent:        #2E7D52;   /* Primary CTAs, active states, logo */
+  --fc-accent-hover:  #3A9E6A;   /* Hover, positive values, active label */
+  --fc-accent-ghost:  #2E7D5228; /* Ghost bg on active nav item */
+
+  /* Premium – Gold (AI / gamification ONLY) */
+  --fc-gold:          #C69B30;
+  --fc-gold-bg:       #C69B3018; /* Gold chip background */
+  --fc-gold-border:   #C69B3040; /* Gold chip border */
+
+  /* Danger / Negative */
+  --fc-danger:        #E84434;
+  --fc-danger-bg:     #E8443418;
+
+  /* Typography */
+  --fc-text-primary:   #141F19;  /* Titles, values */
+  --fc-text-secondary: #7A9A8A;  /* Labels, metadata */
+  --fc-text-on-dark:   #F2F7F4;  /* Text on dark surfaces */
+  --fc-text-muted:     rgba(255,255,255,0.30); /* Muted text on dark */
+
+  /* Borders */
+  --fc-border-light:  #EAF0EC;
+  --fc-border-dark:   rgba(255,255,255,0.08);
+  --fc-border-accent: rgba(46,125,82,0.25);
+
+  /* ── Semantic Tokens ──────────────────────────────────── */
+  --fc-color-positive:   var(--fc-accent-hover);
+  --fc-color-negative:   var(--fc-danger);
+  --fc-color-premium:    var(--fc-gold);
+  --fc-color-neutral:    var(--fc-text-secondary);
+
+  /* ── Typography ────────────────────────────────────────── */
+  --font-sans:  'IBM Plex Sans',  sans-serif;
+  --font-mono:  'IBM Plex Mono',  monospace;
+
+  /* ── Type Scale ─────────────────────────────────────────── */
+  --fc-text-micro:   9px;   /* Labels, metadata, caps */
+  --fc-text-xs:      10px;
+  --fc-text-sm:      11px;
+  --fc-text-base:    13px;
+  --fc-text-md:      14px;
+  --fc-text-lg:      16px;
+  --fc-text-xl:      19px;  /* Secondary values */
+  --fc-text-2xl:     22px;  /* Module h1 */
+  --fc-text-hero:    38px;  /* Hero card protagonist value */
+
+  /* ── Spacing ─────────────────────────────────────────────── */
+  --fc-space-1:  4px;
+  --fc-space-2:  8px;
+  --fc-space-3:  12px;
+  --fc-space-4:  16px;
+  --fc-space-5:  20px;
+  --fc-space-6:  24px;
+
+  /* ── Radii ───────────────────────────────────────────────── */
+  --fc-radius-sm:  6px;   /* badges, chips */
+  --fc-radius-md:  8px;   /* inner elements */
+  --fc-radius-lg:  12px;  /* cards */
+  --fc-radius-xl:  16px;  /* hero cards, modals */
+  --fc-radius-2xl: 20px;  /* main hero card */
+  --fc-radius-full: 9999px; /* pills, avatars */
+
+  /* ── Layout ──────────────────────────────────────────────── */
+  --fc-sidebar-width:  68px;
+  --fc-bottomnav-height: 60px;
+  --fc-content-max:    672px; /* max-w-2xl */
+
+  /* ── Shadows ─────────────────────────────────────────────── */
+  --fc-shadow-card:   0 1px 3px rgba(20,31,25,0.08), 0 1px 2px rgba(20,31,25,0.04);
+  --fc-shadow-modal:  0 20px 60px rgba(0,0,0,0.35);
+}
+
+/* ── Semantic Typography Classes ─────────────────────────── */
+
+.fc-label-micro {
+  font-family: var(--font-mono);
+  font-size: var(--fc-text-micro);
+  font-weight: 400;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--fc-text-secondary);
+}
+
+.fc-label-micro-accent {
+  font-family: var(--font-mono);
+  font-size: var(--fc-text-micro);
+  font-weight: 400;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--fc-accent-hover);
+}
+
+.fc-value-hero {
+  font-family: var(--font-mono);
+  font-size: var(--fc-text-hero);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--fc-accent-hover);
+}
+
+.fc-value-xl {
+  font-family: var(--font-mono);
+  font-size: var(--fc-text-xl);
+  font-weight: 500;
+  color: var(--fc-text-primary);
+}
+
+.fc-value-lg {
+  font-family: var(--font-mono);
+  font-size: var(--fc-text-lg);
+  font-weight: 600;
+  color: var(--fc-text-primary);
+}
+
+.fc-value-base {
+  font-family: var(--font-mono);
+  font-size: var(--fc-text-base);
+  font-weight: 500;
+  color: var(--fc-text-primary);
+}
+
+.fc-h1 {
+  font-family: var(--font-sans);
+  font-size: var(--fc-text-2xl);
+  font-weight: 700;
+  color: var(--fc-text-primary);
+  line-height: 1.2;
+}
+
+.fc-h2 {
+  font-family: var(--font-sans);
+  font-size: var(--fc-text-base);
+  font-weight: 600;
+  color: var(--fc-text-primary);
+}
+
+.fc-body {
+  font-family: var(--font-sans);
+  font-size: var(--fc-text-sm);
+  font-weight: 400;
+  color: var(--fc-text-secondary);
+  line-height: 1.5;
+}
+
+.fc-nav-label {
+  font-family: var(--font-sans);
+  font-size: var(--fc-text-micro);
+  font-weight: 500;
+  text-align: center;
+}
+
+/* ── Component Patterns ──────────────────────────────────── */
+
+/* Hero Card Dark */
+.fc-hero-card {
+  background-color: var(--fc-dark);
+  border-radius: var(--fc-radius-2xl);
+  padding: 20px;
+}
+
+/* Mini Stat Card */
+.fc-stat-card {
+  background-color: var(--fc-surface);
+  border-radius: var(--fc-radius-lg);
+  padding: 12px;
+}
+
+/* Surface Card (white) */
+.fc-card {
+  background-color: var(--fc-surface-white);
+  border: 1px solid var(--fc-border-light);
+  border-radius: var(--fc-radius-lg);
+  box-shadow: var(--fc-shadow-card);
+  padding: 14px;
+}
+
+/* Gold AI Chip */
+.fc-chip-gold {
+  background-color: var(--fc-gold-bg);
+  border: 0.5px solid var(--fc-gold-border);
+  border-radius: var(--fc-radius-sm);
+  padding: 4px 9px;
+  font-family: var(--font-mono);
+  font-size: var(--fc-text-sm);
+  color: var(--fc-gold);
+}
+
+/* Danger Chip */
+.fc-chip-danger {
+  background-color: var(--fc-danger-bg);
+  border-radius: var(--fc-radius-sm);
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: var(--fc-text-sm);
+  color: var(--fc-danger);
+}
+
+/* Surface Pill Tabs */
+.fc-tabs {
+  background-color: var(--fc-surface);
+  border-radius: var(--fc-radius-lg);
+  padding: 4px;
+  display: flex;
+  gap: 4px;
+}
+
+.fc-tab {
+  flex: 1;
+  padding: 6px 12px;
+  border-radius: var(--fc-radius-md);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fc-text-secondary);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: all 0.15s;
+}
+
+.fc-tab.active {
+  background: var(--fc-surface-white);
+  color: var(--fc-text-primary);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* Primary Button */
+.fc-btn-primary {
+  background-color: var(--fc-accent);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: var(--fc-radius-lg);
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.fc-btn-primary:hover { background-color: var(--fc-accent-hover); }
+
+/* Ghost Button */
+.fc-btn-ghost {
+  background: transparent;
+  color: var(--fc-accent);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: color 0.15s;
+}
+.fc-btn-ghost:hover { color: var(--fc-accent-hover); }

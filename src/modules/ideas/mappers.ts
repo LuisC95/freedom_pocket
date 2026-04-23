@@ -26,6 +26,8 @@ import type {
   Phase,
   MessageRole,
   AIProvider,
+  AssistantUIData,
+  PhaseSummariesMap,
 } from './types'
 
 // ──────────────────────────────────────────────────────────
@@ -56,11 +58,20 @@ function isFilled(value: string | null): boolean {
 // llena getSession según sus flags.
 
 export function mapSession(row: RawIdeaSessionRow): IdeaSession {
+  // phase_summaries todavía no está en los generated types (migración pendiente de regen).
+  // Leemos con cast seguro: default a {} si la columna no existe o es null.
+  const rawSummaries = (row as unknown as { phase_summaries?: PhaseSummariesMap | null })
+    .phase_summaries
+  const phaseSummaries: PhaseSummariesMap =
+    rawSummaries && typeof rawSummaries === 'object' ? rawSummaries : {}
+
   return {
     ...row,
     entry_point: row.entry_point as EntryPoint,
     status: row.status as SessionStatus,
     current_phase: (row.current_phase as Phase | undefined) ?? 'observar',
+    ready_to_save: Boolean(row.ready_to_save),
+    phase_summaries: phaseSummaries,
   }
 }
 
@@ -128,6 +139,11 @@ export function mapDeepDive(row: RawIdeaDeepDiveRow): IdeaDeepDive {
 // llega null, default a 0 (NOT NULL en DB, no debería pasar).
 
 export function mapMessage(row: RawIdeaMessageRow): IdeaMessage {
+  // ui_data todavía no está en los generated types (migración pendiente de regen).
+  const rawUiData = (row as unknown as { ui_data?: AssistantUIData | null }).ui_data
+  const uiData: AssistantUIData | null =
+    rawUiData && typeof rawUiData === 'object' ? rawUiData : null
+
   return {
     ...row,
     role:     row.role     as MessageRole,
@@ -137,5 +153,6 @@ export function mapMessage(row: RawIdeaMessageRow): IdeaMessage {
     is_pinned: Boolean(row.is_pinned),
     pinned_at: row.pinned_at ?? null,
     pinned_by: row.pinned_by ?? null,
+    ui_data: uiData,
   }
 }

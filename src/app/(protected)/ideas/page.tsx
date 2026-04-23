@@ -10,37 +10,37 @@ export default async function IdeasPage() {
 
   return (
     <div className="p-4 pb-8 max-w-2xl mx-auto">
-      {/* Hero */}
-      <div
-        style={{
-          borderRadius: 16, padding: '20px 20px 18px',
-          background: 'linear-gradient(135deg, #1B4332 0%, #2E7D52 100%)',
-          marginBottom: 24,
-        }}
-      >
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: '#fff', fontFamily: 'var(--font-sans)', margin: '0 0 6px' }}>
-          Ideas de negocio
+      {/* Header */}
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontFamily: 'var(--font-sans)', fontSize: 22, fontWeight: 700, color: '#141F19', marginBottom: 4, lineHeight: 1.2 }}>
+          Ideas
         </h1>
-        <p style={{ fontSize: 13, color: '#A7F3D0', fontFamily: 'var(--font-sans)', margin: 0, lineHeight: 1.5 }}>
-          Descubrí, evaluá y desarrollá ideas con ayuda de la AI.
-          El embudo te lleva de una intuición a un plan listo para ejecutar.
+        <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#7A9A8A' }}>
+          Desarrollá tu vehículo Fastlane
         </p>
       </div>
 
-      {/* Nueva idea */}
-      <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, color: '#141F19', fontFamily: 'var(--font-sans)', margin: '0 0 12px' }}>
-          ¿Por dónde arrancás?
-        </h2>
+      {/* CTA — Nueva sesión */}
+      <section style={{ marginBottom: 20 }}>
         <EntryPointSelector />
       </section>
 
-      {/* Lista de ideas previas */}
+      {/* Motor AI promo */}
+      {ideas.length === 0 && (
+        <div style={{ backgroundColor: '#EAF0EC', borderRadius: 16, padding: 28, textAlign: 'center', marginTop: 20 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 9999, background: 'rgba(198,155,48,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#C69B30" strokeWidth={1.8} strokeLinecap="round" width={22} height={22}>
+              <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>
+            </svg>
+          </div>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 600, color: '#141F19', marginBottom: 4 }}>Motor AI disponible</p>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#7A9A8A' }}>Activá el Motor AI para análisis profundo de tus ideas de negocio.</p>
+        </div>
+      )}
+
+      {/* Lista de ideas */}
       {ideas.length > 0 && (
         <section>
-          <h2 style={{ fontSize: 16, fontWeight: 600, color: '#141F19', fontFamily: 'var(--font-sans)', margin: '0 0 12px' }}>
-            Tus ideas ({ideas.length})
-          </h2>
           <IdeasList ideas={ideas} />
         </section>
       )}

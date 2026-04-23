@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fastlane Compass — UI Kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --fc-base:          #F2F7F4;
+    --fc-surface:       #EAF0EC;
+    --fc-dark:          #1A2520;
+    --fc-accent:        #2E7D52;
+    --fc-accent-h:      #3A9E6A;
+    --fc-gold:          #C69B30;
+    --fc-danger:        #E84434;
+    --fc-text:          #141F19;
+    --fc-muted:         #7A9A8A;
+    --fc-border:        #EAF0EC;
+    --fc-card-r:        12px;
+    --fc-hero-r:        20px;
+    --font-sans:        'IBM Plex Sans', sans-serif;
+    --font-mono:        'IBM Plex Mono', monospace;
+  }
+
+  /* Theme: default (clean) */
+  body[data-theme="clean"] {
+    --fc-base: #F2F7F4;
+    --fc-surface: #EAF0EC;
+    --fc-card-bg: #FFFFFF;
+    --fc-card-shadow: 0 1px 3px rgba(20,31,25,0.08);
+    --fc-card-border: 1px solid #EAF0EC;
+    --fc-input-bg: #EAF0EC;
+    --fc-chip-shadow: none;
+  }
+  /* Theme: neumorphic */
+  body[data-theme="neumorphic"] {
+    --fc-base: #E8EDE9;
+    --fc-surface: #E0E8E1;
+    --fc-card-bg: #E8EDE9;
+    --fc-card-shadow: 5px 5px 12px rgba(175,195,180,0.7), -4px -4px 10px rgba(255,255,255,0.85);
+    --fc-card-border: none;
+    --fc-input-bg: #E8EDE9;
+    --fc-chip-shadow: 3px 3px 7px rgba(175,195,180,0.65), -2px -2px 6px rgba(255,255,255,0.85);
+  }
+  /* Theme: dark */
+  body[data-theme="dark"] {
+    --fc-base: #111A16;
+    --fc-surface: #1A2520;
+    --fc-card-bg: #1E2C26;
+    --fc-card-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    --fc-card-border: 1px solid rgba(255,255,255,0.08);
+    --fc-text: #E8F0EA;
+    --fc-muted: #5A7A6A;
+    --fc-border: rgba(255,255,255,0.08);
+    --fc-input-bg: #1A2520;
+    --fc-chip-shadow: none;
+  }
+
+  html, body { height: 100%; }
+  body {
+    background: var(--fc-base);
+    font-family: var(--font-sans);
+    color: var(--fc-text);
+    transition: background 0.25s, color 0.25s;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #root { height: 100%; }
+
+  /* Layout */
+  .app-shell { display: flex; height: 100vh; overflow: hidden; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 68px; flex-shrink: 0;
+    background: var(--fc-dark);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 16px 0; gap: 4px;
+    height: 100vh; position: fixed; left: 0; top: 0; z-index: 40;
+  }
+  .sidebar-logo {
+    width: 40px; height: 40px; border-radius: 999px;
+    background: var(--fc-accent);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-weight: 700; font-size: 13px; color: white;
+    margin-bottom: 12px; flex-shrink: 0;
+    box-shadow: 0 2px 10px rgba(46,125,82,0.45);
+  }
+  .nav-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    width: 56px; padding: 9px 4px; border-radius: 999px;
+    border: none; cursor: pointer; background: transparent;
+    color: #6A8A7A; transition: color 0.15s, background 0.15s;
+  }
+  .nav-btn.active { background: rgba(46,125,82,0.18); color: #3A9E6A; }
+  .nav-btn:hover:not(.active) { color: #3A9E6A; }
+  .nav-btn span { font-family: var(--font-sans); font-size: 9px; font-weight: 500; text-align: center; line-height: 1.2; }
+  .sidebar-avatar {
+    width: 36px; height: 36px; border-radius: 999px;
+    background: var(--fc-accent); color: white;
+    font-family: var(--font-sans); font-size: 11px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: auto; flex-shrink: 0;
+  }
+
+  /* Main content */
+  .main-content {
+    flex: 1; margin-left: 68px;
+    overflow-y: auto; height: 100vh;
+    padding-bottom: 0;
+  }
+  .content-inner { max-width: 672px; margin: 0 auto; padding: 20px 16px 80px; }
+
+  /* Bottom nav */
+  .bottom-nav {
+    display: none;
+    position: fixed; bottom: 12px; left: 16px; right: 16px;
+    height: 64px; background: var(--fc-dark);
+    align-items: center; justify-content: space-around;
+    padding: 0 8px; z-index: 40;
+    border-radius: 999px;
+    box-shadow: 8px 8px 20px rgba(10,18,14,0.45), -4px -4px 12px rgba(40,60,48,0.25);
+  }
+  .bn-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 6px 12px; border-radius: 999px; border: none; cursor: pointer;
+    background: transparent; color: #6A8A7A; transition: color 0.15s, background 0.15s;
+  }
+  .bn-btn.active { background: rgba(46,125,82,0.18); color: #3A9E6A; }
+  .bn-btn span { font-family: var(--font-sans); font-size: 9px; font-weight: 500; }
+
+  @media (max-width: 640px) {
+    .sidebar { display: none; }
+    .main-content { margin-left: 0; padding-bottom: 88px; }
+    .bottom-nav { display: flex; }
+  }
+
+  /* Cards */
+  .card {
+    background: var(--fc-card-bg, #fff);
+    border: var(--fc-card-border, 1px solid #EAF0EC);
+    border-radius: var(--fc-card-r);
+    box-shadow: var(--fc-card-shadow, 0 1px 3px rgba(20,31,25,0.08));
+    padding: 14px;
+    transition: background 0.25s, box-shadow 0.25s;
+  }
+  .hero-card {
+    background: var(--fc-dark);
+    border-radius: var(--fc-hero-r);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  /* Typography helpers */
+  .mono { font-family: var(--font-mono); }
+  .hero-val { font-family: var(--font-mono); font-size: 38px; font-weight: 600; line-height: 1; }
+  .label-micro { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--fc-muted); }
+  .section-title { font-family: var(--font-sans); font-size: 13px; font-weight: 600; color: var(--fc-text); }
+  .text-muted { color: var(--fc-muted); }
+  .text-positive { color: #3A9E6A; }
+  .text-negative { color: #E84434; }
+  .text-gold { color: #C69B30; }
+
+  /* Badges */
+  .badge { font-size: 10px; border-radius: 5px; padding: 2px 7px; display: inline-flex; align-items: center; box-shadow: var(--fc-chip-shadow, none); }
+  .badge-neutral { background: var(--fc-surface); color: var(--fc-muted); }
+  .badge-accent  { background: var(--fc-surface); color: var(--fc-accent); }
+  .badge-danger  { background: #FFF0EF; color: #E84434; }
+  .badge-gold    { background: rgba(198,155,48,0.12); border: 0.5px solid rgba(198,155,48,0.3); color: #C69B30; }
+  .badge-confirm { background: var(--fc-surface); color: #3A9E6A; }
+
+  /* Tabs */
+  .tabs { background: var(--fc-surface); border-radius: 999px; padding: 4px; display: flex; gap: 4px; margin-bottom: 16px; }
+  .tab { flex: 1; padding: 7px; border-radius: 999px; border: none; cursor: pointer; font-family: var(--font-sans); font-size: 12px; font-weight: 500; background: transparent; color: var(--fc-muted); transition: all 0.15s; }
+  .tab.active { background: var(--fc-card-bg, white); color: var(--fc-text); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+
+  /* Retention bar */
+  .ret-track { background: rgba(232,68,52,0.2); border-radius: 4px; height: 6px; overflow: hidden; }
+  .ret-fill  { height: 6px; background: #3A9E6A; border-radius: 4px; }
+
+  /* Progress bar */
+  .prog-track { background: var(--fc-surface); border-radius: 4px; height: 5px; overflow: hidden; }
+  .prog-fill  { height: 5px; border-radius: 4px; }
+
+  /* Secondary row in hero */
+  .hero-row {
+    background: rgba(46,125,82,0.1);
+    border-radius: 8px;
+    padding: 9px 12px;
+    display: flex; align-items: center;
+    margin: 10px 0;
+  }
+  .hero-row-div { width: 0.5px; background: rgba(46,125,82,0.25); height: 36px; margin: 0 10px; }
+
+  /* FAB */
+  .fab {
+    position: fixed; bottom: 80px; right: 20px;
+    width: 52px; height: 52px; border-radius: 999px;
+    background: var(--fc-accent); border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 16px rgba(46,125,82,0.4); z-index: 30;
+    transition: transform 0.1s, background 0.15s;
+  }
+  .fab:hover { background: var(--fc-accent-h, #3A9E6A); }
+  .fab:active { transform: scale(0.93); }
+  @media (min-width: 641px) { .fab { bottom: 24px; } }
+
+  /* Modal overlay */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    display: flex; align-items: flex-end; z-index: 50;
+    animation: fadeIn 0.15s;
+  }
+  @media (min-width: 641px) {
+    .modal-overlay { align-items: center; justify-content: center; }
+    .modal-sheet { border-radius: 20px !important; max-width: 480px; width: 100%; }
+  }
+  @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+  .modal-sheet {
+    background: var(--fc-dark); width: 100%; border-radius: 24px 24px 0 0;
+    padding: 20px; max-height: 90vh; overflow-y: auto;
+    animation: slideUp 0.2s cubic-bezier(0.32,0.72,0,1);
+  }
+  @keyframes slideUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
+
+  /* Empty state */
+  .empty-state {
+    background: var(--fc-surface); border-radius: 16px;
+    padding: 28px; text-align: center;
+  }
+
+  /* Onboarding step */
+  .onb-step {
+    display: flex; align-items: flex-start; gap: 12px;
+    background: var(--fc-card-bg, white);
+    border: var(--fc-card-border, 1px solid #EAF0EC);
+    border-radius: 14px; padding: 14px; margin-bottom: 10px;
+    box-shadow: var(--fc-card-shadow);
+    transition: background 0.25s;
+  }
+  .onb-num {
+    width: 28px; height: 28px; border-radius: 999px;
+    background: var(--fc-accent); color: white;
+    font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .onb-num.done { background: var(--fc-surface); color: #3A9E6A; }
+
+  /* Tx row */
+  .tx-row { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--fc-border); }
+  .tx-row:last-child { border-bottom: none; }
+
+  /* Dim pill dark */
+  .dim-pill { background: rgba(255,255,255,0.06); border-radius: 12px; padding: 10px 12px; }
+
+  /* Score ring */
+  .score-wrap { position: relative; width: 96px; height: 96px; display: flex; align-items: center; justify-content: center; }
+
+  /* Ghost link btn */
+  .ghost-btn { background: transparent; border: none; font-family: var(--font-sans); font-size: 12px; font-weight: 500; color: var(--fc-accent); cursor: pointer; padding: 0; transition: color 0.15s; }
+  .ghost-btn:hover { color: var(--fc-accent-h, #3A9E6A); }
+
+  /* Input */
+  .fc-input {
+    width: 100%; background: var(--fc-input-bg, #EAF0EC);
+    border: none; outline: none; border-radius: 10px;
+    padding: 10px 14px; font-family: var(--font-sans); font-size: 14px;
+    color: var(--fc-text); transition: background 0.2s;
+  }
+  .fc-input::placeholder { color: var(--fc-muted); }
+  .fc-input-mono { font-family: var(--font-mono); font-size: 18px; font-weight: 500; }
+
+  /* Primary btn */
+  .fc-btn {
+    background: var(--fc-accent); color: white;
+    font-family: var(--font-sans); font-size: 13px; font-weight: 600;
+    padding: 11px 22px; border-radius: 999px; border: none; cursor: pointer;
+    width: 100%; transition: background 0.15s;
+  }
+  .fc-btn:hover { background: #3A9E6A; }
+
+  /* Dark mode text overrides */
+  body[data-theme="dark"] .section-title { color: #E8F0EA; }
+  body[data-theme="dark"] .fc-input { color: #E8F0EA; }
+  body[data-theme="dark"] .badge-neutral { background: rgba(255,255,255,0.08); color: #7A9A8A; }
+  body[data-theme="dark"] .badge-accent  { background: rgba(46,125,82,0.18); color: #3A9E6A; }
+  body[data-theme="dark"] .tabs { background: rgba(255,255,255,0.06); }
+  body[data-theme="dark"] .tab.active { background: rgba(255,255,255,0.1); color: #E8F0EA; }
+  body[data-theme="dark"] .prog-track { background: rgba(255,255,255,0.08); }
+  body[data-theme="dark"] .empty-state { background: rgba(255,255,255,0.05); }
+  body[data-theme="dark"] .onb-step { background: #1E2C26; border-color: rgba(255,255,255,0.08); }
+  body[data-theme="dark"] .ret-track { background: rgba(232,68,52,0.15); }
+</style>
+</head>
+<body data-theme="clean">
+
+<div id="root"></div>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="Nav.jsx"></script>
+<script type="text/babel" src="MiRealidad.jsx"></script>
+<script type="text/babel" src="Dashboard.jsx"></script>
+<script type="text/babel" src="Brujula.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+// ─── Tweaks defaults ──────────────────────────────────────
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "neumorphic",
+  "sidebarStyle": "rounded",
+  "cardDensity": "comfortable"
+}/*EDITMODE-END*/;
+
+// ─── Nav icons (inline for use everywhere) ────────────────
+const NavIcon = ({ id, size = 20 }) => {
+  const icons = {
+    'mi-realidad': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={size} height={size}><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>,
+    'dashboard':   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={size} height={size}><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg>,
+    'brujula':     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={size} height={size}><circle cx="12" cy="12" r="9"/><path d="M16.2 7.8l-2.6 5.4-5.4 2.6 2.6-5.4 5.4-2.6z" fill="currentColor" stroke="none"/></svg>,
+    'ideas':       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={size} height={size}><path d="M12 2c-3.5 0-6 3-6 6.5 0 2.5 1.2 4.5 3 5.5v2h6v-2c1.8-1 3-3 3-5.5C18 5 15.5 2 12 2z"/><path d="M9 19h6M10 22h4"/></svg>,
+  };
+  return icons[id] || null;
+};
+
+const NAV_ITEMS = [
+  { id: 'mi-realidad', label: 'Mi Realidad' },
+  { id: 'dashboard',   label: 'Dashboard'   },
+  { id: 'brujula',     label: 'Brújula'     },
+  { id: 'ideas',       label: 'Ideas'       },
+];
+
+// ─── Sidebar ──────────────────────────────────────────────
+function Sidebar({ active, onNav }) {
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-logo">FC</div>
+      {NAV_ITEMS.map(({ id, label }) => (
+        <button key={id} className={`nav-btn ${active === id ? 'active' : ''}`} onClick={() => onNav(id)}>
+          <NavIcon id={id} />
+          <span>{label}</span>
+        </button>
+      ))}
+      <div className="sidebar-avatar">JD</div>
+    </aside>
+  );
+}
+
+// ─── Bottom Nav ───────────────────────────────────────────
+function BottomNav({ active, onNav }) {
+  return (
+    <nav className="bottom-nav">
+      {NAV_ITEMS.map(({ id, label }) => (
+        <button key={id} className={`bn-btn ${active === id ? 'active' : ''}`} onClick={() => onNav(id)}>
+          <NavIcon id={id} />
+          <span>{label}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+// ─── Shared ───────────────────────────────────────────────
+function fmt(n, currency = 'USD') {
+  return new Intl.NumberFormat('en-US', { style:'currency', currency, minimumFractionDigits:0, maximumFractionDigits:0 }).format(Math.abs(n));
+}
+function fmtFull(n) {
+  return new Intl.NumberFormat('en-US', { style:'currency', currency:'USD', minimumFractionDigits:0 }).format(n);
+}
+function fmtDays(d) {
+  const a = Math.abs(d);
+  if (a >= 365) return `${(a/365).toFixed(1)}a`;
+  if (a >= 30)  return `${(a/30).toFixed(1)}m`;
+  return `${a.toFixed(1)}d`;
+}
+
+// ─── Modal ────────────────────────────────────────────────
+function Modal({ title, onClose, children }) {
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-sheet">
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+          <p style={{ fontFamily:'var(--font-sans)', fontSize:16, fontWeight:600, color:'#F2F7F4', margin:0 }}>{title}</p>
+          <button onClick={onClose} style={{ background:'transparent', border:'none', color:'#7A9A8A', cursor:'pointer', padding:4 }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" width={20} height={20}><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─── Mi Realidad ──────────────────────────────────────────
+const MR_STATE = 'completo'; // 'sin_datos' | 'solo_ingresos' | 'completo'
+
+const MR_DATA = {
+  precio_hora: 18.40, delta: 2.10,
+  total_ingresos: 4800, horas_reales: 52.3,
+  ingresos: [
+    { id:1, label:'Salario Empresa X', type:'fixed', frequency:'monthly', amount:4000, entries:[{ amount:4000, entry_date:'01 abr' }] },
+    { id:2, label:'Freelance diseño',  type:'project', frequency:'irregular', amount:800, entries:[] },
+  ],
+  desglose: { contratadas:40, extra:4.5, desplazamiento:5.5, preparacion:0.8, carga_mental:1.5 },
+};
+
+function MiRealidad({ onModal }) {
+  const [expanded, setExpanded] = useState(null);
+  const state = MR_STATE;
+
+  if (state === 'sin_datos') {
+    return (
+      <div className="content-inner">
+        <div style={{ marginBottom:20 }}>
+          <h1 style={{ fontFamily:'var(--font-sans)', fontSize:22, fontWeight:700, color:'var(--fc-text)', marginBottom:4 }}>Mi Realidad</h1>
+          <p className="text-muted" style={{ fontSize:12 }}>Descubre cuánto vale realmente tu hora de vida</p>
+        </div>
+        {/* Onboarding */}
+        <div style={{ background:'var(--fc-dark)', borderRadius:20, padding:20, marginBottom:20 }}>
+          <p style={{ fontFamily:'var(--font-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.09em', color:'#3A9E6A', marginBottom:8 }}>precio real / hora</p>
+          <p style={{ fontFamily:'var(--font-mono)', fontSize:32, fontWeight:600, color:'rgba(242,247,244,0.2)', lineHeight:1, marginBottom:8 }}>$—.——</p>
+          <p style={{ fontFamily:'var(--font-sans)', fontSize:13, color:'#7A9A8A', lineHeight:1.5 }}>Completa tus ingresos y horas reales para calcular tu precio por hora.</p>
+        </div>
+        <p className="label-micro" style={{ marginBottom:12 }}>Para empezar</p>
+        <div className="onb-step">
+          <div className="onb-num">1</div>
+          <div>
+            <p style={{ fontFamily:'var(--font-sans)', fontSize:13, fontWeight:600, color:'var(--fc-text)', marginBottom:4 }}>Registra tus fuentes de ingreso</p>
+            <p style={{ fontFamily:'var(--font-sans)', fontSize:11, color:'var(--fc-muted)', lineHeight:1.5 }}>Salario fijo, freelance, pasivo — todas las entradas de dinero del mes.</p>
+            <button className="ghost-btn" style={{ marginTop:8, fontSize:13, fontWeight:600 }} onClick={() => onModal('add-income')}>+ Agregar ingreso →</button>
+          </div>
+        </div>
+        <div className="onb-step" style={{ opacity: 0.5 }}>
+          <div className="onb-num">2</div>
+          <div>
+            <p style={{ fontFamily:'var(--font-sans)', fontSize:13, fontWeight:600, color:'var(--fc-text)', marginBottom:4 }}>Define tus horas reales</p>
+            <p style={{ fontFamily:'var(--font-sans)', fontSize:11, color:'var(--fc-muted)', lineHeight:1.5 }}>Horas contratadas + commute + preparación + carga mental.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const d = MR_DATA.desglose;
+  const desglose = [
+    ['Contratadas', d.contratadas], ['Horas extra', d.extra],
+    ['Desplazamiento', d.desplazamiento], ['Preparación', d.preparacion], ['Carga mental', d.carga_mental],
+  ];
+
+  return (
+    <div className="content-inner">
+      <div style={{ marginBottom:20 }}>
+        <h1 style={{ fontFamily:'var(--font-sans)', fontSize:22, fontWeight:700, color:'var(--fc-text)', marginBottom:4 }}>Mi Realidad</h1>
+        <p className="text-muted" style={{ fontSize:12 }}>Período activo · desde enero 2025</p>
+      </div>
+
+      {/* Hero */}
+      <div className="hero-card">
+        <p className="label-micro" style={{ color:'#3A9E6A', marginBottom:6 }}>precio real por hora</p>
+        <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:4 }}>
+          <span className="hero-val" style={{ color:'#3A9E6A' }}>${MR_DATA.precio_hora.toFixed(2)}</span>
+          <div style={{ background:'rgba(198,155,48,0.12)', border:'0.5px solid rgba(198,155,48,0.3)', borderRadius:6, padding:'4px 10px' }}>
+            <span style={{ fontFamily:'var(--font-mono)', fontSize:11, color:'#C69B30' }}>↑ +${MR_DATA.delta.toFixed(2)} vs 2024</span>
+          </div>
+        </div>
+        <div className="hero-row">
+          <div style={{ flex:1 }}>
+            <p className="label-micro" style={{ marginBottom:2 }}>ingresos / mes</p>
+            <p style={{ fontFamily:'var(--font-mono)', fontSize:19, fontWeight:500, color:'#3A9E6A', margin:0 }}>${MR_DATA.total_ingresos.toLocaleString()}</p>
+          </div>
+          <div className="hero-row-div" />
+          <div style={{ flex:1, textAlign:'right' }}>
+            <p className="label-micro" style={{ marginBottom:2 }}>horas reales / sem</p>
+            <p style={{ fontFamily:'var(--font-mono)', fontSize:19, fontWeight:500, color:'#F2F7F4', margin:0 }}>{MR_DATA.horas_reales}h</p>
+          </div>
+        </div>
+        {/* Desglose */}
+        <p className="label-micro" style={{ marginBottom:8 }}>desglose de horas</p>
+        <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+          {desglose.map(([label, val]) => (
+            <div key={label} style={{ background:'rgba(255,255,255,0.06)', borderRadius:8, padding:'6px 10px', flex:'1 1 80px' }}>
+              <p style={{ fontFamily:'var(--font-mono)', fontSize:8, textTransform:'uppercase', letterSpacing:'0.07em', color:'#5A7A6A', margin:'0 0 2px' }}>{label}</p>
+              <p style={{ fontFamily:'var(--font-mono)', fontSize:15, fontWeight:600, color:'#F2F7F4', margin:0 }}>{val}h</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Income sources */}
+      <section style={{ marginBottom:16 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+          <h2 className="section-title">Fuentes de ingreso</h2>
+          <button className="ghost-btn" onClick={() => onModal('add-income')}>+ Nueva fuente</button>
+        </div>
+        {MR_DATA.ingresos.map(inc => (
+          <div key={inc.id} className="card" style={{ marginBottom:8 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <span style={{ fontFamily:'var(--font-sans)', fontSize:13, fontWeight:500, color:'var(--fc-text)', flex:1 }}>{inc.label}</span>
+              <span style={{ fontFamily:'var(--font-mono)', fontSize:13, fontWeight:600, color:'#3A9E6A' }}>${inc.amount.toLocaleString()}</span>
+              <button onClick={() => setExpanded(expanded === inc.id ? null : inc.id)}
+                style={{ background:'transparent', border:'none', color:'var(--fc-muted)', cursor:'pointer', fontSize:11, fontFamily:'var(--font-sans)', padding:'2px 4px' }}>
+                {expanded === inc.id ? '▲' : '▼'}
+              </button>
+            </div>
+            <div style={{ display:'flex', gap:5, marginTop:6 }}>
+              <span className="badge badge-neutral">{inc.type}</span>
+              <span className="badge badge-neutral">{inc.frequency}</span>
+            </div>
+            {expanded === inc.id && (
+              <div style={{ marginTop:12, paddingTop:10, borderTop:'1px solid var(--fc-border)' }}>
+                {inc.entries.length === 0
+                  ? <p style={{ fontFamily:'var(--font-sans)', fontSize:11, color:'var(--fc-muted)' }}>Sin pagos registrados este mes</p>
+                  : inc.entries.map((e, i) => (
+                      <div key={i} style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                        <span style={{ fontSize:11, color:'var(--fc-muted)' }}>{e.entry_date}</span>
+                        <span style={{ fontFamily:'var(--font-mono)', fontSize:12, color:'#3A9E6A' }}>+${e.amount.toLocaleString()}</span>
+                      </div>
+                    ))
+                }
+                <button className="ghost-btn" style={{ marginTop:8, fontSize:12 }} onClick={() => onModal('add-entry')}>+ Registrar pago</button>
+              </div>
+            )}
+          </div>
+        ))}
+      </section>
+    </div>
+  );
+}
+
+// ─── Dashboard ────────────────────────────────────────────
+const DASH_DATA = {
+  metrics: { net:1582, income:4800, expense:3218, ret:67, dias:70.3, pph:18.40 },
+  groups: [
+    { date:'HOY', txs:[
+      { id:1, type:'expense', amount:42,   cat:'Alimentación', color:'#2E7D52', notes:'Mercado', horas:2.3 },
+      { id:2, type:'expense', amount:18,   cat:'Entretenimiento', color:'#C69B30', notes:'Netflix', horas:1.0 },
+    ]},
+    { date:'AYER', txs:[
+      { id:3, type:'income',  amount:4000, cat:'Salario', color:'#3A9E6A', notes:'Empresa X', horas:null },
+      { id:4, type:'expense', amount:350,  cat:'Vivienda', color:'#7A9A8A', notes:'Renta parcial', horas:19.0 },
+    ]},
+    { date:'MAR 22 ABR', txs:[
+      { id:5, type:'expense', amount:80,   cat:'Transporte', color:'#E84434', notes:'Gasolina', horas:4.3 },
+    ]},
+  ],
+  budgets: [
+    { cat:'Alimentación', avg:520, spent:280 },
+    { cat:'Transporte',   avg:220, spent:195 },
+    { cat:'Vivienda',     avg:1200, spent:1350 },
+    { cat:'Entretenimiento', avg:150, spent:68 },
+  ],
+  recurring: [
+    { name:'Netflix',  amount:18,   day:1,  status:'confirmed' },
+    { name:'Spotify',  amount:10,   day:1,  status:'pending'   },
+    { name:'Renta',    amount:1200, day:5,  status:'confirmed' },
+    { name:'Internet', amount:45,   day:10, status:'confirmed' },
+  ],
+};
+
+function Dashboard({ onModal }) {
+  const [tab, setTab] = useState('gastos');
+  const m = DASH_DATA.metrics;
+
+  return (
+    <div className="content-inner">
+      <div style={{ marginBottom:20 }}>
+        <h1 style={{ fontFamily:'var(--font-sans)', fontSize:22, fontWeight:700, color:'var(--fc-text)', marginBottom:4 }}>Dashboard</h1>
+        <p className="text-muted" style={{ fontSize:12 }}>Período activo · abril 2025</p>
+      </div>
+
+      {/* Hero */}
+      <div className="hero-card">
+        <p className="label-micro" style={{ color:'#3A9E6A', marginBottom:6 }}>retenido este mes</p>
+        <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:4 }}>
+          <span className="hero-val" style={{ color:'#3A9E6A' }}>+{fmt(m.net)}</span>
+          <div style={{ background:'rgba(198,155,48,0.12)', border:'0.5px solid rgba(198,155,48,0.3)', borderRadius:6, padding:'4px 10px' }}>
+            <span style={{ fontFamily:'var(--font-mono)', fontSize:11, color:'#C69B30' }}>+{fmtDays(m.dias)} autonomía</span>
+          </div>
+        </div>
+        <div className="hero-row">
+          <div style={{ flex:1 }}>
+            <p className="label-micro" style={{ marginBottom:2 }}>ingresos</p>
+            <p style={{ fontFamily:'var(--font-mono)', fontSize:19, fontWeight:500, color:'#3A9E6A', margin:0 }}>{fmt(m.income)}</p>
+          </div>
+          <div className="hero-row-div" />
+          <div style={{ flex:1, textAlign:'right' }}>
+            <p className="label-micro" style={{ marginBottom:2 }}>gastos</p>
+            <p style={{ fontFamily:'var(--font-mono)', fontSize:19, fontWeight:500, color:'#E84434', margin:0 }}>{fmt(m.expense)}</p>
+          </div>
+        </div>
+        <div className="ret-track" style={{ marginBottom:4 }}>
+          <div className="ret-fill" style={{ width:`${m.ret}%` }} />
+        </div>
+        <div style={{ display:'flex', justifyContent:'space-between' }}>
+          <span className="label-micro">{m.ret}% retenido</span>
+          <span className="label-micro">{100-m.ret}% gastado</span>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="tabs">
+        {[['gastos','Gastos'],['presupuestos','Presupuestos'],['recurrentes','Recurrentes']].map(([id,lbl]) => (
+          <button key={id} className={`tab ${tab===id?'active':''}`} onClick={() => setTab(id)}>{lbl}</button>
+        ))}
+      </div>
+
+      {/* Gastos */}
+      {tab === 'gastos' && DASH_DATA.groups.map(g => (
+        <div key={g.date} style={{ marginBottom:16 }}>
+          <p className="label-micro" style={{ marginBottom:6 }}>{g.date}</p>
+          <div className="card" style={{ padding:'0 14px' }}>
+            {g.txs.map(tx => (
+              <div key={tx.id} className="tx-row">
+                <div style={{ width:8, height:8, borderRadius:'50%', background:tx.color, flexShrink:0 }} />
+                <div style={{ flex:1 }}>
+                  <p style={{ fontFamily:'var(--font-sans)', fontSize:13, fontWeight:500, color:'var(--fc-text)', margin:0 }}>{tx.notes}</p>
+                  <p style={{ fontFamily:'var(--font-sans)', fontSize:10, color:'var(--fc-muted)', margin:'2px 0 0' }}>{tx.cat}</p>
+                </div>
+                <div style={{ textAlign:'right' }}>
+                  <p style={{ fontFamily:'var(--font-mono)', fontSize:14, fontWeight:700, color: tx.type==='income' ? '#3A9E6A' : '#E84434', margin:0 }}>
+                    {tx.type==='income'?'+':'-'}{fmt(tx.amount)}
+                  </p>
+                  {tx.horas && <p style={{ fontFamily:'var(--font-mono)', fontSize:9, color:'#C69B30', margin:'2px 0 0' }}>{tx.horas}h</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {/* Presupuestos */}
+      {tab === 'presupuestos' && (
+        <div className="card" style={{ padding:'0 14px' }}>
+          {DASH_DATA.budgets.map(b => {
+            const pct = Math.min((b.spent/b.avg)*100, 110);
+            const col = pct > 100 ? '#E84434' : pct > 80 ? '#C69B30' : '#3A9E6A';
+            return (
+              <div key={b.cat} style={{ padding:'12px 0', borderBottom:'1px solid var(--fc-border)' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
+                  <span style={{ fontFamily:'var(--font-sans)', fontSize:13, fontWeight:500, color:'var(--fc-text)' }}>{b.cat}</span>
+                  <span style={{ fontFamily:'var(--font-mono)', fontSize:13, fontWeight:700, color:'var(--fc-text)' }}>
+                    {fmt(b.spent)} <span style={{ fontFamily:'var(--font-mono)', fontSize:11, color:'var(--fc-muted)', fontWeight:400 }}>/ prom. {fmt(b.avg)}</span>
+                  </span>
+                </div>
+                <div className="prog-track">
+                  <div className="prog-fill" style={{ width:`${Math.min(pct,100)}%`, background:col }} />
+                </div>
+                <p style={{ fontFamily:'var(--font-mono)', fontSize:9, color:col, margin:'4px 0 0' }}>{pct.toFixed(0)}% del promedio</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Recurrentes */}
+      {tab === 'recurrentes' && (
+        <div className="card" style={{ padding:'0 14px' }}>
+          {DASH_DATA.recurring.map(r => (
+            <div key={r.name} className="tx-row">
+              <div style={{ flex:1 }}>
+                <p style={{ fontFamily:'var(--font-sans)', fontSize:13, fontWeight:500, color:'var(--fc-text)', margin:0 }}>{r.name}</p>
+                <p style={{ fontFamily:'var(--font-sans)', fontSize:10, color:'var(--fc-muted)', margin:'2px 0 0' }}>Día {r.day}</p>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <span style={{ fontFamily:'var(--font-mono)', fontSize:13, fontWeight:600, color:'var(--fc-text)' }}>{fmt(r.amount)}</span>
+                <span className={`badge ${r.status==='confirmed'?'badge-confirm':'badge-neutral'}`}>{r.status==='confirmed'?'activo':'pendiente'}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* FAB */}
+      <button className="fab" onClick={() => onModal('add-transaction')}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.2} strokeLinecap="round" width={22} height={22}><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
+  );
+}
+
+// ─── Brújula ──────────────────────────────────────────────
+const BRU_DATA = {
+  score:42, dias:128, ingreso_pasivo:480, net_worth:18200,
+  d1:52, d2:38, d3:61, d4:29,
+  assets:[
+    { id:1, name:'Portafolio ETF', type:'Inversión', value:12500, yield_m:85, rate:8.2, liquid:true },
+    { id:2, name:'Fondo emergencia', type:'Ahorro', value:6000, yield_m:0, rate:null, liquid:true },
+  ],
+  liabilities:[
+    { id:1, name:'Tarjeta Visa', type:'Deuda', balance:2400, rate:18, monthly:200 },
+    { id:2, name:'Préstamo auto', type:'Crédito', balance:8100, rate:9.5, monthly:380 },
+  ],
+  goals:[
+    { id:1, label:'1 mes de autonomía',   target:30,  done:true  },
+    { id:2, label:'3 meses de autonomía', target:90,  done:false },
+    { id:3, label:'1 año de autonomía',   target:365, done:false },
+  ],
+};
+
+function ScoreRing({ score }) {
+  const r = 36, circ = 2*Math.PI*r, dash = (score/100)*circ;
+  return (
+    <div className="score-wrap">
+      <svg width={96} height={96} viewBox="0 0 96 96" style={{ transform:'rotate(-90deg)' }}>
+        <circle cx={48} cy={48} r={r} strokeWidth={6} stroke="rgba(255,255,255,0.08)" fill="none"/>
+        <circle cx={48} cy={48} r={r} strokeWidth={6} stroke="#5DCAA5" fill="none" strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"/>
+      </svg>
+      <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+        <span style={{ fontFamily:'var(--font-mono)', fontSize:22, fontWeight:700, color:'white', lineHeight:1 }}>{score}</span>
+        <span style={{ fontSize:8, color:'rgba(255,255,255,0.35)', marginTop:2 }}>APRENDIZ</span>
+      </div>
+    </div>
+  );
+}
+
+function Brujula({ onModal }) {
+  const b = BRU_DATA;
+  const [vtab, setVtab] = useState('activos');
+  const dims = [['D1 · Tiempo',b.d1],['D2 · Patrimonio',b.d2],['D3 · Libertad',b.d3],['D4 · Momentum',b.d4]];
+
+  return (
+    <div className="content-inner">
+      <div style={{ marginBottom:20 }}>
+        <h1 style={{ fontFamily:'var(--font-sans)', fontSize:22, fontWeight:700, color:'var(--fc-text)', marginBottom:4 }}>Brújula</h1>
+        <p className="text-muted" style={{ fontSize:12 }}>Tu camino hacia la libertad financiera</p>
+      </div>
+
+      {/* Hero */}
+      <div className="hero-card">
+        <div style={{ display:'flex', gap:16, borderBottom:'1px solid rgba(255,255,255,0.08)', paddingBottom:16, marginBottom:16 }}>
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
+            <ScoreRing score={b.score}/>
+            <p style={{ fontSize:8, color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.1em', margin:0 }}>FASTLANER</p>
+          </div>
+          <div style={{ flex:1, display:'flex', flexDirection:'column', justifyContent:'center', gap:10 }}>
+            {[['Días de libertad', fmtDays(b.dias), '#fff', 22],
+              ['Ingreso pasivo/mes', fmt(b.ingreso_pasivo), 'rgba(255,255,255,0.65)', 16],
+              ['Patrimonio neto', fmt(b.net_worth), '#5DCAA5', 16]
+            ].map(([lbl,val,col,sz]) => (
+              <div key={lbl} style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
+                <p style={{ fontSize:10, color:'rgba(255,255,255,0.35)', margin:0 }}>{lbl}</p>
+                <p style={{ fontFamily:'var(--font-mono)', fontSize:sz, color:col, margin:0, lineHeight:1 }}>{val}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+          {dims.map(([lbl,score]) => (
+            <div key={lbl} className="dim-pill">
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
+                <span style={{ fontSize:10, textTransform:'uppercase', letterSpacing:'0.07em', color:'rgba(93,202,165,0.7)' }}>{lbl}</span>
+                <span style={{ fontFamily:'var(--font-mono)', fontSize:12, color:'white' }}>{score}</span>
+              </div>
+              <div style={{ height:3, background:'rgba(255,255,255,0.08)', borderRadius:2, overflow:'hidden' }}>
+                <div style={{ width:`${score}%`, height:3, background:'#5DCAA5', borderRadius:2 }}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Summary pills */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:16 }}>
+        {[['Activos', fmt(b.assets.reduce((s,a)=>s+a.value,0)), null],
+          ['Pasivos', fmt(b.liabilities.reduce((s,l)=>s+l.balance,0)), '#E84434'],
+          ['Neto',    fmt(b.net_worth), '#3A9E6A']
+        ].map(([lbl,val,col]) => (
+          <div key={lbl} className="card" style={{ textAlign:'center', padding:'10px 8px' }}>
+            <p className="label-micro" style={{ marginBottom:4 }}>{lbl}</p>
+            <p style={{ fontFamily:'var(--font-mono)', fontSize:15, fontWeight:600, color:col||'var(--fc-text)', margin:0 }}>{val}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Vehículos */}
+      <section style={{ marginBottom:16 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+          <h2 className="section-title">Vehículos de riqueza</h2>
+          <button className="ghost-btn" onClick={() => onModal('add-asset')}>+ Agregar</button>
+        </div>
+        <div className="tabs" style={{ marginBottom:10 }}>
+          {[['activos',`Activos (${b.assets.length})`],['negocios','Negocios (0)']].map(([id,lbl]) => (
+            <button key={id} className={`tab ${vtab===id?'active':''}`} onClick={() => setVtab(id)}>{lbl}</button>
+          ))}
+        </div>
+        {vtab === 'activos' && b.assets.map(a => (
+          <div key={a.id} className="card" style={{ marginBottom:8 }}>
+            <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6 }}>
+              <span style={{ fontFamily:'var(--font-sans)', fontSize:13, fontWeight:500, color:'var(--fc-text)', flex:1 }}>{a.name}</span>
+              <span className="badge badge-neutral">{a.type}</span>
+              {a.liquid && <span className="badge badge-accent">Líquido</span>}
+              <button style={{ background:'transparent', border:'none', fontSize:12, color:'var(--fc-muted)', cursor:'pointer', fontFamily:'var(--font-sans)' }}>Editar</button>
+            </div>
+            <p style={{ fontFamily:'var(--font-mono)', fontSize:20, fontWeight:600, color:'var(--fc-text)', margin:0 }}>{fmtFull(a.value)}</p>
+            {a.yield_m > 0 && <p style={{ fontFamily:'var(--font-sans)', fontSize:11, color:'var(--fc-muted)', margin:'4px 0 0' }}>+{fmtFull(a.yield_m)}/mes · {a.rate}% anual</p>}
+          </div>
+        ))}
+        {vtab === 'negocios' && (
+          <div className="empty-state">
+            <p style={{ fontFamily:'var(--font-sans)', fontSize:13, color:'var(--fc-muted)', marginBottom:8 }}>Sin negocios registrados</p>
+            <button className="ghost-btn" onClick={() => onModal('add-business')}>+ Agregar negocio</button>
+          </div>
+        )}
+      </section>
+
+      {/* Pasivos */}
+      <section style={{ marginBottom:16 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+          <h2 className="section-title">Pasivos</h2>
+          <button className="ghost-btn" onClick={() => onModal('add-liability')}>+ Agregar</button>
+        </div>
+        {b.liabilities.map(l => (
+          <div key={l.id} className="card" style={{ marginBottom:8 }}>
+            <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6 }}>
+              <span style={{ fontFamily:'var(--font-sans)', fontSize:13, fontWeight:500, color:'var(--fc-text)', flex:1 }}>{l.name}</span>
+              <span className="badge badge-danger">{l.type}</span>
+              <button style={{ background:'transparent', border:'none', fontSize:12, color:'var(--fc-muted)', cursor:'pointer', fontFamily:'var(--font-sans)' }}>Editar</button>
+            </div>
+            <p style={{ fontFamily:'var(--font-mono)', fontSize:20, fontWeight:600, color:'#E84434', margin:0 }}>{fmtFull(l.balance)}</p>
+            <p style={{ fontFamily:'var(--font-sans)', fontSize:11, color:'var(--fc-muted)', margin:'4px 0 0' }}>{l.rate}% interés · {fmtFull(l.monthly)}/mes</p>
+          </div>
+        ))}
+      </section>
+
+      {/* Metas */}
+      <section>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+          <h2 className="section-title">Metas de libertad</h2>
+          <button className="ghost-btn" onClick={() => onModal('add-goal')}>+ Agregar</button>
+        </div>
+        {b.goals.map(g => {
+          const prog = Math.min((b.dias / g.target) * 100, 100);
+          return (
+            <div key={g.id} className="card" style={{ marginBottom:8, border: g.done ? '1px solid rgba(46,125,82,0.3)' : 'var(--fc-card-border, 1px solid #EAF0EC)', background: g.done ? 'var(--fc-surface)' : 'var(--fc-card-bg, white)' }}>
+              <div style={{ display:'flex', gap:10 }}>
+                <div style={{ width:20, height:20, borderRadius:'50%', border:`2px solid ${g.done?'#2E7D52':'#D0DDD6'}`, background:g.done?'#2E7D52':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:2 }}>
+                  {g.done && <svg width={10} height={8} viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                </div>
+                <div style={{ flex:1 }}>
+                  <p style={{ fontFamily:'var(--font-sans)', fontSize:13, fontWeight:500, color: g.done?'var(--fc-muted)':'var(--fc-text)', margin:0, textDecoration:g.done?'line-through':'none' }}>{g.label}</p>
+                  <p style={{ fontFamily:'var(--font-sans)', fontSize:11, color:'var(--fc-muted)', margin:'4px 0 6px' }}>Meta: {g.target}d · Actual: {b.dias}d</p>
+                  <div className="prog-track">
+                    <div className="prog-fill" style={{ width:`${prog}%`, background:'#2E7D52' }}/>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </section>
+    </div>
+  );
+}
+
+// ─── Ideas ────────────────────────────────────────────────
+function Ideas({ onModal }) {
+  const sessions = [
+    { id:1, title:'SaaS para freelancers en LATAM', status:'En exploración', date:'Hoy' },
+    { id:2, title:'Curso online de finanzas personales', status:'Deep dive', date:'Ayer' },
+    { id:3, title:'Agencia de contenido con IA', status:'Evaluado', date:'20 abr' },
+  ];
+  return (
+    <div className="content-inner">
+      <div style={{ marginBottom:20 }}>
+        <h1 style={{ fontFamily:'var(--font-sans)', fontSize:22, fontWeight:700, color:'var(--fc-text)', marginBottom:4 }}>Ideas</h1>
+        <p className="text-muted" style={{ fontSize:12 }}>Desarrolla tu vehículo Fastlane</p>
+      </div>
+      <button className="fc-btn" style={{ marginBottom:16, borderRadius:999 }} onClick={() => onModal('new-idea')}>+ Nueva sesión de ideas</button>
+      {sessions.map(s => (
+        <div key={s.id} className="card" style={{ marginBottom:8, display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ flex:1 }}>
+            <p style={{ fontFamily:'var(--font-sans)', fontSize:13, fontWeight:500, color:'var(--fc-text)', margin:0 }}>{s.title}</p>
+            <div style={{ display:'flex', gap:8, marginTop:6 }}>
+              <span className="badge badge-neutral">{s.status}</span>
+              <span style={{ fontFamily:'var(--font-sans)', fontSize:10, color:'var(--fc-muted)' }}>{s.date}</span>
+            </div>
+          </div>
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--fc-muted)" strokeWidth={1.5} width={16} height={16}><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      ))}
+      {/* Empty promo */}
+      <div className="empty-state" style={{ marginTop:20 }}>
+        <div style={{ width:40, height:40, borderRadius:999, background:'rgba(198,155,48,0.15)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 10px' }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="#C69B30" strokeWidth={1.8} strokeLinecap="round" width={22} height={22}><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>
+        </div>
+        <p style={{ fontFamily:'var(--font-sans)', fontSize:13, fontWeight:600, color:'var(--fc-text)', marginBottom:4 }}>Motor AI disponible</p>
+        <p style={{ fontFamily:'var(--font-sans)', fontSize:11, color:'var(--fc-muted)' }}>Activa el Motor AI para análisis profundo de tus ideas de negocio.</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Add Transaction Modal ────────────────────────────────
+function AddTransactionModal({ onClose }) {
+  const [type, setType] = useState('expense');
+  const accentColor = type === 'expense' ? '#E84434' : '#3A9E6A';
+  return (
+    <Modal title="Nueva transacción" onClose={onClose}>
+      <div style={{ display:'flex', background:'rgba(255,255,255,0.06)', borderRadius:999, padding:3, marginBottom:16 }}>
+        {[['expense','Gasto'],['income','Ingreso']].map(([id,lbl]) => (
+          <button key={id} onClick={() => setType(id)} style={{
+            flex:1, padding:'7px', borderRadius:999, border:'none', cursor:'pointer',
+            fontFamily:'var(--font-sans)', fontSize:12, fontWeight:600,
+            background: type===id ? accentColor : 'transparent',
+            color: type===id ? 'white' : '#7A9A8A', transition:'all 0.15s'
+          }}>{lbl}</button>
+        ))}
+      </div>
+      <div style={{ marginBottom:12 }}>
+        <p style={{ fontFamily:'var(--font-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.08em', color:'#7A9A8A', marginBottom:6 }}>Monto</p>
+        <input className="fc-input fc-input-mono" placeholder="$0" style={{ background:'rgba(255,255,255,0.08)', color:'#F2F7F4' }} readOnly />
+      </div>
+      <div style={{ marginBottom:12 }}>
+        <p style={{ fontFamily:'var(--font-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.08em', color:'#7A9A8A', marginBottom:6 }}>Categoría</p>
+        <div className="fc-input" style={{ background:'rgba(255,255,255,0.08)', color:'#7A9A8A' }}>Selecciona categoría</div>
+      </div>
+      <div style={{ marginBottom:20 }}>
+        <p style={{ fontFamily:'var(--font-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.08em', color:'#7A9A8A', marginBottom:6 }}>Fecha</p>
+        <div className="fc-input" style={{ background:'rgba(255,255,255,0.08)', color:'#F2F7F4' }}>Hoy, 23 abr 2025</div>
+      </div>
+      <button className="fc-btn" style={{ background: accentColor }}>Guardar {type === 'expense' ? 'gasto' : 'ingreso'}</button>
+    </Modal>
+  );
+}
+
+// ─── Add Income Modal ─────────────────────────────────────
+function AddIncomeModal({ onClose }) {
+  return (
+    <Modal title="Nueva fuente de ingreso" onClose={onClose}>
+      <div style={{ marginBottom:12 }}>
+        <p style={{ fontFamily:'var(--font-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.08em', color:'#7A9A8A', marginBottom:6 }}>Nombre</p>
+        <input className="fc-input" placeholder="Ej: Salario, Freelance..." style={{ background:'rgba(255,255,255,0.08)', color:'#F2F7F4' }} readOnly />
+      </div>
+      <div style={{ marginBottom:12 }}>
+        <p style={{ fontFamily:'var(--font-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.08em', color:'#7A9A8A', marginBottom:6 }}>Monto base</p>
+        <input className="fc-input fc-input-mono" placeholder="$0" style={{ background:'rgba(255,255,255,0.08)', color:'#F2F7F4' }} readOnly />
+      </div>
+      <div style={{ marginBottom:20 }}>
+        <p style={{ fontFamily:'var(--font-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.08em', color:'#7A9A8A', marginBottom:6 }}>Tipo</p>
+        <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+          {['Fijo','Por hora','Comisión','Pasivo','Proyecto'].map(t => (
+            <button key={t} style={{ padding:'5px 12px', borderRadius:999, border:'1px solid rgba(255,255,255,0.1)', background: t==='Fijo'?'rgba(46,125,82,0.3)':'transparent', color: t==='Fijo'?'#3A9E6A':'#7A9A8A', fontFamily:'var(--font-sans)', fontSize:11, cursor:'pointer' }}>{t}</button>
+          ))}
+        </div>
+      </div>
+      <button className="fc-btn">Guardar fuente</button>
+    </Modal>
+  );
+}
+
+// ─── Generic placeholder modal ───────────────────────────
+function GenericModal({ title, onClose }) {
+  return (
+    <Modal title={title} onClose={onClose}>
+      <div className="empty-state" style={{ background:'rgba(255,255,255,0.06)' }}>
+        <p style={{ fontFamily:'var(--font-sans)', fontSize:13, color:'#7A9A8A' }}>Formulario en construcción</p>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── App root ─────────────────────────────────────────────
+function App() {
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [screen, setScreen] = useState('mi-realidad');
+  const [modal, setModal] = useState(null);
+
+  // Apply theme
+  useEffect(() => {
+    document.body.setAttribute('data-theme', tweaks.theme);
+  }, [tweaks.theme]);
+
+  const SCREENS = { 'mi-realidad': MiRealidad, 'dashboard': Dashboard, 'brujula': Brujula, 'ideas': Ideas };
+  const Screen = SCREENS[screen];
+
+  const renderModal = () => {
+    if (!modal) return null;
+    if (modal === 'add-transaction') return <AddTransactionModal onClose={() => setModal(null)} />;
+    if (modal === 'add-income')      return <AddIncomeModal onClose={() => setModal(null)} />;
+    const titles = { 'add-asset':'Nuevo activo', 'add-liability':'Nuevo pasivo', 'add-business':'Nuevo negocio', 'add-goal':'Nueva meta', 'add-entry':'Registrar pago', 'new-idea':'Nueva sesión' };
+    return <GenericModal title={titles[modal] || 'Nuevo'} onClose={() => setModal(null)} />;
+  };
+
+  return (
+    <>
+      <div className="app-shell">
+        <Sidebar active={screen} onNav={setScreen} />
+        <main className="main-content">
+          <Screen onModal={setModal} />
+        </main>
+        <BottomNav active={screen} onNav={setScreen} />
+      </div>
+
+      {renderModal()}
+
+      <TweaksPanel>
+        <TweakSection label="Tema visual">
+          <TweakRadio id="theme" options={[
+            { value:'clean',      label:'Clean (default)' },
+            { value:'neumorphic', label:'Neumorphic'      },
+            { value:'dark',       label:'Dark mode'       },
+          ]} />
+        </TweakSection>
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
