@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { LogoutButton } from '@/components/shared/LogoutButton'
 
 const navItems = [
   {
@@ -87,6 +88,8 @@ export function BottomNav({ isAdmin = false }: BottomNavProps) {
           </Link>
         )
       })}
+
+      <LogoutButton variant="bottomnav" />
     </nav>
   )
 }

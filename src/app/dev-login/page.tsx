@@ -1,10 +1,11 @@
 'use client'
 
 import { Suspense, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { validateDevPin } from './actions'
 
 function DevLoginForm() {
+  const router = useRouter()
   const [pin, setPin] = useState('')
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -16,12 +17,20 @@ function DevLoginForm() {
     setLoading(true)
     setError(false)
 
-    const result = await validateDevPin(pin, from)
-    if (result?.error) {
+    try {
+      const result = await validateDevPin(pin, from)
+      if (result.error) {
+        setError(true)
+        setPin('')
+        setLoading(false)
+      } else {
+        router.push(result.redirectTo)
+      }
+    } catch {
       setError(true)
       setPin('')
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (

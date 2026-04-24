@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { LogoutButton } from '@/components/shared/LogoutButton'
 
 const navItems = [
   {
@@ -92,13 +93,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
         })}
       </nav>
 
-      {/* Avatar */}
-      <div
-        className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0"
-        style={{ backgroundColor: 'var(--fc-accent)', fontFamily: 'var(--font-sans)' }}
-      >
-        JD
-      </div>
+      <LogoutButton variant="sidebar" />
     </aside>
   )
 }

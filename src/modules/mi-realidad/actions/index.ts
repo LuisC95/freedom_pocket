@@ -3,7 +3,9 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
 import { getHouseholdVisibilityScope } from '@/lib/household'
-import Anthropic from '@anthropic-ai/sdk'
+import * as pdfParseModule from 'pdf-parse'
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const pdfParse: (buffer: Buffer) => Promise<{ text: string }> = (pdfParseModule as any).default ?? pdfParseModule
 import type {
   Income,
   IncomeInsert,
@@ -420,45 +422,58 @@ export async function scanPaystub(
   fileBase64: string,
   mimeType: string
 ): Promise<{ data: unknown | null; error: string | null }> {
-  const DEV_USER_ID = await getDevUserId()
-  const client = new Anthropic()
-  const isPdf = mimeType === 'application/pdf'
+  if (mimeType !== 'application/pdf') {
+    return { data: null, error: 'Solo se soportan PDFs. Convierte la imagen a PDF primero.' }
+  }
+
+  const apiKey = process.env.DEEPSEEK_API_KEY
+  if (!apiKey) {
+    return { data: null, error: 'DEEPSEEK_API_KEY no configurada' }
+  }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let response: any
+    const buffer = Buffer.from(fileBase64, 'base64')
+    const { text: rawText } = await pdfParse(buffer)
 
-    if (isPdf) {
-      response = await client.beta.messages.create({
-        model: 'claude-opus-4-6',
-        max_tokens: 1024,
-        betas: ['pdfs-2024-09-25'],
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: fileBase64 } },
-            { type: 'text', text: PAYSTUB_PROMPT },
-          ],
-        }],
-      })
-    } else {
-      response = await client.messages.create({
-        model: 'claude-opus-4-6',
-        max_tokens: 1024,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/webp', data: fileBase64 } },
-            { type: 'text', text: PAYSTUB_PROMPT },
-          ],
-        }],
-      })
+    if (!rawText || rawText.trim().length < 50) {
+      return { data: null, error: 'El PDF no contiene texto legible. ¿Es un PDF escaneado?' }
     }
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : ''
-    const parsed = JSON.parse(text)
+    const response = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+        max_tokens: 2048,
+        messages: [
+          {
+            role: 'system',
+            content: 'Eres un extractor de datos de paystubs. Responde SOLO con JSON válido, sin texto adicional, sin backticks, sin markdown.',
+          },
+          {
+            role: 'user',
+            content: `${PAYSTUB_PROMPT}\n\nTEXTO DEL PAYSTUB:\n${rawText}`,
+          },
+        ],
+      }),
+    })
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return { data: null, error: `DeepSeek error: ${(err as any)?.error?.message ?? response.status}` }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const payload = await response.json() as any
+    const content: string = payload?.choices?.[0]?.message?.content ?? ''
+    const parsed = JSON.parse(content)
     return { data: parsed, error: null }
   } catch (err) {
+    console.error('[scanPaystub]', err)
     const msg = err instanceof Error ? err.message : 'Error al procesar el archivo'
     return { data: null, error: msg }
   }

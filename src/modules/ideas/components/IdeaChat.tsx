@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition, useRef, useEffect } from 'react'
+import { useState, useTransition, useRef, useEffect, memo } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { useRouter } from 'next/navigation'
 import type {
   IdeaSession,
@@ -294,10 +295,27 @@ export function IdeaChat({ session }: IdeaChatProps) {
                   fontSize: 13,
                   fontFamily: 'var(--font-sans)',
                   lineHeight: 1.5,
-                  whiteSpace: 'pre-wrap',
                 }}
               >
-                {message.content}
+                {message.role === 'user' ? (
+                  <span style={{ whiteSpace: 'pre-wrap' }}>{message.content}</span>
+                ) : (
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <p style={{ margin: '0 0 6px' }}>{children}</p>,
+                      strong: ({ children }) => <strong style={{ fontWeight: 700, color: '#0F1A14' }}>{children}</strong>,
+                      em: ({ children }) => <em style={{ fontStyle: 'italic' }}>{children}</em>,
+                      ul: ({ children }) => <ul style={{ margin: '4px 0 6px', paddingLeft: 18 }}>{children}</ul>,
+                      ol: ({ children }) => <ol style={{ margin: '4px 0 6px', paddingLeft: 18 }}>{children}</ol>,
+                      li: ({ children }) => <li style={{ marginBottom: 2 }}>{children}</li>,
+                      code: ({ children }) => (
+                        <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, backgroundColor: 'rgba(46,125,82,0.1)', borderRadius: 4, padding: '1px 4px' }}>{children}</code>
+                      ),
+                    }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+                )}
               </div>
             </div>
           )
