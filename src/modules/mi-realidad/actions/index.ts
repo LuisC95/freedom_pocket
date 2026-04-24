@@ -3,9 +3,6 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
 import { getHouseholdVisibilityScope } from '@/lib/household'
-import * as pdfParseModule from 'pdf-parse'
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const pdfParse: (buffer: Buffer) => Promise<{ text: string }> = (pdfParseModule as any).default ?? pdfParseModule
 import type {
   Income,
   IncomeInsert,
@@ -433,7 +430,15 @@ export async function scanPaystub(
 
   try {
     const buffer = Buffer.from(fileBase64, 'base64')
-    const { text: rawText } = await pdfParse(buffer)
+    const { PDFParse } = await import('pdf-parse')
+    const parser = new PDFParse({ data: buffer })
+    let rawText = ''
+    try {
+      const result = await parser.getText()
+      rawText = result.text
+    } finally {
+      await parser.destroy()
+    }
 
     if (!rawText || rawText.trim().length < 50) {
       return { data: null, error: 'El PDF no contiene texto legible. ¿Es un PDF escaneado?' }
