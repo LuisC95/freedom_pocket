@@ -1,4 +1,5 @@
 export type TransactionType = 'income' | 'expense'
+export type PaymentSource = 'cash_debit' | 'credit_card'
 export type RecurringFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'annual' | 'custom' | 'manual'
 export type ExpenseType = 'fixed' | 'variable'
 export type BudgetSource = 'system' | 'user'
@@ -21,6 +22,8 @@ export interface Transaction {
   category_id: string
   household_id: string | null
   recurring_template_id: string | null
+  payment_source: PaymentSource
+  liability_id: string | null
   type: TransactionType
   amount: number
   currency: string
@@ -47,9 +50,24 @@ export interface TransactionInsert {
   notes?: string | null
   price_per_hour_snapshot?: number | null
   recurring_template_id?: string | null
+  payment_source?: PaymentSource
+  liability_id?: string | null
   split_type?: string | null
   split_percentage?: number | null
   status?: 'pending' | 'confirmed'
+}
+
+export interface CreditCardOption {
+  id: string
+  name: string
+  current_balance: number
+  is_shared: boolean
+  owner_name?: string
+}
+
+export interface DashboardUserSettings {
+  default_payment_source: PaymentSource
+  default_liability_id: string | null
 }
 
 export interface Budget {
@@ -148,4 +166,6 @@ export interface DashboardData {
   recurring_templates: RecurringTemplate[]
   pending_recurring: RecurringTemplate[]
   categories: TransactionCategory[]
+  credit_card_options: CreditCardOption[]
+  user_settings: DashboardUserSettings
 }

@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { createTransaction, updateTransaction, createRecurringTemplate, createCategory, deleteCategory } from '../actions'
-import type { Transaction, TransactionCategory, RecurringFrequency } from '../types'
+import { Check, ChevronDown, ChevronUp, CreditCard, WalletCards } from 'lucide-react'
+import { createTransaction, updateTransaction, createRecurringTemplate, createCategory, deleteCategory, updateDefaultPayment } from '../actions'
+import type { CreditCardOption, PaymentSource, Transaction, TransactionCategory, RecurringFrequency } from '../types'
 
 const CATEGORY_COLORS = [
   '#6366f1','#f59e0b','#3b82f6','#ef4444','#8b5cf6',
@@ -36,6 +37,9 @@ interface AddTransactionModalProps {
   periodId: string
   pricePerHour: number | null
   categories: TransactionCategory[]
+  creditCardOptions: CreditCardOption[]
+  defaultPaymentSource: PaymentSource
+  defaultLiabilityId: string | null
   transaction?: Transaction
   onClose: () => void
   onSaved: () => void
@@ -44,6 +48,15 @@ interface AddTransactionModalProps {
 function fmt(n: number) {
   if (!n) return ''
   return new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n)
+}
+
+function fmtMoney(n: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n)
 }
 
 const INPUT_STYLE: React.CSSProperties = {
@@ -72,6 +85,9 @@ export function AddTransactionModal({
   periodId,
   pricePerHour,
   categories,
+  creditCardOptions,
+  defaultPaymentSource,
+  defaultLiabilityId,
   transaction,
   onClose,
   onSaved,
@@ -98,6 +114,16 @@ export function AddTransactionModal({
   const [replacementCatId, setReplacementCatId] = useState('')
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deletingCat, startDeleteTransition] = useTransition()
+  const initialPaymentSource: PaymentSource = transaction?.payment_source ?? (
+    defaultPaymentSource === 'credit_card' && defaultLiabilityId ? 'credit_card' : 'cash_debit'
+  )
+  const initialLiabilityId = transaction?.liability_id ?? (
+    initialPaymentSource === 'credit_card' ? defaultLiabilityId : null
+  )
+  const [paymentSource, setPaymentSource] = useState<PaymentSource>(initialPaymentSource)
+  const [selectedLiabilityId, setSelectedLiabilityId] = useState<string | null>(initialLiabilityId)
+  const [selectorExpanded, setSelectorExpanded] = useState(false)
+  const [rememberAsDefault, setRememberAsDefault] = useState(false)
 
   const [isRecurring, setIsRecurring] = useState(false)
   const [registerToday, setRegisterToday] = useState(true)
@@ -113,6 +139,31 @@ export function AddTransactionModal({
   const filteredCategories = [...categories, ...extraCategories].filter(c =>
     (c.applies_to === 'expense' || c.applies_to === 'both') && !deletedCatIds.has(c.id)
   )
+  const selectedCard = paymentSource === 'credit_card'
+    ? creditCardOptions.find(card => card.id === selectedLiabilityId)
+    : undefined
+  const amountValue = parseFloat(amount)
+  const projectedCardBalance = selectedCard && !Number.isNaN(amountValue)
+    ? selectedCard.current_balance + amountValue
+    : selectedCard?.current_balance ?? 0
+  const canExpandPaymentSelector = creditCardOptions.length > 0
+
+  function selectCashDebit() {
+    setPaymentSource('cash_debit')
+    setSelectedLiabilityId(null)
+    setSelectorExpanded(false)
+  }
+
+  function selectCreditCard(cardId: string) {
+    setPaymentSource('credit_card')
+    setSelectedLiabilityId(cardId)
+    setSelectorExpanded(false)
+  }
+
+  async function persistDefaultPaymentIfNeeded() {
+    if (!rememberAsDefault) return null
+    return updateDefaultPayment(paymentSource, paymentSource === 'credit_card' ? selectedLiabilityId : null)
+  }
 
   function handleDeleteCategory() {
     if (!catToDelete) return
@@ -162,6 +213,7 @@ export function AddTransactionModal({
     const amt = parseFloat(amount)
     if (isNaN(amt) || amt <= 0) return setError('El monto debe ser mayor a 0')
     if (!categoryId) return setError('Selecciona una categoría')
+    if (paymentSource === 'credit_card' && !selectedLiabilityId) return setError('Selecciona una tarjeta de credito')
 
     startTransition(async () => {
       const templateName = notes || (filteredCategories.find(c => c.id === categoryId)?.name ?? 'Habitual')
@@ -183,6 +235,8 @@ export function AddTransactionModal({
           custom_interval_days: frequency === 'custom' ? (parseInt(customDays) || 30) : null,
         })
         if (res.error) return setError(res.error)
+        const defaultRes = await persistDefaultPaymentIfNeeded()
+        if (defaultRes && !defaultRes.ok) return setError(defaultRes.error)
         onSaved()
         return
       }
@@ -195,6 +249,8 @@ export function AddTransactionModal({
           transaction_date: date,
           notes: notes || null,
           currency,
+          payment_source: paymentSource,
+          liability_id: paymentSource === 'credit_card' ? selectedLiabilityId : null,
         })
         if (res.error) return setError(res.error)
       } else {
@@ -207,6 +263,8 @@ export function AddTransactionModal({
           notes: notes || null,
           currency,
           price_per_hour_snapshot: pricePerHour,
+          payment_source: paymentSource,
+          liability_id: paymentSource === 'credit_card' ? selectedLiabilityId : null,
           status: 'confirmed',
         })
         if (res.error) return setError(res.error)
@@ -226,6 +284,8 @@ export function AddTransactionModal({
           if (tplRes.error) return setError(tplRes.error)
         }
       }
+      const defaultRes = await persistDefaultPaymentIfNeeded()
+      if (defaultRes && !defaultRes.ok) return setError(defaultRes.error)
       onSaved()
     })
   }
@@ -454,6 +514,156 @@ export function AddTransactionModal({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Método de pago */}
+          <div style={{ marginBottom: '14px' }}>
+            <label style={LABEL_STYLE}>Método de pago</label>
+            <div style={{ backgroundColor: '#0E1512', border: '0.5px solid #2a3a33', borderRadius: '8px', overflow: 'hidden' }}>
+              <button
+                type="button"
+                onClick={() => canExpandPaymentSelector && setSelectorExpanded(prev => !prev)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: canExpandPaymentSelector ? 'pointer' : 'default',
+                  color: '#F2F7F4',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  textAlign: 'left',
+                }}
+              >
+                {paymentSource === 'credit_card' && selectedCard ? (
+                  <CreditCard size={20} color="#E84434" />
+                ) : (
+                  <WalletCards size={20} color="#7A9A8A" />
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500, color: '#F2F7F4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {paymentSource === 'credit_card' && selectedCard ? selectedCard.name : 'Efectivo / Débito'}
+                    </span>
+                    {paymentSource === 'credit_card' && selectedCard?.id === defaultLiabilityId && (
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: '#2E7D52', backgroundColor: '#2E7D5220', borderRadius: '3px', padding: '1px 5px', flexShrink: 0 }}>
+                        default
+                      </span>
+                    )}
+                  </div>
+                  {paymentSource === 'credit_card' && selectedCard && (
+                    <div style={{ marginTop: '2px', display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#7A9A8A' }}>Después de este gasto</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: '#E84434', fontWeight: 500 }}>
+                        {fmtMoney(projectedCardBalance)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {paymentSource === 'credit_card' && selectedCard && (
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#E84434', flexShrink: 0 }}>
+                    {fmtMoney(selectedCard.current_balance)}
+                  </span>
+                )}
+                {canExpandPaymentSelector && (
+                  selectorExpanded ? <ChevronUp size={16} color="#7A9A8A" /> : <ChevronDown size={16} color="#7A9A8A" />
+                )}
+              </button>
+
+              {selectorExpanded && (
+                <div style={{ borderTop: '0.5px solid #2a3a33' }}>
+                  <div style={{ padding: '9px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#7A9A8A' }}>Selecciona un método</span>
+                    <ChevronUp size={16} color="#7A9A8A" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={selectCashDebit}
+                    style={{
+                      width: '100%',
+                      padding: '11px 12px',
+                      border: 'none',
+                      borderTop: '0.5px solid #2a3a33',
+                      borderLeft: paymentSource === 'cash_debit' ? '3px solid #E84434' : '3px solid transparent',
+                      backgroundColor: paymentSource === 'cash_debit' ? '#E8443410' : 'transparent',
+                      color: '#F2F7F4',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                    }}
+                  >
+                    <WalletCards size={18} color="#7A9A8A" />
+                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500 }}>Efectivo / Débito</span>
+                  </button>
+                  {creditCardOptions.map(card => {
+                    const selected = paymentSource === 'credit_card' && selectedLiabilityId === card.id
+                    return (
+                      <button
+                        key={card.id}
+                        type="button"
+                        onClick={() => selectCreditCard(card.id)}
+                        style={{
+                          width: '100%',
+                          padding: '11px 12px',
+                          border: 'none',
+                          borderTop: '0.5px solid #2a3a33',
+                          borderLeft: selected ? '3px solid #E84434' : '3px solid transparent',
+                          backgroundColor: selected ? '#E8443410' : 'transparent',
+                          color: '#F2F7F4',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <CreditCard size={18} color={selected ? '#E84434' : '#7A9A8A'} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {card.name}
+                            </span>
+                            {card.owner_name && (
+                              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: '#5a7a6a', backgroundColor: '#2a3a33', borderRadius: '3px', padding: '1px 5px', flexShrink: 0 }}>
+                                de {card.owner_name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#E84434' }}>
+                          {fmtMoney(card.current_balance)}
+                        </span>
+                      </button>
+                    )
+                  })}
+                  <label style={{ borderTop: '0.5px solid #2a3a33', padding: '11px 12px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <button
+                      type="button"
+                      onClick={() => setRememberAsDefault(prev => !prev)}
+                      style={{
+                        width: '16px',
+                        height: '16px',
+                        borderRadius: '4px',
+                        border: '0.5px solid #3a4a43',
+                        backgroundColor: rememberAsDefault ? '#2E7D52' : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: 0,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {rememberAsDefault && <Check size={12} color="#F2F7F4" />}
+                    </button>
+                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: '#7A9A8A' }}>
+                      Recordar como default
+                    </span>
+                  </label>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Fecha */}

@@ -2,8 +2,12 @@
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
-import { getHouseholdVisibilityScope } from '@/lib/household'
+import { getHouseholdScope, getHouseholdVisibilityScope } from '@/lib/household'
+import type { ActionResult } from '@/types/actions'
 import type {
+  CreditCardOption,
+  DashboardUserSettings,
+  PaymentSource,
   Transaction,
   TransactionInsert,
   TransactionCategory,
@@ -56,6 +60,8 @@ function mapTransaction(raw: any): Transaction {
     category_id: raw.category_id,
     household_id: raw.household_id,
     recurring_template_id: raw.recurring_template_id,
+    payment_source: raw.payment_source ?? 'cash_debit',
+    liability_id: raw.liability_id ?? null,
     type: raw.type,
     amount: Number(raw.amount),
     currency: raw.currency,
@@ -68,6 +74,24 @@ function mapTransaction(raw: any): Transaction {
     created_at: raw.created_at,
     updated_at: raw.updated_at,
     category: raw.transaction_categories ? mapCategory(raw.transaction_categories) : undefined,
+  }
+}
+
+function normalizePaymentFields(input: {
+  type?: string
+  payment_source?: PaymentSource
+  liability_id?: string | null
+}): { payment_source: PaymentSource; liability_id: string | null } {
+  if (input.type === 'expense' && input.payment_source === 'credit_card') {
+    return {
+      payment_source: 'credit_card',
+      liability_id: input.liability_id ?? null,
+    }
+  }
+
+  return {
+    payment_source: 'cash_debit',
+    liability_id: null,
   }
 }
 
@@ -154,6 +178,85 @@ function isTemplatePending(
   }
 }
 
+// ─── Payment source helpers ──────────────────────────────────────────────────
+
+export async function getCreditCardOptions(): Promise<ActionResult<CreditCardOption[]>> {
+  const DEV_USER_ID = await getDevUserId()
+  const supabase = createAdminClient()
+  const scope = await getHouseholdScope(supabase, DEV_USER_ID)
+
+  const liabilityQuery = supabase
+    .from('liabilities')
+    .select('id, name, current_balance, is_shared, user_id, household_id')
+    .eq('liability_type', 'credit_card')
+    .eq('is_active', true)
+
+  const { data, error } = scope.householdId
+    ? await liabilityQuery.in('user_id', scope.memberUserIds)
+    : await liabilityQuery.eq('user_id', DEV_USER_ID)
+
+  if (error) return { ok: false, error: error.message }
+
+  const visibleCards = (data ?? []).filter(card =>
+    card.user_id === DEV_USER_ID ||
+    (scope.householdId && card.household_id === scope.householdId && card.is_shared)
+  )
+
+  const otherUserIds = Array.from(new Set(
+    visibleCards
+      .filter(card => card.user_id !== DEV_USER_ID && card.is_shared)
+      .map(card => card.user_id)
+  ))
+
+  let ownerNames: Record<string, string> = {}
+  if (otherUserIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, display_name')
+      .in('id', otherUserIds)
+
+    ownerNames = (profiles ?? []).reduce<Record<string, string>>((acc, profile) => {
+      acc[profile.id] = profile.display_name || 'Miembro'
+      return acc
+    }, {})
+  }
+
+  return {
+    ok: true,
+    data: visibleCards.map(card => ({
+      id: card.id,
+      name: card.name,
+      current_balance: Number(card.current_balance),
+      is_shared: card.is_shared,
+      owner_name: card.user_id !== DEV_USER_ID ? ownerNames[card.user_id] : undefined,
+    })),
+  }
+}
+
+export async function updateDefaultPayment(
+  payment_source: PaymentSource,
+  liability_id?: string | null
+): Promise<ActionResult<void>> {
+  const DEV_USER_ID = await getDevUserId()
+  const supabase = createAdminClient()
+  const settingsPayload = {
+    user_id: DEV_USER_ID,
+    default_payment_source: payment_source,
+    default_liability_id: payment_source === 'credit_card' ? liability_id ?? null : null,
+  }
+
+  if (settingsPayload.default_payment_source === 'credit_card' && !settingsPayload.default_liability_id) {
+    return { ok: false, error: 'Selecciona una tarjeta de credito' }
+  }
+
+  const { error } = await (supabase as any)
+    .from('user_settings')
+    .upsert(settingsPayload, { onConflict: 'user_id' })
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, data: undefined }
+}
+
 // ─── getDashboardData ─────────────────────────────────────────────────────────
 
 export async function getDashboardData(): Promise<DashboardData> {
@@ -182,6 +285,11 @@ export async function getDashboardData(): Promise<DashboardData> {
       recurring_templates: [],
       pending_recurring: [],
       categories: [],
+      credit_card_options: [],
+      user_settings: {
+        default_payment_source: 'cash_debit',
+        default_liability_id: null,
+      },
     }
   }
 
@@ -238,7 +346,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       .order('name'),
     supabase
       .from('user_settings')
-      .select('hidden_category_ids')
+      .select('hidden_category_ids, default_payment_source, default_liability_id')
       .eq('user_id', DEV_USER_ID)
       .single(),
     supabase
@@ -371,6 +479,24 @@ export async function getDashboardData(): Promise<DashboardData> {
     .filter(c => !hiddenIds.includes(c.id))
     .map(mapCategory)
 
+  const creditCardsResult = await getCreditCardOptions()
+  const credit_card_options = creditCardsResult.ok ? creditCardsResult.data : []
+  const defaultPaymentSource = (settingsRaw as any)?.default_payment_source === 'credit_card'
+    ? 'credit_card'
+    : 'cash_debit'
+  const defaultLiabilityId = (settingsRaw as any)?.default_liability_id ?? null
+  const defaultCardStillAvailable = defaultLiabilityId
+    ? credit_card_options.some(card => card.id === defaultLiabilityId)
+    : false
+  const user_settings: DashboardUserSettings = {
+    default_payment_source: defaultPaymentSource === 'credit_card' && defaultCardStillAvailable
+      ? 'credit_card'
+      : 'cash_debit',
+    default_liability_id: defaultPaymentSource === 'credit_card' && defaultCardStillAvailable
+      ? defaultLiabilityId
+      : null,
+  }
+
   // ── Métricas ──────────────────────────────────────────────────────────────
   // Ingresos: entradas reales en la ventana rodante; fallback a proyección mensual
   const entries = (incomeEntriesRaw ?? []).filter(e => e.entry_date >= ventanaStr)
@@ -409,6 +535,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     recurring_templates,
     pending_recurring,
     categories,
+    credit_card_options,
+    user_settings,
   }
 }
 
@@ -492,15 +620,21 @@ export async function createTransaction(
     .single()
 
   const pricePerHour = period ? await getPricePerHour(supabase, period.id, DEV_USER_ID) : null
+  const paymentFields = normalizePaymentFields(data)
+
+  if (paymentFields.payment_source === 'credit_card' && !paymentFields.liability_id) {
+    return { data: null, error: 'Selecciona una tarjeta de credito' }
+  }
 
   const { data: row, error } = await supabase
     .from('transactions')
     .insert({
       ...data,
+      ...paymentFields,
       user_id: DEV_USER_ID,
       price_per_hour_snapshot: data.price_per_hour_snapshot ?? pricePerHour,
       status: data.status ?? 'confirmed',
-    })
+    } as any)
     .select('*, transaction_categories(*)')
     .single()
 
@@ -518,10 +652,17 @@ export async function updateTransaction(
 ): Promise<{ data: Transaction | null; error: string | null }> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
+  const paymentFields: Partial<{ payment_source: PaymentSource; liability_id: string | null }> = data.payment_source
+    ? normalizePaymentFields(data)
+    : {}
+
+  if (paymentFields.payment_source === 'credit_card' && !paymentFields.liability_id) {
+    return { data: null, error: 'Selecciona una tarjeta de credito' }
+  }
 
   const { data: row, error } = await supabase
     .from('transactions')
-    .update(data)
+    .update({ ...data, ...paymentFields } as any)
     .eq('id', id)
     .eq('user_id', DEV_USER_ID)
     .select('*, transaction_categories(*)')

@@ -23,7 +23,18 @@ export function DashboardClient({ data }: DashboardClientProps) {
   const router = useRouter()
   const [modal, setModal] = useState<Modal>(null)
 
-  const { periodo_activo, metrics, transaction_groups, monthly_history, budgets, recurring_templates, pending_recurring, categories } = data
+  const {
+    periodo_activo,
+    metrics,
+    transaction_groups,
+    monthly_history,
+    budgets,
+    recurring_templates,
+    pending_recurring,
+    categories,
+    credit_card_options,
+    user_settings,
+  } = data
 
   function refresh() {
     setModal(null)
@@ -106,6 +117,9 @@ export function DashboardClient({ data }: DashboardClientProps) {
           periodId={periodo_activo.id}
           pricePerHour={metrics.price_per_hour}
           categories={categories}
+          creditCardOptions={credit_card_options}
+          defaultPaymentSource={user_settings.default_payment_source}
+          defaultLiabilityId={user_settings.default_liability_id}
           onClose={() => setModal(null)}
           onSaved={refresh}
         />
@@ -115,6 +129,9 @@ export function DashboardClient({ data }: DashboardClientProps) {
           periodId={periodo_activo.id}
           pricePerHour={metrics.price_per_hour}
           categories={categories}
+          creditCardOptions={credit_card_options}
+          defaultPaymentSource={user_settings.default_payment_source}
+          defaultLiabilityId={user_settings.default_liability_id}
           transaction={modal.transaction}
           onClose={() => setModal(null)}
           onSaved={refresh}
