@@ -310,7 +310,7 @@ export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIn
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*,application/pdf"
+            accept="application/pdf"
             style={{ display: 'none' }}
             onChange={handleScan}
             disabled={isScanning}

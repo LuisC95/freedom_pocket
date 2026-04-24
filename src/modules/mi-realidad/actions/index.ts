@@ -415,6 +415,51 @@ Reglas:
 - Para category, mapea al más cercano de los valores permitidos
 - check_date y pay_period_end son campos distintos — extrae ambos si están presentes`
 
+function extractJsonObject(input: string): unknown {
+  const cleaned = input
+    .trim()
+    .replace(/^```(?:json)?/i, '')
+    .replace(/```$/i, '')
+    .trim()
+
+  try {
+    return JSON.parse(cleaned)
+  } catch {}
+
+  const start = cleaned.indexOf('{')
+  const end = cleaned.lastIndexOf('}')
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error('La AI no devolvió JSON válido')
+  }
+
+  return JSON.parse(cleaned.slice(start, end + 1))
+}
+
+async function extractPdfText(buffer: Buffer): Promise<string> {
+  const { createRequire } = await import('node:module')
+  const require = createRequire(import.meta.url)
+  const canvasPackage = ['@napi-rs', 'canvas'].join('/')
+  const canvas = require(canvasPackage) as {
+    DOMMatrix: unknown
+    ImageData: unknown
+    Path2D: unknown
+  }
+  const globals = globalThis as Record<string, unknown>
+
+  globals.DOMMatrix ??= canvas.DOMMatrix
+  globals.ImageData ??= canvas.ImageData
+  globals.Path2D ??= canvas.Path2D
+
+  const { PDFParse } = await import('pdf-parse')
+  const parser = new PDFParse({ data: buffer })
+  try {
+    const result = await parser.getText()
+    return result.text
+  } finally {
+    await parser.destroy()
+  }
+}
+
 export async function scanPaystub(
   fileBase64: string,
   mimeType: string
@@ -430,15 +475,7 @@ export async function scanPaystub(
 
   try {
     const buffer = Buffer.from(fileBase64, 'base64')
-    const { PDFParse } = await import('pdf-parse')
-    const parser = new PDFParse({ data: buffer })
-    let rawText = ''
-    try {
-      const result = await parser.getText()
-      rawText = result.text
-    } finally {
-      await parser.destroy()
-    }
+    const rawText = await extractPdfText(buffer)
 
     if (!rawText || rawText.trim().length < 50) {
       return { data: null, error: 'El PDF no contiene texto legible. ¿Es un PDF escaneado?' }
@@ -452,6 +489,7 @@ export async function scanPaystub(
       },
       body: JSON.stringify({
         model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+        response_format: { type: 'json_object' },
         max_tokens: 2048,
         messages: [
           {
@@ -475,7 +513,7 @@ export async function scanPaystub(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const payload = await response.json() as any
     const content: string = payload?.choices?.[0]?.message?.content ?? ''
-    const parsed = JSON.parse(content)
+    const parsed = extractJsonObject(content)
     return { data: parsed, error: null }
   } catch (err) {
     console.error('[scanPaystub]', err)
