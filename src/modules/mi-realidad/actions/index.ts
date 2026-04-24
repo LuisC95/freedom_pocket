@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
+import { getHouseholdVisibilityScope } from '@/lib/household'
 import Anthropic from '@anthropic-ai/sdk'
 import type {
   Income,
@@ -90,13 +91,8 @@ return {
 export async function getMiRealidadData(): Promise<MiRealidadData> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
-
-  const { data: period } = await supabase
-    .from('periods')
-    .select('*')
-    .eq('user_id', DEV_USER_ID)
-    .eq('is_active', true)
-    .single()
+  const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
+  const period = scope.activePeriod
 
   if (!period) {
     return {
@@ -105,27 +101,38 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
     }
   }
 
-  const [{ data: incomesRaw }, { data: hoursRaw }, { data: entriesRaw }] = await Promise.all([
-    supabase
-      .from('incomes')
-      .select('*')
-      .eq('user_id', DEV_USER_ID)
-      .eq('period_id', period.id)
-      .order('effective_from', { ascending: false }),
+  const incomesQuery = supabase
+    .from('incomes')
+    .select('*')
+    .in('user_id', scope.visibleIncomeUserIds)
+    .order('effective_from', { ascending: false })
+
+  const scopedIncomesQuery =
+    scope.visibleIncomePeriodIds.length > 0
+      ? incomesQuery.in('period_id', scope.visibleIncomePeriodIds)
+      : incomesQuery.eq('id', '__no_income_scope__')
+
+  const [{ data: incomesRaw }, { data: hoursRaw }] = await Promise.all([
+    scopedIncomesQuery,
     supabase
       .from('real_hours')
       .select('*')
       .eq('user_id', DEV_USER_ID)
       .eq('period_id', period.id)
       .single(),
-    supabase
-      .from('income_entries')
-      .select('*, incomes(label)')
-      .eq('user_id', DEV_USER_ID)
-      .order('entry_date', { ascending: false }),
   ])
 
   const ingresos: Income[] = (incomesRaw ?? []).map(i => ({ ...i, amount: Number(i.amount) }))
+  const incomeIds = ingresos.map(income => income.id)
+  const { data: entriesRaw } =
+    incomeIds.length > 0
+      ? await supabase
+          .from('income_entries')
+          .select('*, incomes(label)')
+          .in('income_id', incomeIds)
+          .order('entry_date', { ascending: false })
+      : { data: [] }
+
   const real_hours: RealHours | null = hoursRaw ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allEntries: IncomeEntry[] = (entriesRaw ?? []).map((e: any) => ({
@@ -190,7 +197,12 @@ export async function createIncome(
 
   const { data: row, error } = await supabase
     .from('incomes')
-    .insert({ ...data, user_id: DEV_USER_ID, contributed_by: DEV_USER_ID })
+    .insert({
+      ...data,
+      user_id: DEV_USER_ID,
+      contributed_by: DEV_USER_ID,
+      household_id: data.household_id ?? (await getHouseholdVisibilityScope(supabase, DEV_USER_ID)).householdId,
+    })
     .select()
     .single()
 

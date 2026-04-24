@@ -39,6 +39,7 @@ export interface Transaction {
 export interface TransactionInsert {
   period_id: string
   category_id: string
+  household_id?: string | null
   type: TransactionType
   amount: number
   currency?: string
@@ -46,6 +47,8 @@ export interface TransactionInsert {
   notes?: string | null
   price_per_hour_snapshot?: number | null
   recurring_template_id?: string | null
+  split_type?: string | null
+  split_percentage?: number | null
   status?: 'pending' | 'confirmed'
 }
 
@@ -96,6 +99,7 @@ export interface RecurringTemplate {
 
 export interface RecurringTemplateInsert {
   category_id: string
+  household_id?: string | null
   name: string
   type: TransactionType
   amount: number

@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
+import { getHouseholdVisibilityScope } from '@/lib/household'
 import type {
   Transaction,
   TransactionInsert,
@@ -158,13 +159,8 @@ function isTemplatePending(
 export async function getDashboardData(): Promise<DashboardData> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
-
-  const { data: period } = await supabase
-    .from('periods')
-    .select('id, start_date, end_date')
-    .eq('user_id', DEV_USER_ID)
-    .eq('is_active', true)
-    .single()
+  const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
+  const period = scope.activePeriod
 
   const emptyMetrics: DashboardMetrics = {
     total_income_period: 0,
@@ -215,14 +211,14 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase
       .from('transactions')
       .select('*, transaction_categories(*)')
-      .eq('user_id', DEV_USER_ID)
-      .eq('period_id', period.id)
+      .in('user_id', scope.visibleExpenseUserIds)
+      .in('period_id', scope.visibleExpensePeriodIds)
       .eq('type', 'expense')
       .order('transaction_date', { ascending: false }),
     supabase
       .from('transactions')
       .select('type, amount, transaction_date')
-      .eq('user_id', DEV_USER_ID)
+      .in('user_id', scope.visibleExpenseUserIds)
       .gte('transaction_date', seisAtrasStr)
       .lte('transaction_date', todayStr),
     supabase
@@ -233,7 +229,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase
       .from('recurring_templates')
       .select('*, transaction_categories(*)')
-      .eq('user_id', DEV_USER_ID)
+      .in('user_id', scope.visibleExpenseUserIds)
       .eq('is_active', true),
     supabase
       .from('transaction_categories')
@@ -248,12 +244,12 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase
       .from('incomes')
       .select('amount, frequency')
-      .eq('user_id', DEV_USER_ID)
-      .eq('period_id', period.id),
+      .in('user_id', scope.visibleIncomeUserIds)
+      .in('period_id', scope.visibleIncomePeriodIds),
     supabase
       .from('income_entries')
       .select('amount, entry_type, entry_date')
-      .eq('user_id', DEV_USER_ID)
+      .in('user_id', scope.visibleIncomeUserIds)
       .gte('entry_date', seisAtrasStr)
       .lte('entry_date', todayStr),
   ])
@@ -421,6 +417,7 @@ export async function getDashboardData(): Promise<DashboardData> {
 export async function getMonthlyHistory(months: number): Promise<MonthlySnapshot[]> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = await createAdminClient()
+  const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
   const hoy = new Date()
   const nAtras = new Date(hoy.getFullYear(), hoy.getMonth() - months, 1)
   const nAtrasStr = nAtras.toISOString().slice(0, 10)
@@ -430,13 +427,13 @@ export async function getMonthlyHistory(months: number): Promise<MonthlySnapshot
     supabase
       .from('transactions')
       .select('type, amount, transaction_date')
-      .eq('user_id', DEV_USER_ID)
+      .in('user_id', scope.visibleExpenseUserIds)
       .gte('transaction_date', nAtrasStr)
       .lte('transaction_date', todayStr),
     supabase
       .from('income_entries')
       .select('amount, entry_type, entry_date')
-      .eq('user_id', DEV_USER_ID)
+      .in('user_id', scope.visibleIncomeUserIds)
       .gte('entry_date', nAtrasStr)
       .lte('entry_date', todayStr),
   ])
@@ -818,7 +815,6 @@ export async function approveRecurringTransaction(
     user_id: DEV_USER_ID,
     period_id: period.id,
     category_id: template.category_id,
-    household_id: template.household_id,
     recurring_template_id: template.id,
     type: template.type,
     amount: template.amount,

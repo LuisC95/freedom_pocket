@@ -1,6 +1,8 @@
 // src/lib/dev-auth.ts
 // Mapa PIN → userId para el sistema de acceso dev.
 // Prioridad: vars nuevas (LUIS/PAREJA) → fallback a vars legacy (DEV_ACCESS_PIN / DEV_USER_ID).
+// Para desarrollo local conviene guardar estos pares en `.env.development.local`,
+// así `vercel env pull .env.local` no pisa los PINs ni la continuidad de perfiles.
 // Usado por proxy.ts, dev-login/actions.ts y layout.tsx.
 
 function buildPinToUser(): Record<string, string> {

@@ -20,6 +20,30 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Local Dev Access
+
+This project supports development-only PIN login with per-profile continuity.
+
+- `DEV_ACCESS_PIN_*` identifies which PIN was entered
+- `DEV_USER_ID_*` maps that PIN to a fixed Supabase profile
+- the app stores that `userId` in the `dev_access` cookie, so each PIN keeps loading the same profile
+
+If you use `vercel env pull .env.local`, do not store local-only PINs in `.env.local`, because that file can be overwritten by Vercel. Put them in `.env.development.local` instead.
+
+Example:
+
+```env
+DEV_ACCESS_PIN_LUIS=1234
+DEV_USER_ID_LUIS=uuid-del-perfil-de-luis
+DEV_ACCESS_PIN_PAREJA=5678
+DEV_USER_ID_PAREJA=uuid-del-perfil-de-pareja
+```
+
+Recommended split:
+
+- `.env.local`: variables pulled from Vercel
+- `.env.development.local`: local-only dev PINs and profile mappings
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
