@@ -371,6 +371,27 @@ export async function deleteLiability(id: string): Promise<{ error: string | nul
   return { error: error?.message ?? null }
 }
 
+export async function payOffCreditCard({
+  liability_id,
+  amount,
+}: {
+  liability_id: string
+  amount: number
+}): Promise<{ data: Liability | null; error: string | null }> {
+  if (amount <= 0) return { data: null, error: 'El monto debe ser mayor a 0' }
+  const DEV_USER_ID = await getDevUserId()
+  const supabase = createAdminClient()
+  const { data: lib } = await supabase
+    .from('liabilities')
+    .select('current_balance')
+    .eq('id', liability_id)
+    .eq('user_id', DEV_USER_ID)
+    .single()
+  if (!lib) return { data: null, error: 'Tarjeta no encontrada' }
+  const newBalance = Math.max(0, Number(lib.current_balance) - amount)
+  return updateLiability({ id: liability_id, current_balance: newBalance })
+}
+
 // ─── Businesses CRUD ──────────────────────────────────────────────────────────
 
 export async function createBusiness(data: BusinessInsert): Promise<{ data: Business | null; error: string | null }> {

@@ -604,6 +604,23 @@ export async function getMonthlyHistory(months: number): Promise<MonthlySnapshot
   })
 }
 
+// ─── adjustLiabilityBalance (internal helper) ─────────────────────────────────
+
+async function adjustLiabilityBalance(
+  supabase: ReturnType<typeof createAdminClient>,
+  liability_id: string,
+  delta: number
+) {
+  const { data: lib } = await supabase
+    .from('liabilities')
+    .select('current_balance')
+    .eq('id', liability_id)
+    .single()
+  if (!lib) return
+  const newBalance = Math.max(0, Number(lib.current_balance) + delta)
+  await supabase.from('liabilities').update({ current_balance: newBalance }).eq('id', liability_id)
+}
+
 // ─── createTransaction ────────────────────────────────────────────────────────
 
 export async function createTransaction(
@@ -639,6 +656,10 @@ export async function createTransaction(
     .single()
 
   if (error) return { data: null, error: error.message }
+
+  if (paymentFields.payment_source === 'credit_card' && paymentFields.liability_id && data.type === 'expense') {
+    await adjustLiabilityBalance(supabase, paymentFields.liability_id, Number(data.amount))
+  }
 
   await recalculateBudgetAvgs(DEV_USER_ID)
   return { data: mapTransaction(row), error: null }
@@ -678,6 +699,13 @@ export async function deleteTransaction(id: string): Promise<{ error: string | n
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
+  const { data: txn } = await supabase
+    .from('transactions')
+    .select('payment_source, liability_id, amount, type')
+    .eq('id', id)
+    .eq('user_id', DEV_USER_ID)
+    .single()
+
   const { error } = await supabase
     .from('transactions')
     .delete()
@@ -685,6 +713,10 @@ export async function deleteTransaction(id: string): Promise<{ error: string | n
     .eq('user_id', DEV_USER_ID)
 
   if (error) return { error: error.message }
+
+  if (txn?.payment_source === 'credit_card' && txn.liability_id && txn.type === 'expense') {
+    await adjustLiabilityBalance(supabase, txn.liability_id, -Number(txn.amount))
+  }
 
   await recalculateBudgetAvgs(DEV_USER_ID)
   return { error: null }

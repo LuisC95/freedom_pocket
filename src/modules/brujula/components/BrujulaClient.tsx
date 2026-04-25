@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { BrujulaData, Asset, Liability, Business, FreedomGoal } from '../types'
 import { ASSET_TYPE_LABELS, BUSINESS_MODEL_LABELS, BUSINESS_STATUS_LABELS, LIABILITY_TYPE_LABELS, PROGRESS_LEVEL_LABELS } from '../types'
-import { deleteAsset, deleteLiability, deleteBusiness, deleteFreedomGoal, updateFreedomGoal } from '../actions'
+import { deleteAsset, deleteLiability, deleteBusiness, deleteFreedomGoal, updateFreedomGoal, payOffCreditCard } from '../actions'
 import { AssetModal } from './AssetModal'
 import { LiabilityModal } from './LiabilityModal'
 import { BusinessModal } from './BusinessModal'
@@ -175,10 +175,11 @@ function BusinessCard({ business, onEdit, onDelete, pending }: {
 
 // ─── Liability Card ───────────────────────────────────────────────────────────
 
-function LiabilityCard({ liability, onEdit, onDelete, pending }: {
+function LiabilityCard({ liability, onEdit, onDelete, onPayCC, pending }: {
   liability: Liability
   onEdit: () => void
   onDelete: () => void
+  onPayCC: () => void
   pending: boolean
 }) {
   return (
@@ -199,7 +200,13 @@ function LiabilityCard({ liability, onEdit, onDelete, pending }: {
         </p>
         {liability.notes && <p className="text-[10px] text-[#7A9A8A] mt-1 truncate">{liability.notes}</p>}
       </div>
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex items-center gap-1.5 shrink-0">
+        {liability.liability_type === 'credit_card' && (
+          <button onClick={onPayCC}
+            className="text-[11px] font-medium text-white bg-[#2E7D52] hover:bg-[#3A9E6A] rounded-lg px-2.5 py-1 transition-colors">
+            Pagar
+          </button>
+        )}
         <button onClick={onEdit} className="text-[12px] text-[#7A9A8A] hover:text-[#2E7D52] transition-colors px-1">
           Editar
         </button>
@@ -275,6 +282,86 @@ function FreedomGoalRow({ goal, diasActuales, onEdit, onDelete, onToggle, pendin
   )
 }
 
+// ─── Pay CC Modal ─────────────────────────────────────────────────────────────
+
+function PayCCModal({ liability, onClose, onSaved }: {
+  liability: Liability
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [amount, setAmount] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const n = parseFloat(amount)
+    if (isNaN(n) || n <= 0) return setError('Ingresá un monto válido')
+    if (n > liability.current_balance) return setError(`El monto supera la deuda actual (${fmtFull(liability.current_balance, liability.currency)})`)
+    setError(null)
+    startTransition(async () => {
+      const res = await payOffCreditCard({ liability_id: liability.id, amount: n })
+      if (res.error) return setError(res.error)
+      onSaved()
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-4">
+      <div className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-xl">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-[15px] font-semibold text-[#141F19]">Pagar tarjeta</h2>
+            <p className="text-[11px] text-[#7A9A8A] mt-0.5">{liability.name}</p>
+          </div>
+          <button onClick={onClose} className="text-[#7A9A8A] hover:text-[#141F19] text-xl leading-none">×</button>
+        </div>
+
+        <div className="bg-[#FFF0EF] rounded-xl p-3 mb-4">
+          <p className="text-[10px] uppercase tracking-widest text-[#E84434] mb-0.5">Deuda actual</p>
+          <p className="font-mono text-[22px] font-semibold text-[#E84434]">
+            {fmtFull(liability.current_balance, liability.currency)}
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-1">
+              Monto a pagar ({liability.currency})
+            </label>
+            <input
+              type="number"
+              value={amount}
+              onChange={e => { setAmount(e.target.value); setError(null) }}
+              placeholder="0.00"
+              step="0.01"
+              min="0.01"
+              autoFocus
+              className="w-full px-3 py-2.5 rounded-lg border border-[#D0DDD6] text-[16px] font-mono text-[#141F19] focus:outline-none focus:border-[#2E7D52] bg-white"
+            />
+            {amount && !isNaN(parseFloat(amount)) && parseFloat(amount) > 0 && (
+              <p className="text-[10px] text-[#7A9A8A] mt-1.5">
+                Deuda restante: {fmtFull(Math.max(0, liability.current_balance - parseFloat(amount)), liability.currency)}
+              </p>
+            )}
+          </div>
+          {error && <p className="text-[#E84434] text-[12px]">{error}</p>}
+          <div className="flex gap-3">
+            <button type="button" onClick={onClose} disabled={pending}
+              className="flex-1 py-2.5 rounded-xl border border-[#D0DDD6] text-[13px] font-medium text-[#7A9A8A]">
+              Cancelar
+            </button>
+            <button type="submit" disabled={pending || !amount}
+              className="flex-1 py-2.5 rounded-xl bg-[#2E7D52] text-white text-[13px] font-medium hover:bg-[#3A9E6A] transition-colors disabled:opacity-60">
+              {pending ? 'Registrando…' : 'Registrar pago'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 type Modal =
@@ -282,6 +369,7 @@ type Modal =
   | { type: 'asset_edit'; asset: Asset }
   | { type: 'liability_new' }
   | { type: 'liability_edit'; liability: Liability }
+  | { type: 'pay_cc'; liability: Liability }
   | { type: 'business_new' }
   | { type: 'business_edit'; business: Business }
   | { type: 'goal_new' }
@@ -493,6 +581,7 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
               <LiabilityCard key={l.id} liability={l}
                 onEdit={() => setModal({ type: 'liability_edit', liability: l })}
                 onDelete={() => handleDelete(() => deleteLiability(l.id))}
+                onPayCC={() => setModal({ type: 'pay_cc', liability: l })}
                 pending={pending} />
             ))
           )}
@@ -557,6 +646,9 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
       )}
       {modal?.type === 'liability_edit' && (
         <LiabilityModal liability={modal.liability} onClose={() => setModal(null)} onSaved={refresh} />
+      )}
+      {modal?.type === 'pay_cc' && (
+        <PayCCModal liability={modal.liability} onClose={() => setModal(null)} onSaved={refresh} />
       )}
       {modal?.type === 'business_new' && (
         <BusinessModal onClose={() => setModal(null)} onSaved={refresh} />
