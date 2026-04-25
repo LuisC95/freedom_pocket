@@ -715,6 +715,14 @@ export async function deleteTransaction(id: string): Promise<{ error: string | n
 
   if (error) return { error: error.message }
 
+  if (
+    txn?.type === 'expense' &&
+    txn.payment_source === 'credit_card' &&
+    txn.liability_id
+  ) {
+    await adjustLiabilityBalance(supabase, txn.liability_id, -Number(txn.amount))
+  }
+
   await recalculateBudgetAvgs(DEV_USER_ID)
   return { error: null }
 }
