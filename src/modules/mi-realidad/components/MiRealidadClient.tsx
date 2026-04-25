@@ -497,20 +497,32 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
 
   async function handleDelete(id: string) {
     setDeletingId(id)
-    await deleteIncome(id)
+    const result = await deleteIncome(id)
     setDeletingId(null)
+    if (result.error) {
+      alert(result.error)
+      return
+    }
     router.refresh()
   }
 
   async function handleDeleteEntry(id: string) {
     setDeletingId(id)
-    await deleteIncomeEntry(id)
+    const result = await deleteIncomeEntry(id)
     setDeletingId(null)
+    if (result.error) {
+      alert(result.error)
+      return
+    }
     router.refresh()
   }
 
   async function handleDeleteBatch(ids: string[]) {
-    await deleteIncomeEntries(ids)
+    const result = await deleteIncomeEntries(ids)
+    if (result.error) {
+      alert(result.error)
+      return
+    }
     router.refresh()
   }
 

@@ -156,6 +156,7 @@ export function IncomeSlider({
           <p className="text-[13px] text-[#7A9A8A]">Sin registros de pago aún</p>
           {periodId && (
             <button
+              type="button"
               onClick={onRegisterPayment}
               className="mt-2 text-[12px] font-medium text-[#2E7D52] hover:text-[#3A9E6A]"
             >
@@ -175,6 +176,7 @@ export function IncomeSlider({
 
                   {/* Área clickeable para expandir */}
                   <button
+                    type="button"
                     className="flex-1 flex items-center px-[14px] py-[11px] gap-[10px] text-left min-w-0"
                     onClick={() => {
                       toggleGroup(group.key)
@@ -216,6 +218,7 @@ export function IncomeSlider({
 
                   {/* Botón eliminar batch — inline confirm */}
                   <button
+                    type="button"
                     onClick={() => {
                       if (confirmingDelete === group.key) {
                         setConfirmingDelete(null)
@@ -236,6 +239,7 @@ export function IncomeSlider({
 
                   {/* Chevron */}
                   <button
+                    type="button"
                     onClick={() => {
                       toggleGroup(group.key)
                       if (confirmingDelete === group.key) setConfirmingDelete(null)
@@ -288,12 +292,14 @@ export function IncomeSlider({
                           {fmtMoney(entry.amount, entry.currency)}
                         </span>
                         <button
+                          type="button"
                           onClick={() => onEditEntry(entry, incomeTypeMap.get(entry.income_id) === 'hourly')}
                           className="text-[10px] text-[#7A9A8A] hover:text-[#2E7D52] transition-colors shrink-0"
                         >
                           Editar
                         </button>
                         <button
+                          type="button"
                           onClick={() => onDeleteEntry(entry.id)}
                           disabled={deletingId === entry.id}
                           className="text-[10px] text-[#7A9A8A] hover:text-[#E84434] transition-colors shrink-0 disabled:opacity-40"
@@ -322,6 +328,7 @@ export function IncomeSlider({
           <p className="text-[13px] text-[#7A9A8A]">Sin fuentes de ingreso — crea una para comenzar</p>
           {periodId && (
             <button
+              type="button"
               onClick={onNewIncome}
               className="mt-2 text-[12px] font-medium text-[#2E7D52] hover:text-[#3A9E6A]"
             >
@@ -350,12 +357,14 @@ export function IncomeSlider({
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <button
+                    type="button"
                     onClick={() => onEditIncome(income)}
                     className="text-[#7A9A8A] hover:text-[#2E7D52] text-[12px] px-2 py-1 rounded transition-colors"
                   >
                     Configurar
                   </button>
                   <button
+                    type="button"
                     onClick={() => onDeleteIncome(income.id)}
                     disabled={deletingId === income.id}
                     className="text-[#7A9A8A] hover:text-[#E84434] text-[12px] px-2 py-1 rounded transition-colors disabled:opacity-40"
@@ -383,6 +392,7 @@ export function IncomeSlider({
         {periodId && (
           activePanel === 0 ? (
             <button
+              type="button"
               onClick={onRegisterPayment}
               className="text-[12px] font-medium text-[#2E7D52] hover:text-[#3A9E6A] transition-colors"
             >
@@ -390,6 +400,7 @@ export function IncomeSlider({
             </button>
           ) : (
             <button
+              type="button"
               onClick={onNewIncome}
               className="text-[12px] font-medium text-[#7A9A8A] hover:text-[#141F19] transition-colors"
             >

@@ -82,7 +82,11 @@ function TxSheet({ tx, onClose, onEdit, onDeleted }: TxSheetProps) {
 
   function handleDelete() {
     startTransition(async () => {
-      await deleteTransaction(tx.id)
+      const result = await deleteTransaction(tx.id)
+      if (result.error) {
+        alert(result.error)
+        return
+      }
       onDeleted()
     })
   }
@@ -162,7 +166,11 @@ function RecurringSheet({ template, onClose, onChanged }: { template: RecurringT
 
   function handleDelete() {
     startTransition(async () => {
-      await deleteRecurringTemplate(template.id)
+      const result = await deleteRecurringTemplate(template.id)
+      if (result.error) {
+        alert(result.error)
+        return
+      }
       onChanged()
     })
   }
@@ -230,6 +238,7 @@ function Row({ label, value }: { label: string; value: string }) {
 function SheetBtn({ label, onClick, danger, disabled }: { label: string; onClick: () => void; danger?: boolean; disabled?: boolean }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
       style={{

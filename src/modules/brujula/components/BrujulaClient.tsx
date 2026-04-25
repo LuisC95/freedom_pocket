@@ -76,14 +76,14 @@ function DeleteBtn({ onConfirm, pending }: { onConfirm: () => void; pending: boo
   const [confirming, setConfirming] = useState(false)
   if (confirming) {
     return (
-      <button onClick={onConfirm} disabled={pending}
+      <button type="button" onClick={onConfirm} disabled={pending}
         className="text-[11px] font-medium text-white bg-[#E84434] rounded-lg px-2.5 py-1 transition-colors disabled:opacity-60">
         ¿Eliminar?
       </button>
     )
   }
   return (
-    <button onClick={() => setConfirming(true)}
+    <button type="button" onClick={() => setConfirming(true)}
       className="text-[#7A9A8A] hover:text-[#E84434] transition-colors text-[16px] leading-none p-1">
       ×
     </button>

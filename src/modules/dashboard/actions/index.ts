@@ -699,21 +699,35 @@ export async function updateTransaction(
 export async function deleteTransaction(id: string): Promise<{ error: string | null }> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
+  const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
 
   const { data: txn } = await supabase
     .from('transactions')
-    .select('payment_source, liability_id, amount, type')
+    .select('id, user_id, period_id, payment_source, liability_id, amount, type')
     .eq('id', id)
-    .eq('user_id', DEV_USER_ID)
-    .single()
+    .maybeSingle()
 
-  const { error } = await supabase
+  if (!txn) return { error: 'Transacción no encontrada' }
+
+  const visibleUserIds =
+    txn.type === 'income' ? scope.visibleIncomeUserIds : scope.visibleExpenseUserIds
+  const visiblePeriodIds =
+    txn.type === 'income' ? scope.visibleIncomePeriodIds : scope.visibleExpensePeriodIds
+  const canDelete =
+    visibleUserIds.includes(txn.user_id) &&
+    visiblePeriodIds.includes(txn.period_id)
+
+  if (!canDelete) return { error: 'No tienes permiso para eliminar esta transacción' }
+
+  const { data: deleted, error } = await supabase
     .from('transactions')
     .delete()
+    .select('id')
     .eq('id', id)
-    .eq('user_id', DEV_USER_ID)
+    .eq('user_id', txn.user_id)
 
   if (error) return { error: error.message }
+  if (!deleted?.length) return { error: 'No se pudo eliminar la transacción' }
 
   if (
     txn?.type === 'expense' &&
@@ -1128,14 +1142,18 @@ export async function updateRecurringTemplate(
 export async function deleteRecurringTemplate(id: string): Promise<{ error: string | null }> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
+  const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('recurring_templates')
     .delete()
+    .select('id')
     .eq('id', id)
-    .eq('user_id', DEV_USER_ID)
+    .in('user_id', scope.visibleExpenseUserIds)
 
-  return { error: error?.message ?? null }
+  if (error) return { error: error.message }
+  if (!data?.length) return { error: 'No tienes permiso para eliminar esta recurrencia' }
+  return { error: null }
 }
 
 // ─── confirmRecurringTemplate ─────────────────────────────────────────────────

@@ -236,14 +236,25 @@ export async function updateIncome(
 export async function deleteIncome(id: string): Promise<{ error: string | null }> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
+  const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
 
-  const { error } = await supabase
+  const query = supabase
     .from('incomes')
     .delete()
+    .select('id')
     .eq('id', id)
-    .eq('user_id', DEV_USER_ID)
+    .in('user_id', scope.visibleIncomeUserIds)
 
-  return { error: error?.message ?? null }
+  const scopedQuery =
+    scope.visibleIncomePeriodIds.length > 0
+      ? query.in('period_id', scope.visibleIncomePeriodIds)
+      : query.eq('period_id', '__no_visible_period__')
+
+  const { data, error } = await scopedQuery
+
+  if (error) return { error: error.message }
+  if (!data?.length) return { error: 'No tienes permiso para eliminar este ingreso' }
+  return { error: null }
 }
 
 // ─── upsertRealHours ──────────────────────────────────────────────────────────
@@ -288,14 +299,18 @@ export async function upsertRealHours(
 export async function deleteIncomeEntry(id: string): Promise<{ error: string | null }> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
+  const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('income_entries')
     .delete()
+    .select('id')
     .eq('id', id)
-    .eq('user_id', DEV_USER_ID)
+    .in('user_id', scope.visibleIncomeUserIds)
 
-  return { error: error?.message ?? null }
+  if (error) return { error: error.message }
+  if (!data?.length) return { error: 'No tienes permiso para eliminar este registro' }
+  return { error: null }
 }
 
 // ─── deleteIncomeEntries (batch) ──────────────────────────────────────────────
@@ -304,14 +319,18 @@ export async function deleteIncomeEntries(ids: string[]): Promise<{ error: strin
   const DEV_USER_ID = await getDevUserId()
   if (ids.length === 0) return { error: null }
   const supabase = createAdminClient()
+  const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('income_entries')
     .delete()
+    .select('id')
     .in('id', ids)
-    .eq('user_id', DEV_USER_ID)
+    .in('user_id', scope.visibleIncomeUserIds)
 
-  return { error: error?.message ?? null }
+  if (error) return { error: error.message }
+  if (!data?.length) return { error: 'No tienes permiso para eliminar estos registros' }
+  return { error: null }
 }
 
 // ─── updateIncomeEntry ────────────────────────────────────────────────────────
