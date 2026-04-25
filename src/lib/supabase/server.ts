@@ -1,6 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { assertServerRuntime } from '@/lib/assert-server-runtime'
+
+assertServerRuntime('supabase/server')
 
 // Cliente admin con service_role — bypassa RLS, solo usar en server actions
 export function createAdminClient() {

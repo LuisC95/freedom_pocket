@@ -19,7 +19,7 @@
 | Elemento | Decisión |
 |---|---|
 | Framework | Next.js 14 (corriendo 16.2.1) |
-| DB | Supabase PostgreSQL (`rkhrwfdhivsvlronfaaf`, us-east-2) |
+| DB | Supabase PostgreSQL (project id en variables de entorno) |
 | Estilos | Tailwind v3 + shadcn/ui preset Nova |
 | Gráficas | Recharts |
 | AI | Capa `AIProvider` multi-proveedor (Anthropic / OpenAI / Google) — ⏳ implementar |
@@ -27,9 +27,9 @@
 | Moneda | ExchangeRate-API |
 
 ## Acceso Dev
-- PIN: `DEV_ACCESS_PIN` = `310595` (cookie `dev_access`)
-- DB: **service_role** via `createAdminClient()` — bypassa RLS siempre
-- `DEV_USER_ID` = `1e04cc3d-2c30-4cf9-a977-bb7209aece3a` (tiene `is_admin=true`)
+- PIN: configurar `DEV_ACCESS_PIN_*` solo en variables de entorno
+- DB: **service_role** via `createAdminClient()` — bypassa RLS siempre y solo debe usarse server-side
+- `DEV_USER_ID_*`: configurar solo en variables de entorno
 - Puerto: 3000
 
 ---
@@ -414,7 +414,7 @@ Términos de MJ DeMarco (IP registrada) a reemplazar antes del launch:
 ---
 
 ## Tools
-- **Supabase MCP:** `execute_sql` + `apply_migration` + `generate_typescript_types` con project_id `rkhrwfdhivsvlronfaaf`
+- **Supabase MCP:** `execute_sql` + `apply_migration` + `generate_typescript_types` con project_id desde variables de entorno
 - **Claude Code:** implementación de archivos (delegado desde Claude.ai)
 - **Claude Vision:** integrada en M1 (paystub scanner)
 - **Recharts:** visualizaciones

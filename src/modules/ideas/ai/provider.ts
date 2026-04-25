@@ -1,5 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ActionResult } from '@/types/actions';
+import { assertServerRuntime } from '@/lib/assert-server-runtime';
+
+assertServerRuntime('ideas/ai/provider');
 
 export type SupportedAIProvider = 'anthropic' | 'openai' | 'google' | 'deepseek';
 
@@ -86,9 +89,8 @@ export class AnthropicProvider implements AIProvider {
         },
       };
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'Error desconocido llamando a Anthropic';
-      return { ok: false, error: `ANTHROPIC_ERROR: ${message}` };
+      console.error('[AnthropicProvider]', err);
+      return { ok: false, error: 'AI_PROVIDER_ERROR' };
     }
   }
 }
@@ -160,8 +162,8 @@ export class DeepSeekProvider implements AIProvider {
       const payload = (await response.json()) as DeepSeekChatCompletionResponse;
 
       if (!response.ok) {
-        const message = payload.error?.message ?? `HTTP ${response.status}`;
-        return { ok: false, error: `DEEPSEEK_ERROR: ${message}` };
+        console.error('[DeepSeekProvider]', payload.error ?? response.status);
+        return { ok: false, error: 'AI_PROVIDER_ERROR' };
       }
 
       const rawContent = payload.choices?.[0]?.message?.content;
@@ -196,9 +198,8 @@ export class DeepSeekProvider implements AIProvider {
         },
       };
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'Error desconocido llamando a DeepSeek';
-      return { ok: false, error: `DEEPSEEK_ERROR: ${message}` };
+      console.error('[DeepSeekProvider]', err);
+      return { ok: false, error: 'AI_PROVIDER_ERROR' };
     }
   }
 }

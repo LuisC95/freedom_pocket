@@ -374,7 +374,7 @@ function buildSystemPromptForPhase(phase: string): string {
 **Agregar en `.env.local`:**
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_API_KEY=your_anthropic_api_key
 ```
 
 **Agregar también en Vercel:**

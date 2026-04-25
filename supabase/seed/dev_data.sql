@@ -5,7 +5,7 @@
 
 do $$
 declare
-  v_user_id     uuid := '1e04cc3d-2c30-4cf9-a977-bb7209aece3a';
+  v_user_id     uuid := '00000000-0000-4000-8000-000000000001';
   v_period_id   uuid;
   v_prev_id     uuid;
 begin

@@ -1,4 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/server'
+import { assertServerRuntime } from '@/lib/assert-server-runtime'
+
+assertServerRuntime('household')
 
 type AdminClient = ReturnType<typeof createAdminClient>
 

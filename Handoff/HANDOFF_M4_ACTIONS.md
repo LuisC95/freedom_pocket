@@ -88,7 +88,7 @@ import {
 import { ENTRY_POINTS } from '@/modules/ideas/constants'
 import { mapSession, mapMessage, mapIdea } from '@/modules/ideas/mappers'
 
-const DEV_USER_ID = '1e04cc3d-2c30-4cf9-a977-bb7209aece3a'
+const DEV_USER_ID = process.env.DEV_USER_ID!
 
 // ─────────────────────────────────────────────
 // 1. createSession
@@ -257,7 +257,7 @@ import { IdeaMessage, SendMessageInput } from '@/modules/ideas/types'
 import { mapMessage }         from '@/modules/ideas/mappers'
 import { resolveAIProvider }  from '@/modules/ideas/ai/resolver'
 
-const DEV_USER_ID = '1e04cc3d-2c30-4cf9-a977-bb7209aece3a'
+const DEV_USER_ID = process.env.DEV_USER_ID!
 
 // ─────────────────────────────────────────────
 // 5. sendMessage
@@ -417,7 +417,7 @@ import {
 } from '@/modules/ideas/types'
 import { mapIdea, mapDeepDive, mapSession } from '@/modules/ideas/mappers'
 
-const DEV_USER_ID = '1e04cc3d-2c30-4cf9-a977-bb7209aece3a'
+const DEV_USER_ID = process.env.DEV_USER_ID!
 
 // ─────────────────────────────────────────────
 // 6. createIdeaFromSession
@@ -625,7 +625,7 @@ import {
 import { IDEA_STATUS_TRANSITIONS } from '@/modules/ideas/constants'
 import { mapIdea } from '@/modules/ideas/mappers'
 
-const DEV_USER_ID = '1e04cc3d-2c30-4cf9-a977-bb7209aece3a'
+const DEV_USER_ID = process.env.DEV_USER_ID!
 
 // ─────────────────────────────────────────────
 // Helpers internos
@@ -826,7 +826,7 @@ import {
 import { DEEP_DIVE_FIELDS } from '@/modules/ideas/constants'
 import { mapDeepDive } from '@/modules/ideas/mappers'
 
-const DEV_USER_ID = '1e04cc3d-2c30-4cf9-a977-bb7209aece3a'
+const DEV_USER_ID = process.env.DEV_USER_ID!
 
 // Whitelist de seguridad: solo estos campos pueden escribirse vía upsert.
 // Previene SQL injection por nombre de columna arbitrario.
@@ -1066,8 +1066,8 @@ Abrí una nueva chat en el mismo project y pegá:
 - Lenguaje aterrizado · en español
 - Recomendar nueva conversación cuando el contexto se sature
 - Visual-first cuando aplica
-- **DEV_USER_ID:** `1e04cc3d-2c30-4cf9-a977-bb7209aece3a`
-- **Supabase project:** `rkhrwfdhivsvlronfaaf`
+- **DEV_USER_ID:** configurado por variables de entorno
+- **Supabase project:** configurado por variables de entorno
 
 ---
 

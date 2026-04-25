@@ -470,7 +470,7 @@ export async function scanPaystub(
 
   const apiKey = process.env.DEEPSEEK_API_KEY
   if (!apiKey) {
-    return { data: null, error: 'DEEPSEEK_API_KEY no configurada' }
+    return { data: null, error: 'El analizador de paystubs no está configurado' }
   }
 
   try {
@@ -506,8 +506,8 @@ export async function scanPaystub(
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}))
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return { data: null, error: `DeepSeek error: ${(err as any)?.error?.message ?? response.status}` }
+      console.error('[scanPaystub] provider error', err || response.status)
+      return { data: null, error: 'No se pudo analizar el paystub' }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -517,8 +517,7 @@ export async function scanPaystub(
     return { data: parsed, error: null }
   } catch (err) {
     console.error('[scanPaystub]', err)
-    const msg = err instanceof Error ? err.message : 'Error al procesar el archivo'
-    return { data: null, error: msg }
+    return { data: null, error: 'No se pudo procesar el archivo' }
   }
 }
 

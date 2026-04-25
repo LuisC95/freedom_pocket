@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/server';
+import { assertServerRuntime } from '@/lib/assert-server-runtime';
 import type { ActionResult } from '@/types/actions';
 import {
   AnthropicProvider,
@@ -6,6 +7,8 @@ import {
   type AIProvider,
   type SupportedAIProvider,
 } from './provider';
+
+assertServerRuntime('ideas/ai/resolver');
 
 function resolveAdminProviderFromEnv(): ActionResult<AIProvider> {
   const configuredProvider =
@@ -19,7 +22,7 @@ function resolveAdminProviderFromEnv(): ActionResult<AIProvider> {
       if (!apiKey) {
         return {
           ok: false,
-          error: 'ANTHROPIC_API_KEY no configurada en el entorno',
+          error: 'AI_PROVIDER_NOT_CONFIGURED',
         };
       }
 
@@ -37,7 +40,7 @@ function resolveAdminProviderFromEnv(): ActionResult<AIProvider> {
       if (!apiKey) {
         return {
           ok: false,
-          error: 'DEEPSEEK_API_KEY no configurada en el entorno',
+          error: 'AI_PROVIDER_NOT_CONFIGURED',
         };
       }
 
@@ -55,13 +58,13 @@ function resolveAdminProviderFromEnv(): ActionResult<AIProvider> {
     case 'google':
       return {
         ok: false,
-        error: `Provider ${configuredProvider} todavía no implementado en ideas`,
+        error: 'AI_PROVIDER_NOT_IMPLEMENTED',
       };
 
     default:
       return {
         ok: false,
-        error: `IDEAS_AI_PROVIDER inválido: ${configuredProvider}`,
+        error: 'AI_PROVIDER_INVALID',
       };
   }
 }
@@ -78,7 +81,8 @@ export async function resolveAIProvider(
     .single();
 
   if (profileErr || !profile) {
-    return { ok: false, error: `USER_NOT_FOUND: ${profileErr?.message ?? userId}` };
+    console.error('[resolveAIProvider] profile lookup failed', profileErr ?? userId);
+    return { ok: false, error: 'USER_NOT_FOUND' };
   }
 
   if (profile.is_admin) {

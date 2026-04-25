@@ -12,7 +12,7 @@ Filosofía: desvincular el dinero del tiempo. Riqueza = Familia + Salud + Libert
 | Elemento | Valor |
 |---|---|
 | Framework | Next.js 14 (corriendo 16.2.1) |
-| DB | Supabase PostgreSQL (`rkhrwfdhivsvlronfaaf`) |
+| DB | Supabase PostgreSQL (project id en variables de entorno) |
 | Estilos | Tailwind CSS v3 + shadcn/ui (preset Nova) |
 | Auth (dev) | PIN hardcodeado — sin Supabase auth todavía |
 | Fuentes | IBM Plex Mono (números) + IBM Plex Sans (UI) |
@@ -20,7 +20,7 @@ Filosofía: desvincular el dinero del tiempo. Riqueza = Familia + Salud + Libert
 
 ### Acceso a DB
 - **Admin client:** `createAdminClient()` en `src/lib/supabase/server.ts` — usa service_role key, bypassa RLS
-- **User ID dev:** hardcodeado en `src/lib/dev-user.ts` → `1e04cc3d-2c30-4cf9-a977-bb7209aece3a`
+- **User ID dev:** configurado por variables `DEV_USER_ID_*`
 - **Todos los FK de user** apuntan a `profiles.id`, NO a `auth.users(id)`
 
 ---
