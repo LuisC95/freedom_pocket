@@ -109,16 +109,25 @@ export function HeroCard({ metrics, monthly_history, periodo_label, onExpand }: 
         </div>
       </div>
 
-      {/* Barra de retención */}
-      <div style={{ backgroundColor: '#E8443425', borderRadius: '4px', height: '6px', overflow: 'hidden' }} className="mb-1">
-        <div style={{ width: `${retPct}%`, height: '6px', backgroundColor: '#3A9E6A', borderRadius: '4px' }} />
-      </div>
-      <div className="flex justify-between">
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.07em', color: '#7A9A8A' }}>
-          {retPct}% retenido
-        </p>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.07em', color: '#7A9A8A' }}>
-          {100 - retPct}% gastado
+      {/* Medidor de liquidez */}
+      <div className="mt-3">
+        <div className="flex items-center justify-between mb-1.5">
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7A9A8A' }}>
+            liquidez del período
+          </p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: retPct >= 50 ? '#3A9E6A' : retPct >= 20 ? '#C69B30' : '#E84434' }}>
+            {retPct}% libre · {100 - retPct}% gastado
+          </p>
+        </div>
+        <div style={{ backgroundColor: '#E8443425', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
+          <div style={{ width: `${retPct}%`, height: '6px', backgroundColor: retPct >= 50 ? '#3A9E6A' : retPct >= 20 ? '#C69B30' : '#E84434', borderRadius: '4px', transition: 'width 0.4s' }} />
+        </div>
+        <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: '#7A9A8A', marginTop: '5px', lineHeight: 1.4 }}>
+          {retPct >= 50
+            ? 'Excelente — más de la mitad de tus ingresos siguen disponibles.'
+            : retPct >= 20
+            ? 'Margen ajustado — considerá reducir gastos variables.'
+            : 'Liquidez crítica — los gastos consumen casi todos tus ingresos.'}
         </p>
       </div>
 

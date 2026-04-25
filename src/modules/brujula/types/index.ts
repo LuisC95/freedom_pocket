@@ -214,10 +214,10 @@ export const BUSINESS_STATUS_LABELS: Record<BusinessStatus, string> = {
 }
 
 export const PROGRESS_LEVEL_LABELS: Record<ProgressLevel, string> = {
-  acera:              'Acera',
-  via_lenta:          'Vía Lenta',
-  carril_aceleracion: 'Carril de Aceleración',
-  via_rapida:         'Vía Rápida',
+  acera:              'Lvl 1 · Punto de Partida',
+  via_lenta:          'Lvl 2 · Crecimiento Lento',
+  carril_aceleracion: 'Lvl 3 · Aceleración',
+  via_rapida:         'Lvl 4 · Carril Rápido',
 }
 
 // ─── Aggregate — retorno de getBrujulaData ────────────────────────────────────

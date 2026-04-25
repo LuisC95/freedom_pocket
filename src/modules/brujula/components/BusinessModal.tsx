@@ -135,6 +135,13 @@ export function BusinessModal({ business, onClose, onSaved }: BusinessModalProps
                 placeholder="3" min="0.1" step="0.5" className={NUM_CLASS} />
             </div>
           </div>
+          <div className="bg-[#EAF0EC] rounded-xl px-3.5 py-3">
+            <p className="text-[11px] font-medium text-[#2E7D52] mb-1">¿Qué es el multiplicador de sector?</p>
+            <p className="text-[10px] text-[#7A9A8A] leading-relaxed">
+              Estima cuánto vale tu negocio en relación a su ganancia mensual. Se multiplica por las ganancias para calcular
+              tu valoración estimada en la Brújula. Referencia: SaaS ×5–8, Producto físico ×3–4, Servicio ×2–3, Renta ×1.5–2.
+            </p>
+          </div>
 
           {/* Inicio */}
           <div>

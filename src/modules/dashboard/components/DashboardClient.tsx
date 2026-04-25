@@ -86,7 +86,7 @@ export function DashboardClient({ data }: DashboardClientProps) {
           onClick={() => setModal({ type: 'add' })}
           style={{
             position: 'fixed',
-            bottom: '80px',
+            bottom: '96px',
             right: '20px',
             width: '52px',
             height: '52px',

@@ -33,7 +33,7 @@ export default async function ProtectedLayout({
     <div className="min-h-screen" style={{ backgroundColor: 'var(--fc-base)' }}>
       <Sidebar isAdmin={isAdmin} />
       <BottomNav isAdmin={isAdmin} />
-      <main className="md:ml-[68px] pb-[88px] md:pb-0 min-h-screen">
+      <main className="md:ml-[68px] pb-[88px] md:pb-8 min-h-screen">
         {children}
       </main>
     </div>
