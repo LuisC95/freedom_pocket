@@ -187,7 +187,7 @@ export async function getCreditCardOptions(): Promise<ActionResult<CreditCardOpt
 
   const liabilityQuery = supabase
     .from('liabilities')
-    .select('id, name, current_balance, is_shared, user_id, household_id')
+    .select('id, name, current_balance, currency, is_shared, user_id, household_id')
     .eq('liability_type', 'credit_card')
     .eq('is_active', true)
 
@@ -227,6 +227,7 @@ export async function getCreditCardOptions(): Promise<ActionResult<CreditCardOpt
       id: card.id,
       name: card.name,
       current_balance: Number(card.current_balance),
+      currency: card.currency ?? 'USD',
       is_shared: card.is_shared,
       owner_name: card.user_id !== DEV_USER_ID ? ownerNames[card.user_id] : undefined,
     })),
@@ -714,10 +715,72 @@ export async function deleteTransaction(id: string): Promise<{ error: string | n
 
   if (error) return { error: error.message }
 
-  if (txn?.payment_source === 'credit_card' && txn.liability_id && txn.type === 'expense') {
-    await adjustLiabilityBalance(supabase, txn.liability_id, -Number(txn.amount))
+  await recalculateBudgetAvgs(DEV_USER_ID)
+  return { error: null }
+}
+
+// ─── registerCCPayment ────────────────────────────────────────────────────────
+
+export async function registerCCPayment({
+  liability_id,
+  amount,
+  currency,
+  transaction_date,
+  period_id,
+  notes,
+}: {
+  liability_id: string
+  amount: number
+  currency: string
+  transaction_date: string
+  period_id: string
+  notes?: string | null
+}): Promise<{ error: string | null }> {
+  if (amount <= 0) return { error: 'El monto debe ser mayor a 0' }
+  const DEV_USER_ID = await getDevUserId()
+  const supabase = createAdminClient()
+
+  // Find or create the system "Pago de tarjeta" category
+  let { data: category } = await supabase
+    .from('transaction_categories')
+    .select('id')
+    .eq('user_id', DEV_USER_ID)
+    .eq('name', 'Pago de tarjeta')
+    .maybeSingle()
+
+  if (!category) {
+    const { data: created, error: catErr } = await supabase
+      .from('transaction_categories')
+      .insert({ user_id: DEV_USER_ID, name: 'Pago de tarjeta', applies_to: 'expense', is_custom: true })
+      .select('id')
+      .single()
+    if (catErr) return { error: catErr.message }
+    category = created
   }
 
+  const pricePerHour = await getPricePerHour(supabase, period_id, DEV_USER_ID)
+
+  const { error: txErr } = await supabase
+    .from('transactions')
+    .insert({
+      user_id: DEV_USER_ID,
+      period_id,
+      category_id: category!.id,
+      payment_source: 'cash_debit',
+      liability_id: null,
+      type: 'expense',
+      amount,
+      currency,
+      transaction_date,
+      notes: notes?.trim() || 'Pago de tarjeta de crédito',
+      status: 'confirmed',
+      price_per_hour_snapshot: pricePerHour,
+    })
+
+  if (txErr) return { error: txErr.message }
+
+  // Reduce CC debt
+  await adjustLiabilityBalance(supabase, liability_id, -amount)
   await recalculateBudgetAvgs(DEV_USER_ID)
   return { error: null }
 }
