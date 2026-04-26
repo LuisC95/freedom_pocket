@@ -1,5 +1,6 @@
 'use server'
 
+import { DOMMatrix, ImageData, Path2D } from '@napi-rs/canvas'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
 import { getHouseholdVisibilityScope } from '@/lib/household'
@@ -15,6 +16,12 @@ import type {
   MiRealidadEstado,
   RegisterPaymentPayload,
 } from '../types'
+
+const pdfGlobals = globalThis as Record<string, unknown>
+
+pdfGlobals.DOMMatrix ??= DOMMatrix
+pdfGlobals.ImageData ??= ImageData
+pdfGlobals.Path2D ??= Path2D
 
 // ─── Algoritmo 1 — Precio Real por Hora ──────────────────────────────────────
 
