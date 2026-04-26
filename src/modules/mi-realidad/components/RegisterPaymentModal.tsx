@@ -90,6 +90,7 @@ export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIn
   const [isScanning, setIsScanning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [entryDate, setEntryDate] = useState(today)
+  const [availableIncomes, setAvailableIncomes] = useState<Income[]>(incomes)
 
   const [earnings, setEarnings] = useState<EarningRow[]>([
     { income_id: incomes[0]?.id ?? '', amount: '', hours_worked: '' },
@@ -106,7 +107,7 @@ export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIn
 
   // ── Earning helpers ────────────────────────────────────────────────────────
   const addEarning = () =>
-    setEarnings(prev => [...prev, { income_id: incomes[0]?.id ?? '', amount: '', hours_worked: '' }])
+    setEarnings(prev => [...prev, { income_id: availableIncomes[0]?.id ?? '', amount: '', hours_worked: '' }])
 
   const removeEarning = (i: number) =>
     setEarnings(prev => prev.filter((_, idx) => idx !== i))
@@ -116,7 +117,7 @@ export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIn
 
   // ── Deduction helpers ──────────────────────────────────────────────────────
   const addDeduction = () =>
-    setDeductions(prev => [...prev, { income_id: incomes[0]?.id ?? '', category: 'federal_tax', amount: '' }])
+    setDeductions(prev => [...prev, { income_id: availableIncomes[0]?.id ?? '', category: 'federal_tax', amount: '' }])
 
   const removeDeduction = (i: number) =>
     setDeductions(prev => prev.filter((_, idx) => idx !== i))
@@ -125,7 +126,7 @@ export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIn
     setDeductions(prev => prev.map((d, idx) => idx === i ? { ...d, [field]: val } : d))
 
   // ── Scanner con auto-match + auto-crear ───────────────────────────────────
-  const getIncome = (id: string) => incomes.find(inc => inc.id === id)
+  const getIncome = (id: string) => availableIncomes.find(inc => inc.id === id)
   const isHourly  = (id: string) => getIncome(id)?.type === 'hourly'
 
   async function handleScan(e: React.ChangeEvent<HTMLInputElement>) {
@@ -137,7 +138,7 @@ export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIn
       const base64 = await fileToBase64(file)
       const { data, error: scanError } = await scanPaystub(base64, file.type)
       if (scanError || !data) {
-        setError('No se pudo leer el paystub. Ingresa los datos manualmente.')
+        setError(scanError ?? 'No se pudo leer el paystub. Ingresa los datos manualmente.')
         return
       }
       const parsed = data as {
@@ -153,7 +154,7 @@ export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIn
 
       if (parsed.earnings?.length) {
         // Pool acumulativo: incomes existentes + los que se vayan creando
-        const allKnownIncomes: Income[] = [...incomes]
+        const allKnownIncomes: Income[] = [...availableIncomes]
         let newIncomeCreated = false
 
         const resolvedEarnings = await Promise.all(
@@ -186,7 +187,7 @@ export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIn
               newIncomeCreated = true
             }
             return {
-              income_id: newIncome?.id ?? incomes[0]?.id ?? '',
+              income_id: newIncome?.id ?? availableIncomes[0]?.id ?? '',
               amount: item.amount?.toString() ?? '',
               hours_worked: item.hours?.toString() ?? '',
             }
@@ -194,8 +195,10 @@ export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIn
         )
 
         setEarnings(resolvedEarnings)
-        // Notificar al padre para que refresque las fuentes sin cerrar el modal
-        if (newIncomeCreated) onIncomeCreated?.()
+        if (newIncomeCreated) {
+          setAvailableIncomes(allKnownIncomes)
+          onIncomeCreated?.()
+        }
       }
 
       if (parsed.deductions?.length) {
@@ -289,7 +292,7 @@ export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIn
         {/* ── BODY ────────────────────────────────────────────────────────── */}
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }}>
 
-          {incomes.length === 0 ? (
+          {availableIncomes.length === 0 ? (
             <p style={{ fontSize: '13px', color: '#7A9A8A', textAlign: 'center', margin: '8px 0' }}>
               Crea una fuente de ingreso primero con &quot;+ Nueva fuente&quot;
             </p>
@@ -363,7 +366,7 @@ export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIn
                   onChange={e => updateEarning(i, 'income_id', e.target.value)}
                   style={selectStyle}
                 >
-                  {incomes.map(inc => (
+                  {availableIncomes.map(inc => (
                     <option key={inc.id} value={inc.id} style={{ background: '#1A2520', color: '#fff' }}>{inc.label}</option>
                   ))}
                 </select>
@@ -422,7 +425,7 @@ export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIn
                   onChange={e => updateDeduction(i, 'income_id', e.target.value)}
                   style={selectStyle}
                 >
-                  {incomes.map(inc => (
+                  {availableIncomes.map(inc => (
                     <option key={inc.id} value={inc.id} style={{ background: '#1A2520', color: '#fff' }}>{inc.label}</option>
                   ))}
                 </select>

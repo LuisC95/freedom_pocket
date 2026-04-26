@@ -455,20 +455,6 @@ function extractJsonObject(input: string): unknown {
 }
 
 async function extractPdfText(buffer: Buffer): Promise<string> {
-  const { createRequire } = await import('node:module')
-  const require = createRequire(import.meta.url)
-  const canvasPackage = ['@napi-rs', 'canvas'].join('/')
-  const canvas = require(canvasPackage) as {
-    DOMMatrix: unknown
-    ImageData: unknown
-    Path2D: unknown
-  }
-  const globals = globalThis as Record<string, unknown>
-
-  globals.DOMMatrix ??= canvas.DOMMatrix
-  globals.ImageData ??= canvas.ImageData
-  globals.Path2D ??= canvas.Path2D
-
   const { PDFParse } = await import('pdf-parse')
   const parser = new PDFParse({ data: buffer })
   try {
