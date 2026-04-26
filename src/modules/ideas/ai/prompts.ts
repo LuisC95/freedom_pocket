@@ -38,7 +38,7 @@ Respondé con prosa natural en español. Al final, y SOLO al final, añadí
 un bloque de metadatos así:
 
 <<<META
-{"options": [...] | null, "phase_ready": {"target":"<fase>","reason":"..."} | null}
+{"options": [...] | null, "phase_ready": {"target":"<fase>","reason":"..."} | null, "ready_to_save": true | false | null}
 META>>>
 
 Reglas del bloque META:
@@ -50,6 +50,8 @@ Reglas del bloque META:
 - "phase_ready": no-null SOLO cuando tengas evidencia suficiente para cerrar esta fase.
   target debe ser una de: observar, definir, idear, evaluar. El usuario confirmará;
   no cambies de fase por tu cuenta.
+- "ready_to_save": true SOLO si el usuario dijo explícitamente "guardemos", "quiero guardar esto",
+  "sí salvémonos" o similar respecto a la idea actual. null en cualquier otro caso.
 - No pongas el bloque META dos veces. No uses markdown dentro del JSON.
 - El JSON debe ser parseable (comillas dobles, sin comentarios, sin trailing commas).`
 

@@ -10,6 +10,7 @@ import {
 } from '@/modules/ideas/types'
 import { ENTRY_POINTS } from '@/modules/ideas/constants'
 import { mapSession, mapMessage, mapIdea } from '@/modules/ideas/mappers'
+import { generatePhaseSummary } from '@/modules/ideas/ai/summary'
 
 interface PostgrestLikeError {
   code?: string
@@ -161,7 +162,51 @@ export async function getSession(
 export async function completeSession(
   sessionId: string
 ): Promise<ActionResult<IdeaSession>> {
-  return updateSessionStatus(sessionId, 'completed')
+  try {
+    const DEV_USER_ID = await getDevUserId()
+    const supabase = createAdminClient()
+
+    // Obtener fase actual
+    const { data: session } = await supabase
+      .from('idea_sessions')
+      .select('current_phase, status')
+      .eq('id', sessionId)
+      .eq('user_id', DEV_USER_ID)
+      .single()
+
+    if (!session) return { ok: false, error: 'Sesión no encontrada' }
+    if (session.status !== 'in_progress') {
+      return { ok: false, error: `La sesión ya está ${session.status}` }
+    }
+
+    // Generar resumen de la fase activa (best-effort)
+    if (session.current_phase) {
+      // generatePhaseSummary ya actualiza status a 'completed' y completed_at
+      const summaryResult = await generatePhaseSummary(DEV_USER_ID, sessionId, session.current_phase)
+      if (summaryResult.ok) {
+        // Recuperar sesión actualizada
+        const { data: updated } = await supabase
+          .from('idea_sessions')
+          .select('*')
+          .eq('id', sessionId)
+          .single()
+        return { ok: true, data: mapSession(updated) }
+      }
+    }
+
+    // Fallback: marcar como completada sin resumen
+    const { data, error } = await supabase
+      .from('idea_sessions')
+      .update({ status: 'completed', completed_at: new Date().toISOString() })
+      .eq('id', sessionId)
+      .select()
+      .single()
+
+    if (error) return { ok: false, error: error.message }
+    return { ok: true, data: mapSession(data) }
+  } catch {
+    return { ok: false, error: 'Error inesperado al completar la sesión' }
+  }
 }
 
 // ─────────────────────────────────────────────

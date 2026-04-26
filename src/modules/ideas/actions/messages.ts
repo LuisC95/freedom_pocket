@@ -19,6 +19,17 @@ import { normalizeProviderForStorage } from '@/modules/ideas/ai/provider'
 import { PHASES } from '@/modules/ideas/constants'
 import { buildSystemPromptForPhase } from '@/modules/ideas/ai/prompts'
 import { parseAssistantResponse } from '@/modules/ideas/ai/structured'
+import { buildUserContext } from '@/modules/ideas/ai/context'
+
+// Límites de mensajes de usuario por fase
+const PHASE_USER_LIMITS: Record<string, number> = {
+  observar: 8,
+  definir: 6,
+  idear: 6,
+  evaluar: 10,
+}
+
+const PHASE_LIMIT_WARNING_THRESHOLD = 2
 
 interface PostgrestLikeError {
   code?: string
@@ -196,7 +207,22 @@ export async function sendMessage(
       content: message.content,
     }))
 
-    const systemPrompt = buildSystemPromptForPhase(activePhase, phaseSummaries)
+    // ── Verificar límite de mensajes por fase ──
+    const userMsgCount = (history ?? []).filter(m => m.role === 'user').length
+    const phaseLimit = PHASE_USER_LIMITS[activePhase] ?? 8
+    if (userMsgCount >= phaseLimit) {
+      return { ok: false, error: 'PHASE_LIMIT_REACHED' }
+    }
+    const remainingMessages = phaseLimit - userMsgCount
+
+    // ── Construir system prompt con contexto del usuario ──
+    const userContext = await buildUserContext(DEV_USER_ID)
+    const warningAddition = remainingMessages <= PHASE_LIMIT_WARNING_THRESHOLD
+      ? `\n\nIMPORTANTE: Solo quedan ${remainingMessages} intercambios en esta fase. Enfocate en llegar a una conclusión accionable antes de cerrar.`
+      : ''
+
+    const phasePrompt = buildSystemPromptForPhase(activePhase, phaseSummaries)
+    const systemPrompt = `${userContext}\n\n${phasePrompt}${warningAddition}`
     const aiResult = await aiProvider.chat({
       messages,
       system: systemPrompt,
@@ -260,11 +286,15 @@ export async function sendMessage(
       }
     }
 
+    // ── Propagar ready_to_save desde la AI ──
+    const aiReadyToSave = parsed.meta?.ready_to_save === true
+    const newReadyToSave = aiReadyToSave || currentReadyToSave
+
     const { error: sessionUpdateError } = await supabase
       .from('idea_sessions')
       .update({
         current_phase: activePhase,
-        ready_to_save: currentReadyToSave,
+        ready_to_save: newReadyToSave,
       })
       .eq('id', input.session_id)
       .eq('user_id', DEV_USER_ID)
@@ -297,7 +327,7 @@ export async function sendMessage(
         assistantMessage: { ...assistantMessage, ui_data: meta },
         activePhase,
         phaseChanged: false,
-        readyToSave: currentReadyToSave,
+        readyToSave: newReadyToSave,
         phaseSuggestion: meta?.phase_ready ?? null,
       },
     }

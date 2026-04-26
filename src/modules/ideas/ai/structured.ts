@@ -81,10 +81,12 @@ export function parseAssistantResponse(raw: string): ParsedAssistant {
   const obj = parsed as Record<string, unknown>
   const options = parseOptions(obj.options)
   const phaseReady = parsePhaseReady(obj.phase_ready)
+  const readyToSave = typeof obj.ready_to_save === 'boolean' ? obj.ready_to_save : undefined
 
   const meta: AssistantUIData = {}
   if (options) meta.options = options
   if (phaseReady) meta.phase_ready = phaseReady
+  if (readyToSave !== undefined) meta.ready_to_save = readyToSave
 
   return {
     message: message || raw.trim(),

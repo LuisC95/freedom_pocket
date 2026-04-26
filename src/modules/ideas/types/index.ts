@@ -99,6 +99,8 @@ export interface PhaseReadySignal {
 export interface AssistantUIData {
   options?: AssistantOption[]
   phase_ready?: PhaseReadySignal | null
+  /** true cuando el usuario expresó intención de guardar la idea */
+  ready_to_save?: boolean
   /** Marcador especial para mensajes que representan un evento (no prosa). */
   kind?: 'phase_transition' | 'option_click'
   /** Solo para kind='phase_transition'. */
