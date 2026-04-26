@@ -460,7 +460,20 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
     const parser = new PDFParser()
     parser.on('pdfParser_dataReady', () => {
       try {
-        resolve(parser.getRawTextContent())
+        const pages = (parser.data as { Pages?: { Texts?: { R: { T: string }[] }[] }[] } | null)?.Pages
+        if (!pages) {
+          resolve('')
+          return
+        }
+        const text = pages
+          .flatMap(p => p.Texts ?? [])
+          .map(t => t.R.map(r => {
+            try { return decodeURIComponent(r.T) } catch { return r.T }
+          }).join(''))
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+        resolve(text)
       } catch (e) {
         reject(e)
       }
