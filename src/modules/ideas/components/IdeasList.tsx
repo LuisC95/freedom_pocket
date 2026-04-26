@@ -4,9 +4,39 @@ import { useState } from 'react'
 import type { Idea, IdeaStatus } from '@/modules/ideas/types'
 import { IDEA_STATUSES } from '@/modules/ideas/constants'
 import { IdeaCard } from './IdeaCard'
+import type { IdeaCardData } from './IdeaCard'
 
 interface IdeasListProps {
   ideas: Idea[]
+}
+
+const MODEL_LABEL: Record<string, string> = {
+  saas: 'SaaS', producto_fisico: 'Producto', servicio: 'Servicio',
+  contenido: 'Contenido', renta: 'Renta', custom: 'Otro',
+}
+
+const NEXT_STEP_BY_STATUS: Record<string, string | null> = {
+  generated: 'Evaluar con CENTS',
+  committed: 'Completar evaluación CENTS',
+  validando: 'Registrar resultado de validación',
+  construyendo: 'Completar Deep Dive',
+  operando: null,
+  discarded: null,
+}
+
+function enrichIdea(idea: Idea): IdeaCardData {
+  const updated = idea.updated_at ? new Date(idea.updated_at) : new Date()
+  const lastActivity = Math.floor((Date.now() - updated.getTime()) / (1000 * 60 * 60 * 24))
+  const businessModel = MODEL_LABEL[idea.business_model ?? ''] ?? idea.business_model ?? ''
+  return {
+    title: idea.title,
+    concept: idea.concept ?? null,
+    status: idea.status,
+    cents_score: null,
+    lastActivity,
+    nextStep: NEXT_STEP_BY_STATUS[idea.status] ?? null,
+    businessModel,
+  }
 }
 
 const FILTER_OPTIONS: Array<{ key: IdeaStatus | 'all'; label: string }> = [
@@ -65,7 +95,12 @@ export function IdeasList({ ideas }: IdeasListProps) {
       ) : (
         <div className="flex flex-col gap-3">
           {filtered.map(idea => (
-            <IdeaCard key={idea.id} idea={idea} />
+            <IdeaCard
+              key={idea.id}
+              idea={enrichIdea(idea)}
+              onClick={() => {}}
+              compact={false}
+            />
           ))}
         </div>
       )}

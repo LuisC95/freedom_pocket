@@ -1,7 +1,8 @@
 # Fastlane Compass — Contexto del Proyecto
-## Estado: M1 ✅ · M2 ✅ · M3 ✅ · M4 (schema ✅ · UX ✅ · types ✅ · constants ✅ · actions ✅ · mappers ✅ · AIProvider ⏳) · Motor AI ❌
+## Estado: M1 ✅ · M2 ✅ · M3 ✅ · M4 (schema ✅ · UX ✅ · types ✅ · constants ✅ · mappers ✅ · actions ✅ · AIProvider ✅) · Motor AI ❌
 
-> Memoria activa del proyecto. Lo usan Claude.ai (planning) y Claude Code (implementación).
+> Memoria activa del proyecto. Verificado contra filesystem: 26-abr-2026.
+> Lo usan Claude.ai (planning) y Claude Code (implementación).
 
 ---
 
@@ -22,7 +23,7 @@
 | DB | Supabase PostgreSQL (project id en variables de entorno) |
 | Estilos | Tailwind v3 + shadcn/ui preset Nova |
 | Gráficas | Recharts |
-| AI | Capa `AIProvider` multi-proveedor (Anthropic / OpenAI / Google) — ⏳ implementar |
+| AI | Capa `AIProvider` multi-proveedor (Anthropic / OpenAI / Google) — ✅ implementada |
 | Deploy | Vercel |
 | Moneda | ExchangeRate-API |
 
@@ -64,12 +65,19 @@ Borde      #e0ebe4   Divisorias
 ## Módulos & Algoritmos
 
 ```
-M0 Core · M1 Mi Realidad ✅ · M2 Dashboard ✅ · M3 Brújula ✅ · M4 Ideas 🔄 · Motor AI ❌
+M0 Core · M1 Mi Realidad ✅ · M2 Dashboard ✅ · M3 Brújula ✅ · M4 Ideas ✅ · Motor AI ❌
 ```
 
-8 algoritmos: 1-Precio Real/Hora ✅ · 2-Tracker TX ✅ · 3-Autonomía ✅ · 4-Días Libertad ✅ · 5-Fórmula ✅ · 6-Score Progreso ✅ · 7-CENTS 🔄 · 8-Motor AI ❌
+8 algoritmos: 1-Precio Real/Hora ✅ · 2-Tracker TX ✅ · 3-Autonomía ✅ · 4-Días Libertad ✅ · 5-Fórmula ✅ · 6-Score Progreso ✅ · 7-CENTS ✅ · 8-Motor AI ❌
 
 Onboarding: M1 → M2 (10 tx) → M3 → M4 (M3 + 1 meta).
+
+| Módulo | Actions |
+|---|---|
+| M1 Mi Realidad | 11 |
+| M2 Dashboard | 18 |
+| M3 Brújula | 14 |
+| M4 Ideas | 18 |
 
 ---
 
@@ -102,12 +110,14 @@ src/
 │   ├── dashboard/page.tsx
 │   ├── mi-realidad/page.tsx
 │   ├── brujula/page.tsx
-│   └── [ideas|motor-ai]/page.tsx
+│   ├── ideas/page.tsx          ← M4 con EntryPointSelector + IdeasList
+│   └── motor-ai/page.tsx       ← Stub (solo <h1>)
 ├── modules/
 │   ├── mi-realidad/   types · actions (11) · components
-│   ├── dashboard/     types · actions (14) · components
-│   ├── brujula/       types · actions · components
-│   └── ideas/         types ✅ · constants ✅ · mappers ✅ · actions ✅ · ai/ ⏳
+│   ├── dashboard/     types · actions (18) · components
+│   ├── brujula/       types · actions (14) · components
+│   ├── ideas/         types · constants · mappers · actions (18) · ai/ ✅
+│   └── motor-ai/      types · actions · components · hooks · lib — todo stubs
 ├── types/
 │   ├── actions.ts              ← ActionResult<T> global
 │   └── database.types.ts       ← autogenerado por Supabase (NO editar a mano)
@@ -119,6 +129,8 @@ src/
 ---
 
 # 🆕 MÓDULO 4 — Ideas de Negocio
+
+## Status: ✅ Completado (schema + UX + types + constants + mappers + actions + AIProvider + IdeasPage)
 
 ## Filosofía
 M4 es un **embudo**, no una pantalla. Implementa Algoritmo 7 (CENTS de DeMarco) en 4 fases:
@@ -149,14 +161,14 @@ Discovery → Ideation → Evaluación → Deep Dive → (promover a Operando = 
 | `need_identified`, `fastlane_potential` | text | nullable |
 | `business_model` | text | `saas` / `producto_fisico` / `servicio` / `contenido` / `renta` / `custom` |
 | `cents_score_{control,entry,need,time,scale}` | int 1-10 nullable | |
-| `cents_preliminary_score` | **int GENERATED ALWAYS** | Suma 0-50, nunca escribir directo. `null` si no hay ningún score (preservado en mappers — ver C1 más abajo) |
+| `cents_preliminary_score` | **int GENERATED ALWAYS** | Suma 0-50, nunca escribir directo. `null` si no hay ningún score |
 | `status` | text DEFAULT `generated` | `generated` / `committed` / `validando` / `construyendo` / `operando` / `discarded` |
 | `committed_at`, `promoted_at` | timestamptz nullable | |
-| `discarded_at`, `discard_reason` | timestamptz + text nullable | Agregados 18-abr-2026 (migración `add_discard_fields_to_ideas`). Usados por `discardIdea`. |
+| `discarded_at`, `discard_reason` | timestamptz + text nullable | |
 | `created_at`, `updated_at` | timestamptz NOT NULL | |
 
 ### `idea_deep_dives` (1-a-1 con ideas)
-| Col | Pregunta UX (lenguaje plano) |
+| Col | Pregunta UX |
 |---|---|
 | `idea_id` FK | |
 | `market_analysis` | ¿Cuánta gente tiene este problema? |
@@ -172,26 +184,22 @@ Discovery → Ideation → Evaluación → Deep Dive → (promover a Operando = 
 | Col | Tipo | Notas |
 |---|---|---|
 | `session_id` | uuid FK NOT NULL | |
-| `user_id` | uuid FK NOT NULL | denormalizado para queries sin JOIN |
+| `user_id` | uuid FK NOT NULL | denormalizado |
 | `role` | text NOT NULL | `user` / `assistant` |
 | `content` | text NOT NULL | |
 | `phase` | text NOT NULL | `discovery` / `ideation` / `evaluation` / `deep_dive` — **clave para costos** |
-| `sequence_order` | int NOT NULL | calculado en action (MAX + 1) |
-| `provider` | text NOT NULL | `anthropic` / `openai` / `google` — nombre real, **no** `ai_provider` |
-| `model` | text NOT NULL | `claude-sonnet-4-6` etc. — nombre real, **no** `ai_model` |
+| `sequence_order` | int NOT NULL | MAX + 1 en action |
+| `provider` | text NOT NULL | `anthropic` / `openai` / `google` |
+| `model` | text NOT NULL | `claude-sonnet-4-6` etc. |
 | `tokens_input`, `tokens_output` | int NOT NULL default 0 | |
-| `cost_usd` | numeric(10,6) NOT NULL | Supabase devuelve `string` → `mapMessage` convierte con `Number()` |
+| `cost_usd` | numeric(10,6) NOT NULL | Supabase devuelve `string` |
 | `response_time_ms` | int nullable | |
-
-**Regla:** mensajes `role='user'` llevan `tokens_input`, `tokens_output`, `cost_usd` en 0, pero `provider` y `model` siempre completos (del provider resuelto).
-
-**⚠️ No existe columna `is_byok`** — si se necesita distinguir, lookup en `user_subscriptions.tier`.
 
 ---
 
 ## 🎨 Decisiones UX locked-in
 
-### 3 Entry points
+### Entry points
 | Entry | Cuándo | Ruta |
 |---|---|---|
 | `sin_idea` | No sabe qué hacer | AI pregunta skills → discovery largo |
@@ -199,86 +207,52 @@ Discovery → Ideation → Evaluación → Deep Dive → (promover a Operando = 
 | `idea_clara` | La tiene clara | Va directo a evaluación CENTS |
 
 ### CENTS anti-bias
-Scoring con lenguaje plano (sin jerga del framework) + anclas concretas 1=X, 10=Y. Sugerencias AI van **colapsadas** con link "Ver qué opina la AI" — user puntúa primero, ve AI después.
-
-### Feature pendiente: sugerencia AI de score inicial
-Hook de conversión Free → BYOK/Premium. Free ve idea sin puntuar (`score=null`, UI muestra `—/50`) + CTA "¿Querés que la AI te sugiera un score inicial?" — requiere AI. Implementar en Fase 3. **Depende de que `mappers.ts` preserve `null` en `cents_preliminary_score` (decisión C1 tomada — ya aplicada).**
+Scoring con lenguaje plano (sin jerga del framework) + anclas concretas 1=X, 10=Y. Sugerencias AI van **colapsadas** con link "Ver qué opina la AI".
 
 ---
 
-## 🔧 Diseño técnico M4 (decisiones locked-in)
+## 🔧 Diseño técnico M4 — Estado de archivos
 
-### Archivos producidos
+### Implementado y verificado
+
 ```
-src/
-├── types/
-│   ├── actions.ts              ✅ ActionResult<T> global
-│   └── database.types.ts       ✅ generated por Supabase MCP
-└── modules/ideas/
-    ├── constants.ts            ✅ metadata UX (labels, preguntas, anclas)
-    ├── mappers.ts              ✅ 4 mappers puros (Raw → Domain)
-    ├── types/
-    │   └── index.ts            ✅ Row types vía Omit<Raw, ...> + literal unions
-    └── actions/                ✅ 16 actions implementadas
-        ├── sessions.ts         ✅ 4 actions (createSession, getSession, completeSession, abandonSession)
-        ├── messages.ts         ✅ 1 action (sendMessage) — compilable, requiere AIProvider en runtime
-        ├── ideas.ts            ✅ 4 actions (createIdeaFromSession, getIdea, listIdeas, updateCENTS)
-        ├── transitions.ts      ✅ 5 actions (commitIdea, startValidando, startConstruyendo, promoteToOperando, discardIdea)
-        └── deepDive.ts         ✅ 2 actions (upsertDeepDiveField, getDeepDive)
-
-⏳ Pendientes de diseño:
-    ai/resolver.ts              ← resolveAIProvider(userId)
-    ai/provider.ts              ← capa AIProvider
-```
-
-### Decisiones arquitectónicas (no re-discutir)
-
-| # | Decisión |
-|---|---|
-| 1 | **`ActionResult<T>`** — discriminated union `{ ok: true, data } \| { ok: false, error }`. Todas las actions la devuelven. |
-| 2 | **Campos derivados** (`cents_complete`, `fields_completed`, `is_complete`) los calculan los mappers. No la UI ni los actions. |
-| 3 | **`sendMessage`** resuelve suscripción y key antes de llamar al AIProvider. El provider no sabe de suscripciones. |
-| 4 | **`promoteToOperando`** usa transacción SQL vía `rpc()` → función `promote_idea_to_operando`. Atómica (idea + business en M3). ⏳ función SQL pendiente. |
-| 5 | **`sequence_order`** = `MAX + 1` en el action. Chat es estrictamente secuencial, no hay race condition realista. |
-| 6 | **Mappers centralizados** por tabla. `cost_usd string → number` vive en `mapMessage`. |
-| 7 | **`listIdeas`** filtra solo por `status`. Paginación y otros filtros se agregan si aparece el caso. |
-| 8 | **`is_admin`** es responsabilidad del AIProvider, no de las actions. |
-| 9 | **Flags opcionales** en `getSession` (`includeMessages`, `includeIdeas`) y `getIdea` (`includeDeepDive`, `includeSession`). Evita queries innecesarias en listas. |
-| 10 | **`sendMessage`** devuelve `{ userMessage, assistantMessage }` — no re-fetchea historial. UI hace append local. |
-| 11 | **Helper `assertValidTransition()`** central contra `IDEA_STATUS_TRANSITIONS` de constants.ts. 5 transiciones lo usan. |
-| 12 | **`upsertDeepDiveField`** acepta los 8 campos editables (7 plan + `ai_notes`) con whitelist de seguridad. |
-| 13 | **Types refactor:** Row types heredan de `Database['public']['Tables'][...]['Row']` con `Omit + intersection` para preservar literal unions. No declarar Row types a mano. |
-| 14 | **Mappers reciben Raw** (generated types), hacen el cast a literal unions internamente (decisión A1). Los 14 actions no hacen casts. |
-| 15 | **`isFilled()` en mapDeepDive** valida null + whitespace (decisión B2 — defensa barata contra edge cases futuros). |
-| 16 | **`cents_preliminary_score` pass-through `number \| null`** (decisión C1). `null` = no puntuado aún, `0-50` = puntuado. No normalizar. Habilita feature AI futuro + mejor UX en listados. |
-
-### Contrato `AIProvider` (para implementar)
-```typescript
-interface AIProvider {
-  provider: 'anthropic' | 'openai' | 'google'
-  model:    string
-  chat(input: {
-    messages: { role: 'user' | 'assistant'; content: string }[]
-    system?:  string
-  }): Promise<ActionResult<{
-    content:           string
-    provider:          string
-    model:             string
-    tokens_input:      number
-    tokens_output:     number
-    cost_usd:          number
-    response_time_ms?: number
-  }>>
-}
+src/types/actions.ts                    ← ActionResult<T> global
+src/types/database.types.ts             ← generated por Supabase MCP (regenerar post-migración)
+src/modules/ideas/
+├── constants.ts                        ✅ (labels, preguntas, anclas)
+├── mappers.ts                          ✅ (4 mappers puros Raw → Domain)
+├── types/index.ts                      ✅ (Row types vía Omit + literal unions)
+├── actions/ (1,436 líneas, 18 funciones)
+│   ├── sessions.ts     4 functions     ✅
+│   ├── messages.ts     2 functions     ✅ (sendMessage + getSessionMessages)
+│   ├── ideas.ts        4 functions     ✅
+│   ├── transitions.ts  5 functions     ✅
+│   ├── deepDive.ts     2 functions     ✅
+│   └── phases.ts       1 function      ✅
+├── ai/ (540 líneas, 5 archivos)
+│   ├── provider.ts    205 líneas       ✅ (core AIProvider)
+│   ├── resolver.ts     99 líneas       ✅ (resuelve proveedor+key por usuario)
+│   ├── prompts.ts      86 líneas       ✅ (prompts del sistema)
+│   ├── structured.ts   94 líneas       ✅ (respuestas estructuradas)
+│   └── usage.ts        56 líneas       ✅ (tracking de costos)
+├── components/
+│   ├── EntryPointSelector.tsx          ✅
+│   ├── IdeasList.tsx                   ✅
+│   └── ...                             ✅
+└── pages/
+    └── (protected)/ideas/page.tsx      ✅ (vista completa con admin guard)
 ```
 
-### Lógica obligatoria del AIProvider
-1. Check `profiles.is_admin` → si `true`, bypass TODO
-2. Check `user_subscriptions.tier` → features/modelos habilitados
-3. Get key: `vault.decrypted_secrets` (BYOK) o env key (premium)
-4. Call al proveedor correspondiente
-5. UPSERT en `ai_usage_logs` con tokens + costo
-6. Solo envía mensajes de la fase activa (control de tokens)
+### Decisiones arquitectónicas locked-in (no re-discutir)
+Ver sección "Decisiones" en sesiones anteriores — 16 decisiones documentadas en handoffs.
+
+---
+
+### ⏳ Pendiente único: función SQL `promote_idea_to_operando()`
+- Referenciada en `transitions.ts` vía `supabase.rpc()`
+- Debe verificar ownership + status + deep_dive completo
+- INSERT en `businesses` + UPDATE `ideas` (atómico)
+- Crear migración SQL
 
 ---
 
@@ -287,70 +261,15 @@ interface AIProvider {
 ### 4 Tiers
 | Tier | Precio | AI | Fase lanzamiento |
 |---|---|---|---|
-| Free | $0 | Sin AI — M4 solo formularios CENTS | **Activo ahora** |
-| Pro | $5-7/mes | Premium NO-AI (households, exports) | Fase 2 (3-6 meses) |
-| Pro + BYOK | $5-7/mes + key propia | Usuario trae su key | **Activo ahora** |
-| Premium AI | $19-29/mes | Todo incluido, infra nuestra | Fase 3 (6-12 meses) |
+| Free | $0 | Sin AI — M4 solo formularios CENTS | **Activo al launch** |
+| Pro | $5-7/mes | Premium NO-AI (households, exports) | Dormido — Fase 2 (3-6 meses) |
+| Pro + BYOK | $5-7/mes + key propia | Usuario trae su key | Dormido — Fase 2/3 |
+| Premium AI | $19-29/mes | Todo incluido, infra nuestra | Dormido — Fase 3 (6-12 meses) |
 
-### `user_subscriptions`
-Una fila por usuario (incluido Free), sin histórico. `tier` / `status` / Stripe nullable / periodos / `cancel_at_period_end`.
+**Estrategia de launch (decidida 20-abr-2026):** launch público solo con Free (M1+M2+M3). M4 con AI = beta privada para admin + early adopters autorizados manualmente — Luis paga el consumo Anthropic en esa fase. Pricing se decide post-launch con datos reales.
 
-### `user_api_keys` (BYOK con Supabase Vault)
-Las keys **NUNCA** en la tabla — solo `vault_secret_id`. `key_hint` guarda últimos 4 chars. Índice único: una key activa por proveedor por usuario (`WHERE is_active=TRUE`).
-
-```typescript
-// Guardar
-const secret_id = await supabase.rpc('vault.create_secret', {
-  secret: apiKeyPlainText, name: `${userId}_${provider}_${Date.now()}`
-});
-await supabase.from('user_api_keys').insert({
-  user_id, provider, vault_secret_id: secret_id, key_hint: apiKeyPlainText.slice(-4)
-});
-
-// Leer
-const { data: keyRow } = await supabase.from('user_api_keys')
-  .select('vault_secret_id')
-  .eq('user_id', userId).eq('provider', provider).eq('is_active', true).single();
-const { data: secret } = await supabase.from('vault.decrypted_secrets')
-  .select('decrypted_secret').eq('id', keyRow.vault_secret_id).single();
-```
-
-### `ai_usage_logs` (agregado mensual)
-UPSERT por `(user_id, provider, year_month, feature)`. `year_month` = `YYYY-MM`. `feature` ej: `ideas_chat`, `motor_ai`, `paystub_scan`. UPSERT real requiere stored procedure o SELECT+UPDATE (no reemplazar).
-
----
-
-## 📋 Migraciones SQL pendientes
-
-### ✅ Aplicadas
-
-- `add_discard_fields_to_ideas` (18-abr-2026) — agregó `discarded_at` y `discard_reason` a `ideas`
-
-### ⏳ Pendientes
-
-**Función `promote_idea_to_operando(p_idea_id, p_user_id, p_business_name)`**
-
-Atómica. Debe:
-1. Verificar ownership + status=`construyendo`
-2. Verificar deep_dive con los 7 campos completos (sin `ai_notes`)
-3. INSERT en `businesses` con `business_name`
-4. UPDATE `ideas` → `status='operando'`, `promoted_at=now()`
-5. RETURN el row actualizado de `ideas`
-
-Schema de `businesses` ya verificado (tiene `source_idea_id` FK).
-
----
-
-## 🐞 Deuda técnica pre-existente (no bloqueante)
-
-Errores de TypeScript detectados durante Fase A M4 que **ya existían antes** de los cambios. No relacionados con M4 — abrir sesión dedicada cuando haya tiempo:
-
-| Archivo | Error |
-|---|---|
-| `references/RegisterPaymentModal.reference.tsx:41` | Cannot find name `RegisterPaymentPayload` |
-| `src/modules/dashboard/components/TransactionSlider.tsx:98` | Cannot find name `fmtHours` |
-
-Type-check de todo lo demás: ✅ limpio.
+### `user_subscriptions` / `user_api_keys` / `ai_usage_logs`
+Tablas creadas e inactivas. La lógica de AIProvider (resolver.ts, provider.ts) ya contempla check de tier, BYOK y logging. Ver handoffs anteriores para patrón Vault.
 
 ---
 
@@ -360,63 +279,80 @@ Términos de MJ DeMarco (IP registrada) a reemplazar antes del launch:
 - `CENTS`, `Fastlane`, `Fastlane Formula`, `Fastlane Compass`
 - `Freedom Days`, `La Vía Rápida`, `millonario`, `vía rápida del millonario`
 
-**Sí se pueden usar:** conceptos económicos (desvincular dinero del tiempo, barreras de entrada, ingreso pasivo, escalabilidad). Son ideas comunes.
+**Sí se pueden usar:** conceptos económicos (desvincular dinero del tiempo, barreras de entrada, ingreso pasivo, escalabilidad).
 
 **Scope:** UI copy + nombres de módulos + identificadores en código + nombres en DB. Sesión dedicada antes del deploy.
 
 ---
 
-## 🧭 Punto de partida para la próxima sesión
+## 🧭 Estado actual y próximos pasos
 
-**M4 Fase A ✅ cerrada:** schema + UX + types + constants + mappers.
-**M4 Fase B ✅ cerrada:** 16 actions implementadas + `src/types/actions.ts`. Type-check limpio (solo 2 errores pre-existentes M2 + 1 esperado `ai/resolver` pendiente).
+### M4 — Todo completado ✅
+- Schema: ✅ | UX: ✅ | Types: ✅ | Constants: ✅
+- Mappers: ✅ | Actions (18): ✅ | AIProvider: ✅ | IdeasPage: ✅
 
-**Próximo paso — Fase C:**
-1. Función SQL `promote_idea_to_operando()` — Claude.ai diseña + aplica vía MCP
-2. Capa `AIProvider` + `resolveAIProvider()` — Claude.ai diseña
-3. Action 15 (`sendMessage`) — implementa una vez que AIProvider existe
-4. Flujo BYOK onboarding UI
+### ⏳ Lo que falta
+1. **Función SQL `promote_idea_to_operando`** — la única migración pendiente
+2. **Motor AI (Algoritmo 8)** — módulo `src/modules/motor-ai/` es stubs (18 líneas total). Página en `app/(protected)/motor-ai/page.tsx` es un `<h1>` placeholder. Pendiente de diseño e implementación completa.
+3. **Rebranding legal** antes del deploy público
+4. **BYOK onboarding UI** — AIProvider ya lo soporta, falta flujo en frontend
 
-**Después — Fase D:**
-- Rebranding legal antes de deploy
-- Deuda técnica pre-existente (M2)
+---
+
+## 🐛 Paystub Scanner — Bug y Fix (26-abr-2026)
+
+### Problema en producción
+Scanner de paystubs mostraba "No se pudo procesar el archivo" en Vercel.
+
+**Causa raíz:** `pdf-parse` depende de `pdfjs-dist` que intenta cargar `pdf.worker.mjs` desde `/var/task/node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs` — archivo no empaquetado en el bundle serverless de Vercel.
+
+### Solución
+**Reemplazar `pdf-parse` por `pdf2json ^4.0.3`** — librería que bundlea pdfjs internamente sin worker externo. Pdf2json v4 viene con tipos TypeScript incluidos (no necesita `pdf2json.d.ts`).
+
+### Cambios en el código
+| Archivo | Cambio |
+|---|---|
+| `package.json` | `pdf-parse` + `@types/pdf-parse` + `@napi-rs/canvas` → eliminados. `pdf2json ^4.0.3` agregado |
+| `next.config.mjs` | `serverExternalPackages: ['pdf2json']` |
+| `src/modules/mi-realidad/actions/index.ts` | `extractPdfText()` reescrita con `PDFParser` de pdf2json |
+
+La extracción de texto se hace manualmente desde `parser.data.Pages[].Texts[].R[].T` con `decodeURIComponent()`, porque `getRawTextContent()` devuelve vacío en pdf2json v4.
+
+### Commits
+- `e0654ba` — fix: reemplazar pdf-parse por pdf2json para serverless de Vercel
+- `fe54dfc` — fix: extraer texto desde parser.data en vez de getRawTextContent
+
+Tests local: 3,073 caracteres extraídos de paystub real.
 
 ---
 
 ## Aprendizajes operativos (conservar)
 
 **Supabase MCP:**
-- Verificar schema antes de migrar: `information_schema.tables` + `information_schema.columns` con `table_schema='public'`
-- `execute_sql` (data + lecturas) vs `apply_migration` (DDL) — nunca mezclar
-- Un SELECT por call en `execute_sql` (múltiples devuelve solo el último)
-- `execute_sql` con `DROP CONSTRAINT IF EXISTS` como workaround si `apply_migration` con mismo nombre ya fue registrada
+- Verificar schema antes de migrar: `information_schema.tables` + `information_schema.columns`
+- `execute_sql` (data) vs `apply_migration` (DDL) — nunca mezclar
+- Un SELECT por call (múltiples devuelve solo el último)
 - `createAdminClient()` siempre — nunca SSR client para data
-- **Post-migración: regenerar `database.types.ts` vía `generate_typescript_types` MCP**
-- `generated types` tipa columnas con CHECK constraint como `string` genérico — resolver con `Omit<Raw, ...> & { campo: LiteralUnion }` en los Row types del dominio
+- Post-migración: regenerar `database.types.ts` vía `generate_typescript_types`
 
 **Flujo de trabajo:**
-- Mockups interactivos > descripciones — Luis decide más rápido con visuales
-- Presentar opciones A/B/C antes de decidir, no asumir
-- `CONTEXT.md` como memoria activa entre sesiones
-- Handoffs detallados cuando la ventana se llena → nueva conversación limpia
-- **Verificar schema real antes de cerrar código** — no asumir nombres de columnas, `information_schema.columns` es la fuente de verdad
-- **Verificar imports de módulos existentes antes de asumir rutas** — el handoff de M4 usaba `@/lib/supabase/admin` pero el proyecto usa `@/lib/supabase/server`. Antes de aceptar un handoff, cruzar los imports con los módulos ya funcionando
-- **`conversation_search` puede rescatar diseños previos** — antes de reinventar algo "perdido", buscar si ya se diseñó en otra sesión
-- **Distinguir "diseñado en Claude.ai" vs "implementado en filesystem"** — no asumir que ✅ en CONTEXT.md significa que el archivo existe en disco
+- CONTEXT.md como memoria activa — verificar contra filesystem antes de asumir
+- Distinguir "diseñado" vs "implementado en disco"
+- Handoffs detallados entre sesiones largas
+- Host: WSL2 en Windows. SSH key registrada en GitHub para push.
 
 **Patrones TypeScript:**
-- Literal unions derivadas de `typeof CONSTANT[number]['key']` (single source of truth)
-- Domain types con campos derivados opcionales (`cents_complete?`, `is_complete?`)
-- Discriminated unions para errores (`ActionResult<T>`)
-- Row types vía `Omit<Database['public']['Tables'][X]['Row'], campos_literal> & { campos_literal: LiteralUnion }` — hereda cambios de schema automáticamente
-- Mappers reciben Raw (generated), devuelven Domain — casts concentrados en un solo archivo
+- Row types vía `Omit<Database['...']['Row'], ...> & { campo: LiteralUnion }`
+- Mappers reciben Raw (generated), devuelven Domain
+- ActionResult<T>` como discriminated union
 
 ---
 
 ## Tools
-- **Supabase MCP:** `execute_sql` + `apply_migration` + `generate_typescript_types` con project_id desde variables de entorno
+- **Supabase MCP:** `execute_sql` + `apply_migration` + `generate_typescript_types`
 - **Claude Code:** implementación de archivos (delegado desde Claude.ai)
 - **Claude Vision:** integrada en M1 (paystub scanner)
 - **Recharts:** visualizaciones
 - **Vercel:** deploy
+- **Git push:** SSH (no PAT fine-grained)
 - **Fuente conceptual:** "La Vía Rápida del Millonario" (MJ DeMarco) — ver Rebranding
