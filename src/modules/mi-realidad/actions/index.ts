@@ -1,6 +1,5 @@
 'use server'
 
-import { DOMMatrix, ImageData, Path2D } from '@napi-rs/canvas'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
 import { getHouseholdVisibilityScope } from '@/lib/household'
@@ -16,12 +15,6 @@ import type {
   MiRealidadEstado,
   RegisterPaymentPayload,
 } from '../types'
-
-const pdfGlobals = globalThis as Record<string, unknown>
-
-pdfGlobals.DOMMatrix ??= DOMMatrix
-pdfGlobals.ImageData ??= ImageData
-pdfGlobals.Path2D ??= Path2D
 
 // ─── Algoritmo 1 — Precio Real por Hora ──────────────────────────────────────
 
@@ -462,14 +455,21 @@ function extractJsonObject(input: string): unknown {
 }
 
 async function extractPdfText(buffer: Buffer): Promise<string> {
-  const { PDFParse } = await import('pdf-parse')
-  const parser = new PDFParse({ data: buffer })
-  try {
-    const result = await parser.getText()
-    return result.text
-  } finally {
-    await parser.destroy()
-  }
+  const { default: PDFParser } = await import('pdf2json')
+  return new Promise((resolve, reject) => {
+    const parser = new PDFParser()
+    parser.on('pdfParser_dataReady', () => {
+      try {
+        resolve(parser.getRawTextContent())
+      } catch (e) {
+        reject(e)
+      }
+    })
+    parser.on('pdfParser_dataError', (err) => {
+      reject(err instanceof Error ? err : err.parserError || new Error('Error al parsear PDF'))
+    })
+    parser.parseBuffer(buffer)
+  })
 }
 
 export async function scanPaystub(
