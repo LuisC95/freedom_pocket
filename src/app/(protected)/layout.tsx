@@ -30,12 +30,12 @@ export default async function ProtectedLayout({
   if (!authenticated) redirect('/dev-login')
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--fc-base)' }}>
+    <div className="h-dvh flex flex-col" style={{ backgroundColor: 'var(--fc-base)' }}>
       <Sidebar isAdmin={isAdmin} />
-      <BottomNav isAdmin={isAdmin} />
-      <main className="md:ml-[68px] pb-[88px] md:pb-8 min-h-screen">
+      <main className="md:ml-[68px] flex-1 flex flex-col min-h-0 overflow-y-auto">
         {children}
       </main>
+      <BottomNav isAdmin={isAdmin} />
     </div>
   )
 }

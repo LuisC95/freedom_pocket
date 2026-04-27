@@ -59,12 +59,9 @@ export function BottomNav({ isAdmin = false }: BottomNavProps) {
 
   return (
     <nav
-      className="fixed z-40 flex md:hidden items-center justify-around h-[64px] px-4"
+      className="flex-shrink-0 flex md:hidden items-center justify-around h-[64px] mx-4 mb-3"
       style={{
         backgroundColor: 'var(--fc-dark)',
-        bottom: '12px',
-        left: '16px',
-        right: '16px',
         borderRadius: '9999px',
         boxShadow: '8px 8px 20px rgba(10,18,14,0.45), -4px -4px 12px rgba(40,60,48,0.25)',
       }}

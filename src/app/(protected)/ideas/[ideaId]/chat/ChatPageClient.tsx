@@ -283,7 +283,7 @@ export function ChatPageClient({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex flex-col max-w-[480px] md:max-w-[600px] lg:max-w-[672px] mx-auto"
+      className="flex flex-col flex-1 min-h-0 max-w-[480px] md:max-w-[600px] lg:max-w-[672px] mx-auto w-full"
       style={{
         background: '#F2F7F4',
         fontFamily: '"IBM Plex Sans", sans-serif',
@@ -310,7 +310,7 @@ export function ChatPageClient({
         style={{
           background: '#1A2520',
           borderRadius: '0 0 20px 20px',
-          padding: 'calc(12px + env(safe-area-inset-top, 36px)) 16px 6px',
+          padding: 'calc(12px + env(safe-area-inset-top, 44px)) 16px 6px',
           boxShadow: '0 2px 16px rgba(26,37,32,0.12)',
           position: 'relative',
           zIndex: 5,
@@ -589,7 +589,7 @@ export function ChatPageClient({
         <div
           className="flex-shrink-0"
           style={{
-            padding: '10px 14px calc(16px + env(safe-area-inset-bottom, 16px))',
+            padding: '10px 14px 12px',
             background: '#ffffff',
             borderTop: '1px solid #EAF0EC',
             boxShadow: '0 -1px 8px rgba(0,0,0,0.04)',
