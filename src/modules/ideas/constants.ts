@@ -231,6 +231,31 @@ export const SUGGESTIONS: Record<string, string[]> = {
   evaluar:  ['¿Cómo arranco esta semana?', 'Necesito más tiempo para pensarlo', 'Estoy listo para puntuar'],
 } as const
 
+// ──────────────────────────────────────────────────────────
+// Chat — límites por fase, colores y descripciones
+// ──────────────────────────────────────────────────────────
+
+export const PHASE_DESCRIPTIONS: Record<string, string> = {
+  observar: 'Exploramos oportunidades que encajen con vos',
+  definir:  'Delimitamos el problema concreto',
+  idear:    'Generamos ideas de negocio',
+  evaluar:  'Puntuamos con CENTS',
+} as const
+
+export const PHASE_COLORS: Record<string, string> = {
+  observar: '#7A9A8A',
+  definir:  '#C69B30',
+  idear:    '#3A9E6A',
+  evaluar:  '#2E7D52',
+} as const
+
+export const MESSAGE_LIMITS: Record<string, number> = {
+  observar: 6,
+  definir:  6,
+  idear:    6,
+  evaluar:  6,
+} as const
+
 export const NEXT_STEP_FALLBACK: Record<string, string | null> = {
   generated:    'Evaluar con CENTS',
   committed:    'Completar evaluación CENTS',

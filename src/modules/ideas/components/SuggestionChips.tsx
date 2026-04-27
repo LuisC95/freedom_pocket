@@ -27,31 +27,30 @@ export function SuggestionChips({ phase, show, onSelect }: SuggestionChipsProps)
 
   return (
     <div
-      className="flex flex-wrap gap-2 px-1 mb-2"
+      className="flex flex-wrap gap-2 px-4 pt-2 pb-1"
       style={{
-        animation: 'slideUp 0.25s ease',
-        fontFamily: 'var(--font-sans)',
+        fontFamily: '"IBM Plex Sans", sans-serif',
       }}
     >
       {chips.map((chip, i) => (
         <button
           key={i}
           onClick={() => handleClick(chip)}
-          className="text-[12px] font-medium border-none rounded-[20px] cursor-pointer whitespace-nowrap transition-all"
+          className="text-[12px] font-medium border cursor-pointer whitespace-nowrap rounded-[20px] transition-all"
           style={{
-            color: '#2E7D52',
-            background: 'rgba(46,125,82,0.08)',
-            padding: '6px 14px',
-            fontFamily: 'var(--font-sans)',
-            border: '1px solid rgba(46,125,82,0.15)',
+            padding: '6px 12px',
+            border: '1.5px solid #EAF0EC',
+            background: '#ffffff',
+            color: '#141F19',
+            fontFamily: '"IBM Plex Sans", sans-serif',
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.background = 'rgba(46,125,82,0.15)'
-            e.currentTarget.style.borderColor = 'rgba(46,125,82,0.3)'
+            e.currentTarget.style.borderColor = '#2E7D52'
+            e.currentTarget.style.color = '#2E7D52'
           }}
           onMouseLeave={e => {
-            e.currentTarget.style.background = 'rgba(46,125,82,0.08)'
-            e.currentTarget.style.borderColor = 'rgba(46,125,82,0.15)'
+            e.currentTarget.style.borderColor = '#EAF0EC'
+            e.currentTarget.style.color = '#141F19'
           }}
         >
           {chip}

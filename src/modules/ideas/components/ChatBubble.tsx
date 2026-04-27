@@ -12,24 +12,26 @@ export function ChatBubble({ role, content }: ChatBubbleProps) {
 
   return (
     <div
-      className="flex items-start gap-3 mb-3"
+      className="mb-[14px]"
       style={{
-        flexDirection: isUser ? 'row-reverse' : 'row',
-        animation: 'bubbleIn 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards',
-        fontFamily: 'var(--font-sans)',
+        display: 'flex',
+        justifyContent: isUser ? 'flex-end' : 'flex-start',
+        animation: 'bubbleIn 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+        fontFamily: '"IBM Plex Sans", sans-serif',
       }}
     >
-      {/* Avatar (solo coach) */}
+      {/* Coach avatar left */}
       {!isUser && (
         <div
-          className="flex-shrink-0 flex items-center justify-center"
+          className="flex-shrink-0 self-end flex items-center justify-center"
           style={{
             width: 30,
             height: 30,
             borderRadius: '50%',
             background: 'linear-gradient(135deg, #2E7D52, #1A2520)',
-            border: '1.5px solid rgba(58,158,106,0.2)',
-            fontSize: 14,
+            border: '1.5px solid rgba(58,158,106,0.3)',
+            fontSize: 13,
+            marginRight: 8,
           }}
         >
           🧭
@@ -37,24 +39,44 @@ export function ChatBubble({ role, content }: ChatBubbleProps) {
       )}
 
       {/* Bubble */}
-      <div
-        className="inline-block max-w-[85%] text-[14px] leading-relaxed whitespace-pre-wrap"
-        style={{
-          background: isUser
-            ? 'linear-gradient(135deg, #2E7D52, #1A5C3A)'
-            : '#ffffff',
-          color: isUser ? '#ffffff' : '#141F19',
-          borderRadius: isUser
-            ? '18px 18px 4px 18px'
-            : '4px 18px 18px 18px',
-          padding: '12px 16px',
-          border: isUser ? 'none' : '1.5px solid #EAF0EC',
-          lineHeight: 1.55,
-          fontFamily: 'var(--font-sans)',
-        }}
-      >
-        {content}
+      <div style={{ maxWidth: '78%' }}>
+        <div
+          className="text-[14px] leading-relaxed whitespace-pre-wrap"
+          style={{
+            padding: isUser ? '10px 14px' : '12px 16px',
+            borderRadius: isUser ? '18px 18px 4px 18px' : '4px 18px 18px 18px',
+            background: isUser
+              ? 'linear-gradient(135deg, #2E7D52, #1A5C3A)'
+              : '#ffffff',
+            color: isUser ? '#ffffff' : '#141F19',
+            fontFamily: '"IBM Plex Sans", sans-serif',
+            boxShadow: isUser
+              ? '0 2px 12px rgba(46,125,82,0.25)'
+              : '0 1px 8px rgba(0,0,0,0.06)',
+            border: isUser ? 'none' : '1px solid #EAF0EC',
+            lineHeight: 1.6,
+          }}
+        >
+          {content}
+        </div>
       </div>
+
+      {/* User avatar right */}
+      {isUser && (
+        <div
+          className="flex-shrink-0 self-end flex items-center justify-center"
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: '50%',
+            background: '#EAF0EC',
+            fontSize: 13,
+            marginLeft: 8,
+          }}
+        >
+          👤
+        </div>
+      )}
     </div>
   )
 }

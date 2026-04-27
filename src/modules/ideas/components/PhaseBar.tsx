@@ -10,89 +10,75 @@ const PHASE_COLORS: Record<Phase, string> = {
   evaluar:  '#2E7D52',
 }
 
+const PHASE_SHORT: Record<Phase, string> = {
+  observar: 'O',
+  definir:  'D',
+  idear:    'I',
+  evaluar:  'E',
+}
+
 interface PhaseBarProps {
   currentPhase: Phase
   completedPhases: Phase[]
 }
 
 export function PhaseBar({ currentPhase, completedPhases }: PhaseBarProps) {
-  const currentOrder = PHASES.find(p => p.key === currentPhase)?.order ?? 1
+  const currentIdx = PHASES.findIndex(p => p.key === currentPhase)
 
   return (
-    <div className="flex items-center gap-[2px]">
+    <div className="flex items-center" style={{ padding: '0 20px' }}>
       {PHASES.map((phase, i) => {
         const isCompleted = completedPhases.includes(phase.key)
         const isCurrent = phase.key === currentPhase
         const color = PHASE_COLORS[phase.key]
-        const isPast = i + 1 < currentOrder
+        const short = PHASE_SHORT[phase.key]
 
-        // Estilo del punto: completado → check, actual → punto relleno, futuro → círculo vacío
         return (
-          <div key={phase.key} className="flex items-center gap-[2px] flex-1">
-            <div className="flex items-center justify-center">
-              {isCompleted ? (
-                <span
-                  className="inline-flex items-center justify-center rounded-full"
-                  style={{
-                    width: 18,
-                    height: 18,
-                    background: color,
-                    color: '#fff',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    fontFamily: 'var(--font-mono)',
-                    transition: 'all 0.3s ease',
-                  }}
-                >
-                  ✓
-                </span>
-              ) : isCurrent ? (
-                <span
-                  className="inline-flex items-center justify-center rounded-full"
-                  style={{
-                    width: 18,
-                    height: 18,
-                    background: color,
-                    boxShadow: `0 0 0 3px ${color}22`,
-                    transition: 'all 0.3s ease',
-                  }}
-                />
-              ) : (
-                <span
-                  className="inline-flex items-center justify-center rounded-full"
-                  style={{
-                    width: 16,
-                    height: 16,
-                    border: `2px solid ${color}`,
-                    opacity: 0.4,
-                    transition: 'all 0.3s ease',
-                  }}
-                />
-              )}
+          <div key={phase.key} className="flex items-center" style={{ flex: 1 }}>
+            <div className="flex flex-col items-center gap-1" style={{ flex: 1 }}>
+              {/* Circle */}
+              <div
+                className="flex items-center justify-center rounded-full"
+                style={{
+                  width: 30,
+                  height: 30,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  fontFamily: '"IBM Plex Sans", sans-serif',
+                  background: isCompleted ? color : isCurrent ? '#fff' : 'rgba(255,255,255,0.08)',
+                  color: isCompleted ? '#fff' : isCurrent ? '#1A2520' : 'rgba(255,255,255,0.3)',
+                  border: isCurrent ? `2px solid ${color}` : '2px solid transparent',
+                  transition: 'all 0.4s ease',
+                  boxShadow: isCurrent ? `0 0 12px ${color}55` : 'none',
+                }}
+              >
+                {isCompleted ? '✓' : short}
+              </div>
+              {/* Label */}
+              <span
+                className="text-[9px] font-semibold uppercase leading-none"
+                style={{
+                  color: isCompleted ? color : isCurrent ? '#fff' : 'rgba(255,255,255,0.3)',
+                  fontFamily: '"IBM Plex Sans", sans-serif',
+                  letterSpacing: 0.5,
+                  transition: 'all 0.4s ease',
+                }}
+              >
+                {phase.label}
+              </span>
             </div>
-
-            {/* Label */}
-            <span
-              className="text-[10px] font-semibold leading-none"
-              style={{
-                color,
-                opacity: isPast || isCurrent ? 0.9 : 0.4,
-                fontFamily: 'var(--font-sans)',
-                letterSpacing: 0.3,
-                transition: 'all 0.3s ease',
-              }}
-            >
-              {phase.label}
-            </span>
-
-            {/* Connector line (except last) */}
+            {/* Connector (except last) */}
             {i < PHASES.length - 1 && (
               <div
-                className="flex-1 h-[2px] mx-1 rounded-full"
+                className="rounded-full"
                 style={{
-                  background: isPast || (isCompleted && i < currentOrder - 1) ? color : '#e0ebe4',
-                  opacity: 0.4,
-                  transition: 'all 0.3s ease',
+                  height: 1.5,
+                  flex: 1,
+                  marginBottom: 16,
+                  background: isCompleted
+                    ? `linear-gradient(90deg, ${color}, ${PHASE_COLORS[PHASES[i + 1].key as Phase]})`
+                    : 'rgba(255,255,255,0.1)',
+                  transition: 'background 0.6s ease',
                 }}
               />
             )}

@@ -38,14 +38,17 @@ export function PhaseTransition({ phase, summary, onContinue }: PhaseTransitionP
       className="fixed inset-0 z-[60] flex flex-col items-center justify-center overflow-hidden"
       style={{
         background: '#0D1A14',
-        fontFamily: 'var(--font-sans)',
+        fontFamily: '"IBM Plex Sans", sans-serif',
+        maxWidth: 480,
+        margin: '0 auto',
+        padding: '32px 24px',
+        animation: 'fadeInFull 0.5s ease',
       }}
     >
       <style>{`
         @keyframes float {
-          0%, 100% { transform: translateY(0) rotate(0deg); }
-          33% { transform: translateY(-12px) rotate(2deg); }
-          66% { transform: translateY(-6px) rotate(-1deg); }
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-12px); }
         }
         @keyframes growBar {
           from { width: 0; }
@@ -55,127 +58,175 @@ export function PhaseTransition({ phase, summary, onContinue }: PhaseTransitionP
           to { opacity: 1; }
         }
         @keyframes scaleIn {
-          from { opacity: 0; transform: scale(0.4); }
+          from { opacity: 0; transform: scale(0.5); }
           to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
 
       {/* Partículas flotantes */}
-      {[0, 1, 2, 3, 4, 5].map(i => (
+      {[...Array(6)].map((_, i) => (
         <div
           key={i}
           className="absolute rounded-full"
           style={{
-            width: 6 + (i % 3) * 4,
-            height: 6 + (i % 3) * 4,
+            width: 4,
+            height: 4,
             background: color,
-            opacity: 0.3,
-            top: `${20 + (i * 13) % 60}%`,
-            left: `${15 + (i * 17) % 70}%`,
-            animation: `float ${3 + (i % 2)}s ease infinite`,
-            animationDelay: `${i * 0.3}s`,
+            opacity: 0.4,
+            top: `${15 + i * 12}%`,
+            left: `${10 + i * 15}%`,
+            animation: `float ${2 + i * 0.3}s ease-in-out infinite alternate`,
           }}
         />
       ))}
 
-      {/* Check + glow */}
+      {/* Check circle grande */}
       <div
-        className="flex items-center justify-center mb-5"
-        style={{ animation: 'scaleIn 0.5s ease 0.2s both' }}
-      >
-        <div
-          className="flex items-center justify-center rounded-full"
-          style={{
-            width: 72,
-            height: 72,
-            background: `${color}22`,
-            boxShadow: `0 0 30px ${color}44, 0 0 60px ${color}22`,
-          }}
-        >
-          <span style={{ fontSize: 36, color }}>✓</span>
-        </div>
-      </div>
-
-      {/* Label y título */}
-      <div style={{ textAlign: 'center', animation: 'fadeInFull 0.5s ease 0.4s both' }}>
-        <span
-          className="text-[12px] font-semibold uppercase tracking-widest mb-2 block"
-          style={{ color, letterSpacing: 2 }}
-        >
-          Fase completada
-        </span>
-        <h2
-          className="text-[26px] font-bold mb-2"
-          style={{ color: '#ffffff', margin: 0 }}
-        >
-          {phaseMeta?.label ?? phase} completado
-        </h2>
-      </div>
-
-      {/* Insight card */}
-      <div
-        className="w-[85%] max-w-[400px] rounded-[14px] mb-4"
+        className="flex items-center justify-center rounded-full"
         style={{
-          background: 'rgba(255,255,255,0.06)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          padding: '16px',
-          animation: 'fadeInFull 0.5s ease 0.6s both',
+          width: 80,
+          height: 80,
+          background: `radial-gradient(circle, ${color}22, transparent)`,
+          border: `2px solid ${color}`,
+          fontSize: 36,
+          marginBottom: 20,
+          animation: 'scaleIn 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.2s both',
+          boxShadow: `0 0 40px ${color}44`,
         }}
       >
-        <div className="text-[11px] mb-2 font-semibold" style={{ color }}>
-          LO DESCUBIERTO
-        </div>
-        <p className="text-[14px] leading-relaxed m-0" style={{ color: '#A7F3D0' }}>
-          {summary.insight}
-        </p>
+        ✓
       </div>
 
-      {/* CENTS progress */}
+      {/* Label */}
       <div
-        className="w-[85%] max-w-[400px] mb-4"
-        style={{ animation: 'fadeInFull 0.5s ease 0.8s both' }}
+        className="text-[11px] font-bold uppercase tracking-widest mb-[6px]"
+        style={{
+          color,
+          fontFamily: '"IBM Plex Sans", sans-serif',
+          letterSpacing: 2,
+          animation: 'slideUp 0.4s ease 0.4s both',
+        }}
       >
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-[11px] font-semibold" style={{ color: '#7A9A8A' }}>
-            PROGRESO CENTS
-          </span>
-          <span
-            className="font-mono text-[20px] font-bold"
-            style={{ color: summary.centsProgress >= 70 ? '#2E7D52' : '#C69B30' }}
-          >
-            {Math.round(summary.centsProgress)}/100
-          </span>
-        </div>
-        <div
-          className="h-[6px] rounded-full overflow-hidden"
-          style={{ background: 'rgba(255,255,255,0.08)' }}
-        >
-          <div
-            className="h-full rounded-full"
-            style={{
-              width: `${Math.min(summary.centsProgress, 100)}%`,
-              background: `linear-gradient(90deg, ${color}, #2E7D52)`,
-              animation: 'growBar 0.8s ease 1s both',
-            }}
-          />
-        </div>
+        Fase completada
       </div>
 
-      {/* Next step card */}
-      {nextPhaseMeta && (
+      {/* Título */}
+      <div
+        className="text-[26px] font-bold text-center mb-7"
+        style={{
+          color: '#fff',
+          fontFamily: '"IBM Plex Sans", sans-serif',
+          lineHeight: 1.3,
+          animation: 'slideUp 0.4s ease 0.5s both',
+        }}
+      >
+        {phaseMeta?.label ?? phase} completado
+      </div>
+
+      {/* Summary card */}
+      <div
+        className="w-full rounded-[18px] mb-4"
+        style={{
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          padding: '20px 22px',
+          animation: 'slideUp 0.4s ease 0.6s both',
+        }}
+      >
         <div
-          className="w-[85%] max-w-[400px] rounded-[14px] mb-6"
+          className="text-[11px] font-semibold uppercase mb-[10px]"
           style={{
-            background: 'rgba(255,255,255,0.06)',
-            border: `1px solid ${color}33`,
-            padding: '16px',
-            animation: 'fadeInFull 0.5s ease 1s both',
+            color: '#7A9A8A',
+            letterSpacing: 1.2,
+            fontFamily: '"IBM Plex Sans", sans-serif',
           }}
         >
-          <div className="text-[11px] mb-2 font-semibold" style={{ color }}>
-            PRÓXIMO OBJETIVO
+          Lo que descubrimos
+        </div>
+        <p
+          className="text-[14px] leading-relaxed mb-4"
+          style={{
+            color: 'rgba(255,255,255,0.85)',
+            fontFamily: '"IBM Plex Sans", sans-serif',
+          }}
+        >
+          {summary.insight}
+        </p>
+
+        {/* CENTS mini progress */}
+        <div
+          className="flex items-center gap-3 rounded-[10px]"
+          style={{
+            background: 'rgba(255,255,255,0.04)',
+            padding: '10px 14px',
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <div
+              className="text-[10px] mb-[6px]"
+              style={{ color: '#7A9A8A', fontFamily: '"IBM Plex Sans", sans-serif' }}
+            >
+              Progreso CENTS estimado
+            </div>
+            <div
+              className="h-[4px] rounded-full overflow-hidden"
+              style={{ background: 'rgba(255,255,255,0.08)' }}
+            >
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${Math.min(summary.centsProgress, 100)}%`,
+                  background: `linear-gradient(90deg, #C69B30, #2E7D52)`,
+                  transition: 'width 1s ease 0.8s',
+                  animation: 'growBar 1s ease 0.8s both',
+                }}
+              />
+            </div>
           </div>
-          <p className="text-[14px] leading-relaxed m-0" style={{ color: '#ffffff' }}>
+          <div
+            className="font-mono text-[16px] font-bold"
+            style={{
+              fontFamily: '"IBM Plex Mono", monospace',
+              color: summary.centsProgress >= 60 ? '#3A9E6A' : '#C69B30',
+            }}
+          >
+            {Math.round(summary.centsProgress * 50 / 100)}/50
+          </div>
+        </div>
+      </div>
+
+      {/* Next objective */}
+      {nextPhaseMeta && (
+        <div
+          className="w-full rounded-[14px] mb-7"
+          style={{
+            background: `${color}15`,
+            border: `1px solid ${color}33`,
+            padding: '14px 18px',
+            animation: 'slideUp 0.4s ease 0.7s both',
+          }}
+        >
+          <div
+            className="text-[10px] font-bold uppercase mb-[6px]"
+            style={{
+              color,
+              letterSpacing: 1.2,
+              fontFamily: '"IBM Plex Sans", sans-serif',
+            }}
+          >
+            Próximo objetivo
+          </div>
+          <p
+            className="text-[14px] font-medium m-0"
+            style={{
+              color: 'rgba(255,255,255,0.9)',
+              fontFamily: '"IBM Plex Sans", sans-serif',
+            }}
+          >
             {summary.next}
           </p>
         </div>
@@ -185,26 +236,24 @@ export function PhaseTransition({ phase, summary, onContinue }: PhaseTransitionP
       {nextPhaseMeta && (
         <button
           onClick={onContinue}
-          className="border-none rounded-[12px] text-[16px] font-semibold cursor-pointer"
+          className="w-full border-none rounded-[14px] text-[15px] font-semibold cursor-pointer"
           style={{
-            padding: '14px 28px',
+            padding: '15px 0',
             background: 'linear-gradient(135deg, #2E7D52, #1A5C3A)',
             color: '#fff',
-            fontFamily: 'var(--font-sans)',
-            animation: 'fadeInFull 0.5s ease 1.2s both',
-            transition: 'transform 0.15s ease',
+            fontFamily: '"IBM Plex Sans", sans-serif',
+            boxShadow: '0 4px 20px rgba(46,125,82,0.4)',
+            animation: 'slideUp 0.4s ease 0.8s both',
           }}
-          onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.03)')}
-          onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
         >
           Continuar a {nextPhaseMeta.label} →
         </button>
       )}
 
-      {/* Última fase — sin botón */}
+      {/* Last phase — no button */}
       {!nextPhaseMeta && (
-        <div style={{ animation: 'fadeInFull 0.5s ease 1.2s both', textAlign: 'center' }}>
-          <p className="text-[14px]" style={{ color: '#A7F3D0' }}>
+        <div style={{ animation: 'slideUp 0.4s ease 0.8s both', textAlign: 'center' }}>
+          <p className="text-[14px]" style={{ color: 'rgba(255,255,255,0.7)' }}>
             ¡Embudo completo! Tu idea está lista para el mundo real.
           </p>
         </div>
