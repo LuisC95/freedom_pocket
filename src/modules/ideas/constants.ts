@@ -250,10 +250,10 @@ export const PHASE_COLORS: Record<string, string> = {
 } as const
 
 export const MESSAGE_LIMITS: Record<string, number> = {
-  observar: 6,
+  observar: 8,
   definir:  6,
   idear:    6,
-  evaluar:  6,
+  evaluar: 10,
 } as const
 
 export const NEXT_STEP_FALLBACK: Record<string, string | null> = {
