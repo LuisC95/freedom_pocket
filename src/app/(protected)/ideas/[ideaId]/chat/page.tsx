@@ -13,15 +13,27 @@ interface Props {
 }
 
 export default async function ChatPage(props: Props) {
+  console.log('[ChatPage] starting...')
+  let userId: string | undefined
   try {
-    await requireAdmin()
+    userId = await requireAdmin()
+    console.log('[ChatPage] requireAdmin OK, userId:', userId?.slice(0, 8))
   } catch (e) {
     console.error('[ChatPage] requireAdmin failed:', e)
     redirect('/login')
   }
   const { ideaId } = await props.params
-  const DEV_USER_ID = await getDevUserId()
+  console.log('[ChatPage] ideaId:', ideaId)
+  let DEV_USER_ID: string
+  try {
+    DEV_USER_ID = await getDevUserId()
+    console.log('[ChatPage] getDevUserId OK:', DEV_USER_ID.slice(0, 8))
+  } catch (e) {
+    console.error('[ChatPage] getDevUserId failed:', e)
+    redirect('/login')
+  }
   const supabase = createAdminClient()
+  console.log('[ChatPage] createAdminClient OK')
 
   // Cargar idea
   let idea
