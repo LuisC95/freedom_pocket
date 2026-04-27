@@ -55,7 +55,7 @@
 - `provider.ts` — normalizeProviderForStorage
 
 ### M4 Ideas — Server Actions
-- `messages.ts` — sendMessage con contexto + límites (8/6/6/10) + ready_to_save
+- `messages.ts` — sendMessage con contexto + límites (6/px desde constants.ts) + ready_to_save
 - `sessions.ts` — CRUD + completeSession con summary automático + tags extraction
 - `tags.ts` — CRUD de user_profile_tags
 - `phases.ts` — gestión de cambio de fase
