@@ -28,7 +28,9 @@ import type {
   AIProvider,
   AssistantUIData,
   PhaseSummariesMap,
+  IdeaRow,
 } from './types'
+import { NEXT_STEP_FALLBACK } from './constants'
 
 // ──────────────────────────────────────────────────────────
 // Tipos Raw (alias para lecturas más cortas)
@@ -155,4 +157,36 @@ export function mapMessage(row: RawIdeaMessageRow): IdeaMessage {
     pinned_by: row.pinned_by ?? null,
     ui_data: uiData,
   }
+}
+
+// ══════════════════════════════════════════════════════════
+// 5. mapIdeaWithNextStep
+// ══════════════════════════════════════════════════════════
+// Enriquece una idea con el próximo paso real (desde última sesión
+// completada) o fallback, más días desde última actividad.
+
+interface NextStepRow {
+  next_step: string | null
+  completed_at: string | null
+}
+
+export function mapIdeaWithNextStep(
+  idea: Idea,
+  lastSession: NextStepRow | null
+): IdeaCardWithNextStep {
+  const nextStep = lastSession?.next_step ?? NEXT_STEP_FALLBACK[idea.status] ?? null
+  const lastActivity = lastSession?.completed_at
+    ? Math.floor((Date.now() - new Date(lastSession.completed_at).getTime()) / (1000 * 60 * 60 * 24))
+    : Math.floor((Date.now() - new Date(idea.updated_at ?? Date.now()).getTime()) / (1000 * 60 * 60 * 24))
+
+  return {
+    ...idea,
+    next_step: nextStep,
+    last_activity_days: lastActivity,
+  }
+}
+
+export interface IdeaCardWithNextStep extends Idea {
+  next_step: string | null
+  last_activity_days: number
 }

@@ -212,3 +212,30 @@ export const AI_COST_ALERT_THRESHOLD_USD = 0.5
 // Score CENTS: rango agregado (5 dimensiones × 1-10)
 export const CENTS_MIN_TOTAL = 5
 export const CENTS_MAX_TOTAL = 50
+
+// ──────────────────────────────────────────────────────────
+// Coach AI — sugerencias, textos de pensamiento, próximos pasos
+// ──────────────────────────────────────────────────────────
+
+export const COACH_THINKING = [
+  'Analizando tu contexto...',
+  'Procesando lo que dijiste...',
+  'Construyendo la siguiente pregunta...',
+  'Conectando puntos...',
+] as const
+
+export const SUGGESTIONS: Record<string, string[]> = {
+  observar: ['Contame más sobre ese sector', '¿Qué habilidades tengo?', 'No sé por dónde empezar'],
+  definir:  ['El problema principal es...', 'Los más afectados son...', 'Todavía no lo tengo claro'],
+  idear:    ['Me resuena la primera', '¿Podés darme más opciones?', 'Quiero combinar ideas'],
+  evaluar:  ['¿Cómo arranco esta semana?', 'Necesito más tiempo para pensarlo', 'Estoy listo para puntuar'],
+} as const
+
+export const NEXT_STEP_FALLBACK: Record<string, string | null> = {
+  generated:    'Evaluar con CENTS',
+  committed:    'Completar evaluación CENTS',
+  validando:    'Registrar resultado de validación',
+  construyendo: 'Completar Deep Dive',
+  operando:     null,
+  discarded:    null,
+} as const

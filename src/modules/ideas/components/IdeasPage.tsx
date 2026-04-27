@@ -1,53 +1,63 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import type { Idea } from '@/modules/ideas/types'
 import { IdeaCard } from './IdeaCard'
 import type { IdeaCardData } from './IdeaCard'
-import { IdeaDetail } from './IdeaDetail'
 import { NewIdeaSheet } from './NewIdeaSheet'
-
-interface IdeasPageProps {
-  ideas: Idea[]
-}
-
-const NEXT_STEP_BY_STATUS: Record<string, string | null> = {
-  generated: 'Evaluar con CENTS',
-  committed: 'Completar evaluación CENTS',
-  validando: 'Registrar resultado de validación',
-  construyendo: 'Completar Deep Dive',
-  operando: null,
-  discarded: null,
-}
 
 const MODEL_LABEL: Record<string, string> = {
   saas: 'SaaS', producto_fisico: 'Producto', servicio: 'Servicio',
   contenido: 'Contenido', renta: 'Renta', custom: 'Otro',
 }
 
-function enrichIdea(idea: Idea): IdeaCardData {
+interface IdeasPageProps {
+  ideas: Idea[]
+}
+
+function enrichIdea(idea: Idea): IdeaCardData & { id: string } {
   const updated = idea.updated_at ? new Date(idea.updated_at) : new Date()
   const lastActivity = Math.floor((Date.now() - updated.getTime()) / (1000 * 60 * 60 * 24))
   const businessModel = MODEL_LABEL[idea.business_model ?? ''] ?? idea.business_model ?? ''
+  const fallback: Record<string, string | null> = {
+    generated: 'Evaluar con CENTS',
+    committed: 'Completar evaluación CENTS',
+    validando: 'Registrar resultado de validación',
+    construyendo: 'Completar Deep Dive',
+    operando: null,
+    discarded: null,
+  }
   return {
+    id: idea.id,
     title: idea.title,
     concept: idea.concept ?? null,
     status: idea.status,
-    cents_score: idea.cents_complete ? null : null, // placeholder — usar cents_preliminary_score cuando exista
+    cents_score: null,
     lastActivity,
-    nextStep: NEXT_STEP_BY_STATUS[idea.status] ?? null,
+    nextStep: fallback[idea.status] ?? null,
     businessModel,
   }
 }
 
 export function IdeasPage({ ideas }: IdeasPageProps) {
-  const [selectedIdea, setSelectedIdea] = useState<IdeaCardData | null>(null)
+  const router = useRouter()
   const [showNew, setShowNew] = useState(false)
   const [filter, setFilter] = useState('activas')
 
   const activas = ideas.filter(i => ['committed', 'validando', 'construyendo', 'operando'].includes(i.status))
   const nuevas = ideas.filter(i => i.status === 'generated')
   const descartadas = ideas.filter(i => i.status === 'discarded')
+
+  const handleCardClick = useCallback((data: IdeaCardData) => {
+    const d = data as IdeaCardData & { id: string }
+    // generated → directo al chat; otros → resumen
+    if (d.status === 'generated') {
+      router.push(`/ideas/${d.id}/chat`)
+    } else {
+      router.push(`/ideas/${d.id}`)
+    }
+  }, [router])
 
   const renderSection = (
     label: string,
@@ -83,7 +93,7 @@ export function IdeasPage({ ideas }: IdeasPageProps) {
             <IdeaCard
               key={idea.id}
               idea={enrichIdea(idea)}
-              onClick={d => setSelectedIdea(d)}
+              onClick={(d) => handleCardClick(d)}
               compact={compact}
             />
           ))}
@@ -187,7 +197,7 @@ export function IdeasPage({ ideas }: IdeasPageProps) {
                 <IdeaCard
                   key={idea.id}
                   idea={enrichIdea(idea)}
-                  onClick={d => setSelectedIdea(d)}
+                  onClick={d => handleCardClick(d)}
                   compact
                 />
               ))}
@@ -245,10 +255,7 @@ export function IdeasPage({ ideas }: IdeasPageProps) {
         +
       </button>
 
-      {/* Modals */}
-      {selectedIdea && (
-        <IdeaDetail idea={selectedIdea} onClose={() => setSelectedIdea(null)} />
-      )}
+      {/* New idea sheet */}
       {showNew && (
         <NewIdeaSheet onClose={() => setShowNew(false)} />
       )}
