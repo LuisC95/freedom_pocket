@@ -7,7 +7,6 @@ import { PHASES, PHASE_DESCRIPTIONS, PHASE_COLORS, MESSAGE_LIMITS } from '@/modu
 import { sendMessage } from '@/modules/ideas/actions/messages'
 import { completeSession, createSession, getSession } from '@/modules/ideas/actions/sessions'
 import { renameIdea } from '@/modules/ideas/actions'
-import { discardIdea } from '@/modules/ideas/actions/transitions'
 import { PhaseBar } from '@/modules/ideas/components/PhaseBar'
 import { ChatBubble } from '@/modules/ideas/components/ChatBubble'
 import { TypingIndicator } from '@/modules/ideas/components/TypingIndicator'
@@ -125,18 +124,7 @@ export function ChatPageClient({
           setPhaseLimitReached(true)
           setSending(false)
           setIsTyping(false)
-
-          const completeResult = await completeSession(currentSessionId)
-          if (completeResult.ok) {
-            setShowTransition(true)
-            setTransitionSummary({
-              insight: '¡Fase completada! Revisemos lo que descubrimos.',
-              next: NEXT_PHASE[phase]
-                ? `Empezar fase ${PHASES.find(p => p.key === NEXT_PHASE[phase])?.label ?? NEXT_PHASE[phase]}`
-                : 'Embudo completo',
-              centsProgress: Math.min(userMsgCount * 15, 90),
-            })
-          }
+          setError(null)
           return
         }
         setError(result.error ?? 'Error al enviar mensaje')
@@ -228,11 +216,10 @@ export function ChatPageClient({
     setPhaseSuggestion(null)
   }, [phase, router, ideaId])
 
-  // Avance temprano: cuando la AI señala phase_ready antes del límite
-  const handleAdvanceEarly = useCallback(async () => {
-    if (!phaseSuggestion?.target || sending) return
+  /** Avanzar: cuando la AI sugiere o el límite de mensajes se alcanzó */
+  const handleAdvance = useCallback(async () => {
+    if (sending || showTransition) return
 
-    setPhaseLimitReached(true)
     setShowSuggestions(false)
     setPhaseSuggestion(null)
 
@@ -240,14 +227,16 @@ export function ChatPageClient({
     if (completeResult.ok) {
       setShowTransition(true)
       setTransitionSummary({
-        insight: phaseSuggestion.reason,
+        insight: phaseSuggestion?.reason ?? 'Fase completada. Pasemos a la siguiente etapa.',
         next: NEXT_PHASE[phase]
           ? `Empezar fase ${PHASES.find(p => p.key === NEXT_PHASE[phase])?.label ?? NEXT_PHASE[phase]}`
           : 'Embudo completo',
         centsProgress: Math.min(userMsgCount * 15, 90),
       })
+    } else {
+      setError('Error al cerrar la fase. Intentalo de nuevo.')
     }
-  }, [phase, phaseSuggestion, sending, currentSessionId, userMsgCount])
+  }, [phase, phaseSuggestion, sending, showTransition, currentSessionId, userMsgCount])
 
   const handleSuggestionClick = useCallback((text: string) => {
     setInput(text)
@@ -282,16 +271,17 @@ export function ChatPageClient({
   }, [])
 
   /** Volver al resumen de la idea, guardando la sesión si hay mensajes */
-  const handleBack = useCallback(async () => {
-    // Si hay mensajes y la sesión no está en transición, completarla
+  const handleBack = useCallback(() => {
+    const goBack = () => router.push(`/ideas/${ideaId}`)
     if (messages.length > 0) {
-      await completeSession(currentSessionId)
+      completeSession(currentSessionId).then(goBack).catch(goBack)
+    } else {
+      goBack()
     }
-    router.push(`/ideas/${ideaId}`)
   }, [messages.length, currentSessionId, ideaId, router])
 
   const phaseMeta = PHASES.find(p => p.key === phase)
-  const isInputDisabled = sending || showTransition
+  const isInputDisabled = sending || showTransition || phaseLimitReached
 
   return (
     <div
@@ -544,8 +534,8 @@ export function ChatPageClient({
 
       {/* ── INPUT AREA ── */}
       <div className="flex-shrink-0 flex flex-col">
-        {/* Warning bar */}
-        {remaining > 0 && remaining <= 2 && !showTransition && (
+        {/* Warning bar — quedan pocos mensajes */}
+        {remaining > 0 && remaining <= 2 && !showTransition && !phaseSuggestion && !phaseLimitReached && (
           <div
             style={{
               background: 'linear-gradient(135deg, rgba(198,155,48,0.06), rgba(198,155,48,0.10))',
@@ -567,8 +557,8 @@ export function ChatPageClient({
           </div>
         )}
 
-        {/* Fase lista — avance temprano */}
-        {phaseSuggestion && !showTransition && remaining > 1 && (
+        {/* Fase lista — avanzar por sugerencia de la AI */}
+        {phaseSuggestion && !showTransition && (
           <div
             style={{
               background: 'linear-gradient(135deg, rgba(46,125,82,0.05), rgba(46,125,82,0.09))',
@@ -596,7 +586,54 @@ export function ChatPageClient({
               </div>
             </div>
             <button
-              onClick={handleAdvanceEarly}
+              onClick={handleAdvance}
+              className="text-[11px] font-semibold border-none rounded-[10px] cursor-pointer whitespace-nowrap"
+              style={{
+                padding: '8px 14px',
+                background: '#2E7D52',
+                color: '#fff',
+                fontFamily: '"IBM Plex Sans", sans-serif',
+                flexShrink: 0,
+                transition: 'background 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#3A9E6A' }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#2E7D52' }}
+            >
+              Avanzar →
+            </button>
+          </div>
+        )}
+
+        {/* Fase completada — límite alcanzado, esperando sugerencia o avance manual */}
+        {phaseLimitReached && !showTransition && !phaseSuggestion && (
+          <div
+            style={{
+              background: 'linear-gradient(135deg, rgba(46,125,82,0.06), rgba(46,125,82,0.10))',
+              borderTop: '1px solid rgba(46,125,82,0.15)',
+              padding: '10px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 8,
+              fontFamily: '"IBM Plex Sans", sans-serif',
+            }}
+          >
+            <div style={{ flex: 1 }}>
+              <div
+                className="text-[11px] font-semibold"
+                style={{ color: '#2E7D52' }}
+              >
+                ✓ Fase completada
+              </div>
+              <div
+                className="text-[10px]"
+                style={{ color: '#7A9A8A', marginTop: 2 }}
+              >
+                Revisá el resumen antes de avanzar a la siguiente fase
+              </div>
+            </div>
+            <button
+              onClick={handleAdvance}
               className="text-[11px] font-semibold border-none rounded-[10px] cursor-pointer whitespace-nowrap"
               style={{
                 padding: '8px 14px',
@@ -615,7 +652,7 @@ export function ChatPageClient({
         )}
 
         {/* Suggestions */}
-        {!isTyping && showSuggestions && !showTransition && (
+        {!isTyping && showSuggestions && !showTransition && !phaseLimitReached && (
           <div style={{ background: '#F2F7F4' }}>
             <SuggestionChips
               phase={phase as Phase}
