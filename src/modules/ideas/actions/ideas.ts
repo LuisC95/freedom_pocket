@@ -8,6 +8,7 @@ import {
   Idea,
   CreateIdeaFromSessionInput,
   UpdateCENTSInput,
+  RenameIdeaInput,
   IdeaStatus,
 } from '@/modules/ideas/types'
 import { mapIdea, mapDeepDive, mapSession } from '@/modules/ideas/mappers'
@@ -196,5 +197,39 @@ export async function updateCENTS(
     return { ok: true, data: mapIdea(data) }
   } catch (e) {
     return { ok: false, error: 'Error inesperado al actualizar CENTS' }
+  }
+}
+
+// ─────────────────────────────────────────────
+// 10. renameIdea
+// ─────────────────────────────────────────────
+
+export async function renameIdea(
+  input: RenameIdeaInput
+): Promise<ActionResult<Idea>> {
+  try {
+    const DEV_USER_ID = await getDevUserId()
+    const supabase = createAdminClient()
+
+    const title = input.title.trim()
+    if (!title || title.length < 2) {
+      return { ok: false, error: 'El título debe tener al menos 2 caracteres' }
+    }
+    if (title.length > 80) {
+      return { ok: false, error: 'El título no puede superar los 80 caracteres' }
+    }
+
+    const { data, error } = await supabase
+      .from('ideas')
+      .update({ title })
+      .eq('id', input.idea_id)
+      .eq('user_id', DEV_USER_ID)
+      .select()
+      .single()
+
+    if (error) return { ok: false, error: error.message }
+    return { ok: true, data: mapIdea(data) }
+  } catch (e) {
+    return { ok: false, error: 'Error inesperado al renombrar la idea' }
   }
 }

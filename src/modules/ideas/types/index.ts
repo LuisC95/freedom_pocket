@@ -184,6 +184,11 @@ export interface UpdateCENTSInput {
   scores: Partial<Record<CENTSKey, number>>
 }
 
+export interface RenameIdeaInput {
+  idea_id: string
+  title: string
+}
+
 export interface ListIdeasInput {
   /** Filtro opcional por status. Sin filtro devuelve todas las ideas del usuario. */
   status?: IdeaStatus

@@ -6,6 +6,7 @@ import type { Phase, IdeaMessage, AssistantOption } from '@/modules/ideas/types'
 import { PHASES, PHASE_DESCRIPTIONS, PHASE_COLORS, MESSAGE_LIMITS } from '@/modules/ideas/constants'
 import { sendMessage } from '@/modules/ideas/actions/messages'
 import { completeSession, createSession, getSession } from '@/modules/ideas/actions/sessions'
+import { renameIdea } from '@/modules/ideas/actions'
 import { PhaseBar } from '@/modules/ideas/components/PhaseBar'
 import { ChatBubble } from '@/modules/ideas/components/ChatBubble'
 import { TypingIndicator } from '@/modules/ideas/components/TypingIndicator'
@@ -72,6 +73,12 @@ export function ChatPageClient({
   const [error, setError] = useState<string | null>(null)
   /** Opciones dinámicas generadas por la AI en la última respuesta */
   const [lastOptions, setLastOptions] = useState<AssistantOption[] | null>(null)
+  /** Señal de la AI de que la fase está lista para cerrar */
+  const [phaseSuggestion, setPhaseSuggestion] = useState<{ target: string; reason: string } | null>(null)
+  /** Título editable inline */
+  const [currentTitle, setCurrentTitle] = useState(ideaTitle)
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState('')
 
   const chatEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -90,6 +97,7 @@ export function ChatPageClient({
   const userMsgCount = messages.filter(m => m.role === 'user').length
   const phaseLimit = MESSAGE_LIMITS[phase] ?? 6
   const remaining = Math.max(0, phaseLimit - userMsgCount)
+  const [currentSessionId, setCurrentSessionId] = useState(sessionId)
 
   const handleSend = useCallback(async () => {
     const text = input.trim()
@@ -162,6 +170,13 @@ export function ChatPageClient({
       } else {
         setLastOptions(null)
       }
+
+      // Señal de fase lista para avanzar (phase_ready del AI)
+      if (data.phaseSuggestion?.target && remaining > 1) {
+        setPhaseSuggestion({ target: data.phaseSuggestion.target, reason: data.phaseSuggestion.reason })
+      } else {
+        setPhaseSuggestion(null)
+      }
     } catch {
       setError('Error de conexión')
     }
@@ -169,9 +184,7 @@ export function ChatPageClient({
     setSending(false)
     setIsTyping(false)
     setShowSuggestions(true)
-  }, [input, sending, sessionId, phase, messages, userMsgCount])
-
-  const [currentSessionId, setCurrentSessionId] = useState(sessionId)
+  }, [input, sending, currentSessionId, phase, messages, userMsgCount])
 
   const handleContinueTransition = useCallback(async () => {
     const nextPhase = NEXT_PHASE[phase]
@@ -209,13 +222,60 @@ export function ChatPageClient({
     setShowSuggestions(true)
     setMessages([])
     setInput('')
+    setPhaseSuggestion(null)
   }, [phase, router, ideaId])
+
+  // Avance temprano: cuando la AI señala phase_ready antes del límite
+  const handleAdvanceEarly = useCallback(async () => {
+    if (!phaseSuggestion?.target || sending) return
+
+    setPhaseLimitReached(true)
+    setShowSuggestions(false)
+    setPhaseSuggestion(null)
+
+    const completeResult = await completeSession(currentSessionId)
+    if (completeResult.ok) {
+      setShowTransition(true)
+      setTransitionSummary({
+        insight: phaseSuggestion.reason,
+        next: NEXT_PHASE[phase]
+          ? `Empezar fase ${PHASES.find(p => p.key === NEXT_PHASE[phase])?.label ?? NEXT_PHASE[phase]}`
+          : 'Embudo completo',
+        centsProgress: Math.min(userMsgCount * 15, 90),
+      })
+    }
+  }, [phase, phaseSuggestion, sending, currentSessionId, userMsgCount])
 
   const handleSuggestionClick = useCallback((text: string) => {
     setInput(text)
     if (inputRef.current) {
       inputRef.current.focus()
     }
+  }, [])
+
+  // Editar título inline
+  const handleStartEditTitle = useCallback(() => {
+    setTitleDraft(currentTitle)
+    setIsEditingTitle(true)
+  }, [currentTitle])
+
+  const handleSaveTitle = useCallback(async () => {
+    const trimmed = titleDraft.trim()
+    if (!trimmed || trimmed === currentTitle) {
+      setIsEditingTitle(false)
+      return
+    }
+
+    const result = await renameIdea({ idea_id: ideaId, title: trimmed })
+    if (result.ok) {
+      setCurrentTitle(trimmed)
+    }
+    setIsEditingTitle(false)
+  }, [titleDraft, currentTitle, ideaId])
+
+  const handleCancelEditTitle = useCallback(() => {
+    setIsEditingTitle(false)
+    setTitleDraft('')
   }, [])
 
   const phaseMeta = PHASES.find(p => p.key === phase)
@@ -274,15 +334,39 @@ export function ChatPageClient({
 
           {/* Title + phase */}
           <div className="flex flex-col items-center" style={{ flex: 1 }}>
-            <h1
-              className="text-[15px] font-semibold truncate max-w-[220px] m-0"
-              style={{
-                color: '#fff',
-                fontFamily: '"IBM Plex Sans", sans-serif',
-              }}
-            >
-              {ideaTitle}
-            </h1>
+            {isEditingTitle ? (
+              <div className="flex items-center gap-1">
+                <input
+                  autoFocus
+                  value={titleDraft}
+                  onChange={e => setTitleDraft(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleSaveTitle()
+                    if (e.key === 'Escape') handleCancelEditTitle()
+                  }}
+                  onBlur={handleSaveTitle}
+                  className="text-[15px] font-semibold bg-transparent border-b text-center outline-none m-0"
+                  style={{
+                    color: '#fff',
+                    fontFamily: '"IBM Plex Sans", sans-serif',
+                    borderBottom: '1.5px solid #2E7D52',
+                    maxWidth: 220,
+                  }}
+                />
+              </div>
+            ) : (
+              <h1
+                onClick={handleStartEditTitle}
+                className="text-[15px] font-semibold truncate max-w-[220px] m-0 cursor-pointer"
+                style={{
+                  color: '#fff',
+                  fontFamily: '"IBM Plex Sans", sans-serif',
+                }}
+                title="Click para renombrar"
+              >
+                {currentTitle}
+              </h1>
+            )}
             {phaseMeta && (
               <span
                 className="text-[11px]"
@@ -432,6 +516,50 @@ export function ChatPageClient({
           >
             <span>⚡</span>
             Quedan {remaining} mensaje{remaining !== 1 ? 's' : ''} — el coach va a cerrar esta fase con una conclusión
+          </div>
+        )}
+
+        {/* Fase lista — avance temprano */}
+        {phaseSuggestion && !showTransition && remaining > 1 && (
+          <div
+            style={{
+              background: 'rgba(46,125,82,0.06)',
+              borderTop: '1px solid rgba(46,125,82,0.15)',
+              padding: '10px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 8,
+              fontFamily: '"IBM Plex Sans", sans-serif',
+            }}
+          >
+            <div style={{ flex: 1 }}>
+              <div
+                className="text-[11px] font-semibold"
+                style={{ color: '#2E7D52' }}
+              >
+                ✓ Fase lista para cerrar
+              </div>
+              <div
+                className="text-[10px]"
+                style={{ color: '#7A9A8A', marginTop: 2 }}
+              >
+                {phaseSuggestion.reason || 'El coach cree que ya hay suficiente información para pasar a la siguiente fase.'}
+              </div>
+            </div>
+            <button
+              onClick={handleAdvanceEarly}
+              className="text-[11px] font-semibold border-none rounded-[10px] cursor-pointer whitespace-nowrap"
+              style={{
+                padding: '8px 14px',
+                background: '#2E7D52',
+                color: '#fff',
+                fontFamily: '"IBM Plex Sans", sans-serif',
+                flexShrink: 0,
+              }}
+            >
+              Avanzar →
+            </button>
           </div>
         )}
 
