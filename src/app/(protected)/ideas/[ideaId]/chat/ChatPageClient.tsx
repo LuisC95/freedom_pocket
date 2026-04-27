@@ -11,7 +11,6 @@ import { PhaseBar } from '@/modules/ideas/components/PhaseBar'
 import { ChatBubble } from '@/modules/ideas/components/ChatBubble'
 import { TypingIndicator } from '@/modules/ideas/components/TypingIndicator'
 import { SuggestionChips } from '@/modules/ideas/components/SuggestionChips'
-import { PhaseTransition } from '@/modules/ideas/components/PhaseTransition'
 import { DiscardIdeaModal } from '@/modules/ideas/components/DiscardIdeaModal'
 
 const NEXT_PHASE: Record<string, Phase | null> = {
@@ -61,18 +60,15 @@ export function ChatPageClient({
   const [phase, setPhase] = useState<string>(initialPhase)
   const [completedPhases, setCompletedPhases] = useState<string[]>(initialCompletedPhases)
   const [isTyping, setIsTyping] = useState(false)
-  const [showSuggestions, setShowSuggestions] = useState(initialMessages.length > 0)
+  // Mostrar sugerencias al inicio si hay mensajes o si venimos de una fase completada (relanzar)
+  const [showSuggestions, setShowSuggestions] = useState(initialMessages.length > 0 || initialCompletedPhases.length > 0)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [phaseLimitReached, setPhaseLimitReached] = useState(false)
-  const [showTransition, setShowTransition] = useState(false)
   const [showDiscard, setShowDiscard] = useState(false)
-  const [transitionSummary, setTransitionSummary] = useState<{
-    insight: string
-    next: string
-    centsProgress: number
-  } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  /** Bloques de fases anteriores con sus mensajes, para el hilo continuo */
+  const [previousBlocks, setPreviousBlocks] = useState<{ phase: string; messages: RawMessageRow[] }[]>([])
   /** Opciones dinámicas generadas por la AI en la última respuesta */
   const [lastOptions, setLastOptions] = useState<AssistantOption[] | null>(null)
   /** Señal de la AI de que la fase está lista para cerrar */
@@ -81,6 +77,14 @@ export function ChatPageClient({
   const [currentTitle, setCurrentTitle] = useState(ideaTitle)
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
+
+  /** Color de fondo del chat según fase activa */
+  const PHASE_BG: Record<string, string> = {
+    observar: '#F2F7F4',
+    definir:  '#F4F5EB',
+    idear:    '#EBF7F0',
+    evaluar:  '#F2F0F7',
+  }
 
   const chatEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -109,7 +113,6 @@ export function ChatPageClient({
     setSending(true)
     setIsTyping(true)
     setShowSuggestions(false)
-    setShowTransition(false)
     setError(null)
 
     try {
@@ -177,21 +180,38 @@ export function ChatPageClient({
     setShowSuggestions(true)
   }, [input, sending, currentSessionId, phase, messages, userMsgCount])
 
-  const handleContinueTransition = useCallback(async () => {
+  /** Avanzar: cuando la AI sugiere o se alcanza el límite — cierra la fase y pasa a la siguiente en el mismo hilo */
+  const handleAdvance = useCallback(async () => {
+    if (sending) return
+
+    setShowSuggestions(false)
+    setPhaseSuggestion(null)
+
     const nextPhase = NEXT_PHASE[phase]
     if (!nextPhase) {
       router.push(`/ideas/${ideaId}`)
       return
     }
 
-    // Cargar resúmenes de fases anteriores antes de crear la nueva sesión
+    // 1. Completar la sesión actual
+    const completeResult = await completeSession(currentSessionId)
+    if (!completeResult.ok) {
+      setError('Error al cerrar la fase')
+      return
+    }
+
+    // 2. Guardar los mensajes actuales en el bloque histórico
+    const oldPhase = phase
+    const oldMessages = messages
+
+    // 3. Cargar resúmenes de fases anteriores
     let prevSummaries: Record<string, unknown> | undefined
     const prevSessionResult = await getSession(currentSessionId)
     if (prevSessionResult.ok && prevSessionResult.data.phase_summaries) {
       prevSummaries = prevSessionResult.data.phase_summaries as Record<string, unknown>
     }
 
-    // Crear nueva sesión en DB para la fase siguiente
+    // 4. Crear nueva sesión en DB para la fase siguiente
     const sessionResult = await createSession({
       idea_id: ideaId,
       entry_point: 'sin_idea',
@@ -200,43 +220,20 @@ export function ChatPageClient({
     })
 
     if (!sessionResult.ok) {
-      setError('Error al crear la nueva sesión')
+      setError('Error al crear la nueva fase')
       return
     }
 
+    // 5. Actualizar todo el estado de una vez
+    setPreviousBlocks(prev => [...prev, { phase: oldPhase, messages: oldMessages }])
     setCurrentSessionId(sessionResult.data.id)
-    setCompletedPhases(prev => [...prev, phase])
+    setCompletedPhases(prev => [...prev, oldPhase])
     setPhase(nextPhase)
     setPhaseLimitReached(false)
-    setShowTransition(false)
-    setTransitionSummary(null)
-    setShowSuggestions(true)
     setMessages([])
     setInput('')
-    setPhaseSuggestion(null)
-  }, [phase, router, ideaId])
-
-  /** Avanzar: cuando la AI sugiere o el límite de mensajes se alcanzó */
-  const handleAdvance = useCallback(async () => {
-    if (sending || showTransition) return
-
-    setShowSuggestions(false)
-    setPhaseSuggestion(null)
-
-    const completeResult = await completeSession(currentSessionId)
-    if (completeResult.ok) {
-      setShowTransition(true)
-      setTransitionSummary({
-        insight: phaseSuggestion?.reason ?? 'Fase completada. Pasemos a la siguiente etapa.',
-        next: NEXT_PHASE[phase]
-          ? `Empezar fase ${PHASES.find(p => p.key === NEXT_PHASE[phase])?.label ?? NEXT_PHASE[phase]}`
-          : 'Embudo completo',
-        centsProgress: Math.min(userMsgCount * 15, 90),
-      })
-    } else {
-      setError('Error al cerrar la fase. Intentalo de nuevo.')
-    }
-  }, [phase, phaseSuggestion, sending, showTransition, currentSessionId, userMsgCount])
+    setShowSuggestions(true)
+  }, [phase, phaseSuggestion, sending, currentSessionId, ideaId, messages, router])
 
   const handleSuggestionClick = useCallback((text: string) => {
     setInput(text)
@@ -281,14 +278,15 @@ export function ChatPageClient({
   }, [messages.length, currentSessionId, ideaId, router])
 
   const phaseMeta = PHASES.find(p => p.key === phase)
-  const isInputDisabled = sending || showTransition || phaseLimitReached
+  const isInputDisabled = sending || phaseLimitReached
 
   return (
     <div
       className="flex flex-col flex-1 min-h-0 max-w-[480px] md:max-w-[600px] lg:max-w-[672px] mx-auto w-full"
       style={{
-        background: '#F2F7F4',
+        background: PHASE_BG[phase] ?? '#F2F7F4',
         fontFamily: '"IBM Plex Sans", sans-serif',
+        transition: 'background 0.6s ease',
       }}
     >
       <style>{`
@@ -476,9 +474,45 @@ export function ChatPageClient({
       {/* ── CHAT ── */}
       <div
         className="flex-1 overflow-y-auto px-3 md:px-5 pt-4 pb-2"
-        style={{ scrollBehavior: 'smooth', scrollbarWidth: 'thin', scrollbarColor: '#C6D6CE #F2F7F4' }}
+        style={{
+          scrollBehavior: 'smooth',
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#C6D6CE #F2F7F4',
+        }}
       >
-        {/* Phase chip (first message) */}
+        {/* Bloques de fases anteriores con separadores */}
+        {previousBlocks.map((block, blockIdx) => {
+          const blockPhase = PHASES.find(p => p.key === block.phase)
+          const blockColor = PHASE_COLORS[block.phase] ?? '#7A9A8A'
+          const blockBg = PHASE_BG[block.phase] ?? '#F2F7F4'
+          return (
+            <div key={`block-${block.phase}-${blockIdx}`}>
+              {block.messages.map(msg => (
+                <ChatBubble
+                  key={msg.id}
+                  role={msg.role as 'user' | 'assistant'}
+                  content={msg.content}
+                />
+              ))}
+              {/* Separador */}
+              <div
+                className="flex items-center gap-3 my-6"
+                style={{ opacity: 0.6 }}
+              >
+                <div style={{ flex: 1, height: 1, background: '#d0ddd6' }} />
+                <span
+                  className="text-[11px] font-semibold tracking-widest whitespace-nowrap"
+                  style={{ color: blockColor, letterSpacing: 2 }}
+                >
+                  {blockPhase?.label ?? block.phase.toUpperCase()} COMPLETADA
+                </span>
+                <div style={{ flex: 1, height: 1, background: '#d0ddd6' }} />
+              </div>
+            </div>
+          )
+        })}
+
+        {/* Phase chip — solo cuando no hay mensajes en la fase actual */}
         {phaseMeta && messages.length === 0 && !isTyping && (
           <div
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] mb-4"
@@ -496,8 +530,8 @@ export function ChatPageClient({
           </div>
         )}
 
-        {/* Welcome message */}
-        {messages.length === 0 && !isTyping && (
+        {/* Welcome — solo para la primera fase */}
+        {messages.length === 0 && !isTyping && previousBlocks.length === 0 && (
           <ChatBubble
             role="assistant"
             content="Hola. Vamos a explorar esta idea desde cero. ¿Qué fue lo que te hizo pensar en esto — una experiencia propia, algo que viste, o algo que alguien te contó?"
@@ -535,7 +569,7 @@ export function ChatPageClient({
       {/* ── INPUT AREA ── */}
       <div className="flex-shrink-0 flex flex-col">
         {/* Warning bar — quedan pocos mensajes */}
-        {remaining > 0 && remaining <= 2 && !showTransition && !phaseSuggestion && !phaseLimitReached && (
+        {remaining > 0 && remaining <= 2 && !phaseSuggestion && !phaseLimitReached && (
           <div
             style={{
               background: 'linear-gradient(135deg, rgba(198,155,48,0.06), rgba(198,155,48,0.10))',
@@ -558,7 +592,7 @@ export function ChatPageClient({
         )}
 
         {/* Fase lista — avanzar por sugerencia de la AI */}
-        {phaseSuggestion && !showTransition && (
+        {phaseSuggestion && (
           <div
             style={{
               background: 'linear-gradient(135deg, rgba(46,125,82,0.05), rgba(46,125,82,0.09))',
@@ -605,7 +639,7 @@ export function ChatPageClient({
         )}
 
         {/* Fase completada — límite alcanzado, esperando sugerencia o avance manual */}
-        {phaseLimitReached && !showTransition && !phaseSuggestion && (
+        {phaseLimitReached && !phaseSuggestion && (
           <div
             style={{
               background: 'linear-gradient(135deg, rgba(46,125,82,0.06), rgba(46,125,82,0.10))',
@@ -652,8 +686,8 @@ export function ChatPageClient({
         )}
 
         {/* Suggestions */}
-        {!isTyping && showSuggestions && !showTransition && !phaseLimitReached && (
-          <div style={{ background: '#F2F7F4' }}>
+        {!isTyping && showSuggestions && !phaseLimitReached && (
+          <div style={{ background: PHASE_BG[phase] ?? '#F2F7F4' }}>
             <SuggestionChips
               phase={phase as Phase}
               show
@@ -734,20 +768,6 @@ export function ChatPageClient({
           </div>
         </div>
       </div>
-
-      {/* ── PHASE TRANSITION ── */}
-      {showTransition && transitionSummary && (
-        <div
-          className="fixed inset-0 z-[60] overflow-y-auto"
-          style={{ maxWidth: 480, margin: '0 auto' }}
-        >
-          <PhaseTransition
-            phase={phase as Phase}
-            summary={transitionSummary}
-            onContinue={handleContinueTransition}
-          />
-        </div>
-      )}
 
       {/* ── DISCARD MODAL ── */}
       {showDiscard && (
