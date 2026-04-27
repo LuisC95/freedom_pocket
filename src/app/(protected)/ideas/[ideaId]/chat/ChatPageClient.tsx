@@ -283,7 +283,7 @@ export function ChatPageClient({
 
   return (
     <div
-      className="flex flex-col h-screen max-w-[480px] mx-auto"
+      className="fixed inset-0 z-40 flex flex-col max-w-[480px] md:max-w-[600px] lg:max-w-[672px] mx-auto"
       style={{
         background: '#F2F7F4',
         fontFamily: '"IBM Plex Sans", sans-serif',
@@ -298,9 +298,9 @@ export function ChatPageClient({
           0%, 80%, 100% { transform: translateY(0); }
           40% { transform: translateY(-6px); }
         }
-        @keyframes pulseGlow {
-          0%, 100% { box-shadow: 0 2px 12px rgba(46,125,82,0.35); }
-          50% { box-shadow: 0 2px 20px rgba(46,125,82,0.55); }
+        @keyframes sendPulse {
+          0%, 100% { box-shadow: 0 2px 10px rgba(46,125,82,0.25); }
+          50% { box-shadow: 0 2px 14px rgba(46,125,82,0.35); }
         }
       `}</style>
 
@@ -310,7 +310,10 @@ export function ChatPageClient({
         style={{
           background: '#1A2520',
           borderRadius: '0 0 20px 20px',
-          padding: '52px 16px 6px',
+          padding: 'calc(12px + env(safe-area-inset-top, 36px)) 16px 6px',
+          boxShadow: '0 2px 16px rgba(26,37,32,0.12)',
+          position: 'relative',
+          zIndex: 5,
         }}
       >
         {/* Top row */}
@@ -327,7 +330,10 @@ export function ChatPageClient({
               fontSize: 16,
               color: '#fff',
               fontFamily: '"IBM Plex Sans", sans-serif',
+              transition: 'background 0.2s',
             }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
           >
             ←
           </button>
@@ -438,8 +444,8 @@ export function ChatPageClient({
 
       {/* ── CHAT ── */}
       <div
-        className="flex-1 overflow-y-auto px-4 pt-4 pb-2"
-        style={{ scrollBehavior: 'smooth' }}
+        className="flex-1 overflow-y-auto px-3 md:px-5 pt-4 pb-2"
+        style={{ scrollBehavior: 'smooth', scrollbarWidth: 'thin', scrollbarColor: '#C6D6CE #F2F7F4' }}
       >
         {/* Phase chip (first message) */}
         {phaseMeta && messages.length === 0 && !isTyping && (
@@ -501,20 +507,21 @@ export function ChatPageClient({
         {remaining > 0 && remaining <= 2 && !showTransition && (
           <div
             style={{
-              background: 'rgba(198,155,48,0.08)',
-              borderTop: '1px solid rgba(198,155,48,0.2)',
+              background: 'linear-gradient(135deg, rgba(198,155,48,0.06), rgba(198,155,48,0.10))',
+              borderTop: '1px solid rgba(198,155,48,0.18)',
               padding: '8px 16px',
               fontSize: 11,
-              color: '#C69B30',
+              color: '#B89228',
               textAlign: 'center',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 6,
               fontFamily: '"IBM Plex Sans", sans-serif',
+              fontWeight: 500,
             }}
           >
-            <span>⚡</span>
+            <span style={{ fontSize: 10 }}>⚡</span>
             Quedan {remaining} mensaje{remaining !== 1 ? 's' : ''} — el coach va a cerrar esta fase con una conclusión
           </div>
         )}
@@ -523,7 +530,7 @@ export function ChatPageClient({
         {phaseSuggestion && !showTransition && remaining > 1 && (
           <div
             style={{
-              background: 'rgba(46,125,82,0.06)',
+              background: 'linear-gradient(135deg, rgba(46,125,82,0.05), rgba(46,125,82,0.09))',
               borderTop: '1px solid rgba(46,125,82,0.15)',
               padding: '10px 16px',
               display: 'flex',
@@ -556,7 +563,10 @@ export function ChatPageClient({
                 color: '#fff',
                 fontFamily: '"IBM Plex Sans", sans-serif',
                 flexShrink: 0,
+                transition: 'background 0.2s',
               }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#3A9E6A' }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#2E7D52' }}
             >
               Avanzar →
             </button>
@@ -579,9 +589,10 @@ export function ChatPageClient({
         <div
           className="flex-shrink-0"
           style={{
-            padding: '10px 14px 32px',
+            padding: '10px 14px calc(16px + env(safe-area-inset-bottom, 16px))',
             background: '#ffffff',
             borderTop: '1px solid #EAF0EC',
+            boxShadow: '0 -1px 8px rgba(0,0,0,0.04)',
           }}
         >
           <div className="flex items-end gap-[10px]">
@@ -632,11 +643,11 @@ export function ChatPageClient({
                 transition: 'all 0.2s ease',
                 boxShadow:
                   input.trim() && !isInputDisabled
-                    ? '0 2px 12px rgba(46,125,82,0.35)'
+                    ? '0 2px 12px rgba(46,125,82,0.3)'
                     : 'none',
                 animation:
                   input.trim() && !isInputDisabled
-                    ? 'pulseGlow 2s infinite'
+                    ? 'sendPulse 2.5s infinite'
                     : 'none',
               }}
             >
