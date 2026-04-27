@@ -159,6 +159,10 @@ export interface CreateSessionInput {
   entry_point: EntryPoint
   /** Requerido si entry_point != 'sin_idea'. Validación en el action. */
   raw_input?: string
+  /** ID de la idea asociada (requerido para flujo chat) */
+  idea_id?: string
+  /** Fase inicial (default: del ENTRY_POINTS según entry_point) */
+  phase?: string
 }
 
 // --- Idea ---

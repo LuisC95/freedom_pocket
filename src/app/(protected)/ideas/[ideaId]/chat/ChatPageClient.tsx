@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { Phase, IdeaMessage } from '@/modules/ideas/types'
 import { PHASES, PHASE_DESCRIPTIONS, PHASE_COLORS, MESSAGE_LIMITS } from '@/modules/ideas/constants'
 import { sendMessage } from '@/modules/ideas/actions/messages'
-import { completeSession } from '@/modules/ideas/actions/sessions'
+import { completeSession, createSession } from '@/modules/ideas/actions/sessions'
 import { PhaseBar } from '@/modules/ideas/components/PhaseBar'
 import { ChatBubble } from '@/modules/ideas/components/ChatBubble'
 import { TypingIndicator } from '@/modules/ideas/components/TypingIndicator'
@@ -102,7 +102,7 @@ export function ChatPageClient({
 
     try {
       const result = await sendMessage({
-        session_id: sessionId,
+        session_id: currentSessionId,
         phase: phase as Phase,
         content: text,
       })
@@ -113,7 +113,7 @@ export function ChatPageClient({
           setSending(false)
           setIsTyping(false)
 
-          const completeResult = await completeSession(sessionId)
+          const completeResult = await completeSession(currentSessionId)
           if (completeResult.ok) {
             setShowTransition(true)
             setTransitionSummary({
@@ -161,6 +161,8 @@ export function ChatPageClient({
     setShowSuggestions(true)
   }, [input, sending, sessionId, phase, messages, userMsgCount])
 
+  const [currentSessionId, setCurrentSessionId] = useState(sessionId)
+
   const handleContinueTransition = useCallback(async () => {
     const nextPhase = NEXT_PHASE[phase]
     if (!nextPhase) {
@@ -168,6 +170,19 @@ export function ChatPageClient({
       return
     }
 
+    // Crear nueva sesión en DB para la fase siguiente
+    const sessionResult = await createSession({
+      idea_id: ideaId,
+      entry_point: 'sin_idea',
+      phase: nextPhase,
+    })
+
+    if (!sessionResult.ok) {
+      setError('Error al crear la nueva sesión')
+      return
+    }
+
+    setCurrentSessionId(sessionResult.data.id)
     setCompletedPhases(prev => [...prev, phase])
     setPhase(nextPhase)
     setPhaseLimitReached(false)

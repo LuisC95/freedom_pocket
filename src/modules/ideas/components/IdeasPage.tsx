@@ -257,7 +257,33 @@ export function IdeasPage({ ideas }: IdeasPageProps) {
 
       {/* New idea sheet */}
       {showNew && (
-        <NewIdeaSheet onClose={() => setShowNew(false)} />
+        <NewIdeaSheet
+          onClose={() => setShowNew(false)}
+          onSelect={async (entryPoint) => {
+            setShowNew(false)
+            const { createIdeaFromSession } = await import('@/modules/ideas/actions/ideas')
+            const { createSession } = await import('@/modules/ideas/actions/sessions')
+
+            const sessionResult = await createSession({ entry_point: entryPoint })
+            if (!sessionResult.ok) return
+            const session = sessionResult.data
+
+            const ideaResult = await createIdeaFromSession({
+              session_id: session.id,
+              title: entryPoint === 'sin_idea'
+                ? 'Nueva idea'
+                : entryPoint === 'idea_vaga'
+                  ? 'Idea en desarrollo'
+                  : 'Nuevo proyecto',
+              concept: entryPoint === 'idea_clara'
+                ? 'Idea clara para evaluar con método CENTS'
+                : 'Explorando oportunidades de negocio',
+            })
+            if (!ideaResult.ok) return
+
+            router.push(`/ideas/${ideaResult.data.id}/chat`)
+          }}
+        />
       )}
     </div>
   )

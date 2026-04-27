@@ -61,16 +61,22 @@ export async function createSession(
 
     const supabase = createAdminClient()
 
+    const insertData: Record<string, unknown> = {
+      user_id:       DEV_USER_ID,
+      entry_point:   input.entry_point,
+      raw_input:     input.raw_input?.trim() ?? null,
+      status:        'in_progress',
+      current_phase: input.phase ?? entryPoint.start_phase,
+      ready_to_save: false,
+    }
+
+    if (input.idea_id) {
+      insertData.idea_id = input.idea_id
+    }
+
     let { data, error } = await supabase
       .from('idea_sessions')
-      .insert({
-        user_id:       DEV_USER_ID,
-        entry_point:   input.entry_point,
-        raw_input:     input.raw_input?.trim() ?? null,
-        status:        'in_progress',
-        current_phase: entryPoint.start_phase,
-        ready_to_save: false,
-      })
+      .insert(insertData)
       .select()
       .single()
 
