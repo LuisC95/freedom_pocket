@@ -1,8 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import type { Phase } from '@/modules/ideas/types'
 import { PHASES } from '@/modules/ideas/constants'
 import { PhaseBar } from './PhaseBar'
+import { DiscardIdeaModal } from './DiscardIdeaModal'
 
 const PHASE_COLORS: Record<string, string> = {
   observar: '#7A9A8A',
@@ -18,6 +20,7 @@ interface SessionSummary {
 }
 
 interface IdeaSummaryEntryProps {
+  ideaId: string
   title: string
   concept: string | null
   status: string
@@ -30,6 +33,7 @@ interface IdeaSummaryEntryProps {
 }
 
 export function IdeaSummaryEntry({
+  ideaId,
   title,
   concept,
   status,
@@ -40,6 +44,7 @@ export function IdeaSummaryEntry({
   onContinue,
   onBack,
 }: IdeaSummaryEntryProps) {
+  const [showDiscard, setShowDiscard] = useState(false)
   const currentColor = PHASE_COLORS[currentPhase] ?? '#7A9A8A'
   const isTerminal = status === 'operando' || status === 'discarded'
 
@@ -226,22 +231,48 @@ export function IdeaSummaryEntry({
 
         {/* Continue button */}
         {!isTerminal && (
-          <button
-            onClick={onContinue}
-            className="w-full border-none rounded-[12px] text-[15px] font-semibold cursor-pointer"
-            style={{
-              padding: '14px 0',
-              background: `linear-gradient(135deg, #2E7D52, #1A5C3A)`,
-              color: '#fff',
-              fontFamily: 'var(--font-sans)',
-              transition: 'transform 0.15s ease',
-              animation: 'slideUp 0.3s ease 0.3s both',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
-            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-          >
-            Continuar → {PHASES.find(p => p.key === currentPhase)?.label ?? currentPhase}
-          </button>
+          <>
+            <button
+              onClick={onContinue}
+              className="w-full border-none rounded-[12px] text-[15px] font-semibold cursor-pointer"
+              style={{
+                padding: '14px 0',
+                background: `linear-gradient(135deg, #2E7D52, #1A5C3A)`,
+                color: '#fff',
+                fontFamily: 'var(--font-sans)',
+                transition: 'transform 0.15s ease',
+                animation: 'slideUp 0.3s ease 0.3s both',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
+              onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+            >
+              Continuar → {PHASES.find(p => p.key === currentPhase)?.label ?? currentPhase}
+            </button>
+
+            <button
+              onClick={() => setShowDiscard(true)}
+              className="w-full border-none rounded-[12px] text-[14px] font-medium cursor-pointer mt-3"
+              style={{
+                padding: '11px 0',
+                background: 'transparent',
+                border: '1.5px solid #E4EDE8',
+                color: '#7A9A8A',
+                fontFamily: 'var(--font-sans)',
+                transition: 'all 0.15s ease',
+                animation: 'slideUp 0.3s ease 0.35s both',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = '#E84434'
+                e.currentTarget.style.color = '#E84434'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = '#E4EDE8'
+                e.currentTarget.style.color = '#7A9A8A'
+              }}
+            >
+              Descartar idea
+            </button>
+          </>
         )}
 
         {/* Terminal states */}
@@ -278,6 +309,14 @@ export function IdeaSummaryEntry({
           </div>
         )}
       </div>
+
+      {/* Discard modal */}
+      {showDiscard && (
+        <DiscardIdeaModal
+          ideaId={ideaId}
+          onClose={() => setShowDiscard(false)}
+        />
+      )}
     </div>
   )
 }

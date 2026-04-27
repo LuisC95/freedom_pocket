@@ -7,11 +7,13 @@ import { PHASES, PHASE_DESCRIPTIONS, PHASE_COLORS, MESSAGE_LIMITS } from '@/modu
 import { sendMessage } from '@/modules/ideas/actions/messages'
 import { completeSession, createSession, getSession } from '@/modules/ideas/actions/sessions'
 import { renameIdea } from '@/modules/ideas/actions'
+import { discardIdea } from '@/modules/ideas/actions/transitions'
 import { PhaseBar } from '@/modules/ideas/components/PhaseBar'
 import { ChatBubble } from '@/modules/ideas/components/ChatBubble'
 import { TypingIndicator } from '@/modules/ideas/components/TypingIndicator'
 import { SuggestionChips } from '@/modules/ideas/components/SuggestionChips'
 import { PhaseTransition } from '@/modules/ideas/components/PhaseTransition'
+import { DiscardIdeaModal } from '@/modules/ideas/components/DiscardIdeaModal'
 
 const NEXT_PHASE: Record<string, Phase | null> = {
   observar: 'definir',
@@ -65,6 +67,7 @@ export function ChatPageClient({
   const [sending, setSending] = useState(false)
   const [phaseLimitReached, setPhaseLimitReached] = useState(false)
   const [showTransition, setShowTransition] = useState(false)
+  const [showDiscard, setShowDiscard] = useState(false)
   const [transitionSummary, setTransitionSummary] = useState<{
     insight: string
     next: string
@@ -278,6 +281,15 @@ export function ChatPageClient({
     setTitleDraft('')
   }, [])
 
+  /** Volver al resumen de la idea, guardando la sesión si hay mensajes */
+  const handleBack = useCallback(async () => {
+    // Si hay mensajes y la sesión no está en transición, completarla
+    if (messages.length > 0) {
+      await completeSession(currentSessionId)
+    }
+    router.push(`/ideas/${ideaId}`)
+  }, [messages.length, currentSessionId, ideaId, router])
+
   const phaseMeta = PHASES.find(p => p.key === phase)
   const isInputDisabled = sending || showTransition
 
@@ -320,7 +332,7 @@ export function ChatPageClient({
         <div className="flex items-center mb-[6px]">
           {/* Back circle */}
           <button
-            onClick={() => router.push(`/ideas/${ideaId}`)}
+            onClick={handleBack}
             className="flex-shrink-0 flex items-center justify-center border-none cursor-pointer"
             style={{
               width: 32,
@@ -333,7 +345,8 @@ export function ChatPageClient({
               transition: 'background 0.2s',
             }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}  
+            title="Guardar y salir"
           >
             ←
           </button>
@@ -386,6 +399,34 @@ export function ChatPageClient({
               </span>
             )}
           </div>
+
+          {/* Discard button */}
+          <button
+            onClick={() => setShowDiscard(true)}
+            className="flex-shrink-0 flex items-center justify-center border-none cursor-pointer"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              background: 'rgba(255,255,255,0.05)',
+              fontSize: 13,
+              color: 'rgba(255,255,255,0.35)',
+              fontFamily: '"IBM Plex Sans", sans-serif',
+              transition: 'all 0.2s',
+              marginRight: 4,
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(232,68,52,0.15)'
+              e.currentTarget.style.color = '#E84434'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+              e.currentTarget.style.color = 'rgba(255,255,255,0.35)'
+            }}
+            title="Descartar idea"
+          >
+            🗑️
+          </button>
 
           {/* Remaining pill */}
           <div
@@ -669,6 +710,14 @@ export function ChatPageClient({
             onContinue={handleContinueTransition}
           />
         </div>
+      )}
+
+      {/* ── DISCARD MODAL ── */}
+      {showDiscard && (
+        <DiscardIdeaModal
+          ideaId={ideaId}
+          onClose={() => setShowDiscard(false)}
+        />
       )}
     </div>
   )

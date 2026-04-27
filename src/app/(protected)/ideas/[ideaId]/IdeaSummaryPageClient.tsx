@@ -41,6 +41,7 @@ export function IdeaSummaryPageClient({
 
   return (
     <IdeaSummaryEntry
+      ideaId={idea.id}
       title={idea.title}
       concept={idea.concept ?? null}
       status={idea.status}
