@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
 import type { Idea } from '@/modules/ideas/types'
 import { IdeaSummaryPageClient } from './IdeaSummaryPageClient'
+import { RenderErrorBoundary } from '@/modules/ideas/components/RenderErrorBoundary'
 
 interface Props {
   params: Promise<{ ideaId: string }>
@@ -107,7 +108,8 @@ export default async function IdeaSummaryPage(props: Props) {
     : null
 
   return (
-    <IdeaSummaryPageClient
+    <RenderErrorBoundary source="IdeaSummaryPage">
+      <IdeaSummaryPageClient
       idea={idea}
       currentPhase={currentPhase}
       completedPhases={completedPhases}
@@ -115,5 +117,6 @@ export default async function IdeaSummaryPage(props: Props) {
       lastSession={lastSession}
       hasActiveSession={!!currentSession}
     />
+    </RenderErrorBoundary>
   )
 }

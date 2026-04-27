@@ -6,6 +6,7 @@ import { getSession } from '@/modules/ideas/actions/sessions'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
 import { ChatPageClient } from './ChatPageClient'
+import { RenderErrorBoundary } from '@/modules/ideas/components/RenderErrorBoundary'
 
 interface Props {
   params: Promise<{ ideaId: string }>
@@ -133,7 +134,8 @@ export default async function ChatPage(props: Props) {
   }
 
   return (
-    <ChatPageClient
+    <RenderErrorBoundary source="ChatPage">
+      <ChatPageClient
       ideaId={ideaId}
       ideaTitle={idea.title}
       sessionId={sessionId}
@@ -141,5 +143,6 @@ export default async function ChatPage(props: Props) {
       completedPhases={completedPhases}
       initialMessages={messages as any}
     />
+    </RenderErrorBoundary>
   )
 }
