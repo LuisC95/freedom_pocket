@@ -163,6 +163,8 @@ export interface CreateSessionInput {
   idea_id?: string
   /** Fase inicial (default: del ENTRY_POINTS según entry_point) */
   phase?: string
+  /** Resúmenes de fases anteriores para persistencia entre fases */
+  phase_summaries?: Record<string, unknown>
 }
 
 // --- Idea ---

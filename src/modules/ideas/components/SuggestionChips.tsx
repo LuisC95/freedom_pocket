@@ -1,9 +1,9 @@
 'use client'
 
 import { useCallback } from 'react'
-import type { Phase } from '@/modules/ideas/types'
+import type { Phase, AssistantOption } from '@/modules/ideas/types'
 
-const SUGGESTIONS: Record<string, string[]> = {
+const FALLBACK_SUGGESTIONS: Record<string, string[]> = {
   observar: ['Contame más sobre ese sector', '¿Qué habilidades tengo?', 'No sé por dónde empezar'],
   definir:  ['El problema principal es...', 'Los más afectados son...', 'Todavía no lo tengo claro'],
   idear:    ['Me resuena la primera', '¿Podés darme más opciones?', 'Quiero combinar ideas'],
@@ -14,16 +14,21 @@ interface SuggestionChipsProps {
   phase: Phase
   show: boolean
   onSelect: (text: string) => void
+  /** Opciones dinámicas generadas por la AI. Si se pasan, se usan en lugar de las hardcodeadas. */
+  options?: AssistantOption[] | null
 }
 
-export function SuggestionChips({ phase, show, onSelect }: SuggestionChipsProps) {
-  const chips = SUGGESTIONS[phase] ?? SUGGESTIONS.observar
-
+export function SuggestionChips({ phase, show, onSelect, options }: SuggestionChipsProps) {
   const handleClick = useCallback((text: string) => {
     onSelect(text)
   }, [onSelect])
 
   if (!show) return null
+
+  // Usar opciones de la AI si están disponibles, si no fallback hardcodeado
+  const chips = options && options.length > 0
+    ? options.map(opt => opt.label)
+    : (FALLBACK_SUGGESTIONS[phase] ?? FALLBACK_SUGGESTIONS.observar)
 
   return (
     <div

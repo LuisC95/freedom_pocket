@@ -2,10 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Phase, IdeaMessage } from '@/modules/ideas/types'
+import type { Phase, IdeaMessage, AssistantOption } from '@/modules/ideas/types'
 import { PHASES, PHASE_DESCRIPTIONS, PHASE_COLORS, MESSAGE_LIMITS } from '@/modules/ideas/constants'
 import { sendMessage } from '@/modules/ideas/actions/messages'
-import { completeSession, createSession } from '@/modules/ideas/actions/sessions'
+import { completeSession, createSession, getSession } from '@/modules/ideas/actions/sessions'
 import { PhaseBar } from '@/modules/ideas/components/PhaseBar'
 import { ChatBubble } from '@/modules/ideas/components/ChatBubble'
 import { TypingIndicator } from '@/modules/ideas/components/TypingIndicator'
@@ -70,6 +70,8 @@ export function ChatPageClient({
     centsProgress: number
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  /** Opciones dinámicas generadas por la AI en la última respuesta */
+  const [lastOptions, setLastOptions] = useState<AssistantOption[] | null>(null)
 
   const chatEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -152,6 +154,14 @@ export function ChatPageClient({
         },
       ]
       setMessages(prev => [...prev, ...newMsgs])
+
+      // Extraer opciones dinámicas generadas por la AI
+      const assistantMsg = data.assistantMessage as unknown as { ui_data?: { options?: AssistantOption[] | null } | null }
+      if (assistantMsg.ui_data?.options) {
+        setLastOptions(assistantMsg.ui_data.options)
+      } else {
+        setLastOptions(null)
+      }
     } catch {
       setError('Error de conexión')
     }
@@ -170,11 +180,19 @@ export function ChatPageClient({
       return
     }
 
+    // Cargar resúmenes de fases anteriores antes de crear la nueva sesión
+    let prevSummaries: Record<string, unknown> | undefined
+    const prevSessionResult = await getSession(currentSessionId)
+    if (prevSessionResult.ok && prevSessionResult.data.phase_summaries) {
+      prevSummaries = prevSessionResult.data.phase_summaries as Record<string, unknown>
+    }
+
     // Crear nueva sesión en DB para la fase siguiente
     const sessionResult = await createSession({
       idea_id: ideaId,
       entry_point: 'sin_idea',
       phase: nextPhase,
+      phase_summaries: prevSummaries,
     })
 
     if (!sessionResult.ok) {
@@ -424,6 +442,7 @@ export function ChatPageClient({
               phase={phase as Phase}
               show
               onSelect={handleSuggestionClick}
+              options={lastOptions}
             />
           </div>
         )}

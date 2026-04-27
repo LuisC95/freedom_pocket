@@ -216,8 +216,14 @@ export async function sendMessage(
 
     const phasePrompt = buildSystemPromptForPhase(activePhase, phaseSummaries)
     const systemPrompt = `${userContext}\n\n${phasePrompt}${warningAddition}`
+
+    // Incluir el mensaje del usuario actual en el historial que ve la AI
+    const aiMessages = [
+      ...messages,
+      { role: 'user' as const, content: input.content.trim() },
+    ]
     const aiResult = await aiProvider.chat({
-      messages,
+      messages: aiMessages,
       system: systemPrompt,
     })
     if (!aiResult.ok) return { ok: false, error: aiResult.error }

@@ -74,6 +74,11 @@ export async function createSession(
       insertData.idea_id = input.idea_id
     }
 
+    // Copiar resúmenes de fases anteriores para persistencia entre fases
+    if (input.phase_summaries && Object.keys(input.phase_summaries).length > 0) {
+      insertData.phase_summaries = { ...input.phase_summaries }
+    }
+
     let { data, error } = await supabase
       .from('idea_sessions')
       .insert(insertData)
