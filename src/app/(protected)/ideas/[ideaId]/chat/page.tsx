@@ -1,6 +1,4 @@
 // src/app/(protected)/ideas/[ideaId]/chat/page.tsx
-'use server'
-
 import { redirect } from 'next/navigation'
 import { requireAdmin } from '@/modules/ideas/utils/admin-guard'
 import { getIdea } from '@/modules/ideas/actions'

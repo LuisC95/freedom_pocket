@@ -16,18 +16,10 @@ import { mapMessage } from '@/modules/ideas/mappers'
 import { resolveAIProvider } from '@/modules/ideas/ai/resolver'
 import { trackUsage } from '@/modules/ideas/ai/usage'
 import { normalizeProviderForStorage } from '@/modules/ideas/ai/provider'
-import { PHASES } from '@/modules/ideas/constants'
+import { PHASES, MESSAGE_LIMITS } from '@/modules/ideas/constants'
 import { buildSystemPromptForPhase } from '@/modules/ideas/ai/prompts'
 import { parseAssistantResponse } from '@/modules/ideas/ai/structured'
 import { buildUserContext } from '@/modules/ideas/ai/context'
-
-// Límites de mensajes de usuario por fase
-const PHASE_USER_LIMITS: Record<string, number> = {
-  observar: 8,
-  definir: 6,
-  idear: 6,
-  evaluar: 10,
-}
 
 const PHASE_LIMIT_WARNING_THRESHOLD = 2
 
@@ -151,6 +143,33 @@ export async function sendMessage(
     const aiProvider = providerResult.data
     const storageProvider = normalizeProviderForStorage(aiProvider.provider)
 
+    // ── Verificar límite de mensajes ANTES de guardar ──
+    const { data: history, error: historyError } = await supabase
+      .from('idea_session_messages')
+      .select('role, content')
+      .eq('session_id', input.session_id)
+      .eq('phase', activePhase)
+      .order('sequence_order', { ascending: true })
+
+    if (historyError) {
+      return {
+        ok: false,
+        error: `Error al construir contexto: ${historyError.message}`,
+      }
+    }
+
+    const messages = (history ?? []).map(message => ({
+      role: message.role as 'user' | 'assistant',
+      content: message.content,
+    }))
+
+    const userMsgCount = (history ?? []).filter(m => m.role === 'user').length
+    const phaseLimit = MESSAGE_LIMITS[activePhase] ?? 6
+    if (userMsgCount >= phaseLimit) {
+      return { ok: false, error: 'PHASE_LIMIT_REACHED' }
+    }
+    const remainingMessages = phaseLimit - userMsgCount
+
     const { data: maxRow } = await supabase
       .from('idea_session_messages')
       .select('sequence_order')
@@ -161,6 +180,7 @@ export async function sendMessage(
 
     const nextOrder = (maxRow?.sequence_order ?? 0) + 1
 
+    // ── Guardar mensaje del usuario ──
     const userInsert = {
       session_id: input.session_id,
       user_id: DEV_USER_ID,
@@ -187,33 +207,6 @@ export async function sendMessage(
         error: `Error al guardar el mensaje: ${insertError?.message ?? 'sin detalle'}`,
       }
     }
-
-    const { data: history, error: historyError } = await supabase
-      .from('idea_session_messages')
-      .select('role, content')
-      .eq('session_id', input.session_id)
-      .eq('phase', activePhase)
-      .order('sequence_order', { ascending: true })
-
-    if (historyError) {
-      return {
-        ok: false,
-        error: `Error al construir contexto: ${historyError.message}`,
-      }
-    }
-
-    const messages = (history ?? []).map(message => ({
-      role: message.role as 'user' | 'assistant',
-      content: message.content,
-    }))
-
-    // ── Verificar límite de mensajes por fase ──
-    const userMsgCount = (history ?? []).filter(m => m.role === 'user').length
-    const phaseLimit = PHASE_USER_LIMITS[activePhase] ?? 8
-    if (userMsgCount >= phaseLimit) {
-      return { ok: false, error: 'PHASE_LIMIT_REACHED' }
-    }
-    const remainingMessages = phaseLimit - userMsgCount
 
     // ── Construir system prompt con contexto del usuario ──
     const userContext = await buildUserContext(DEV_USER_ID)

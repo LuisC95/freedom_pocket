@@ -1,5 +1,4 @@
 // src/app/(protected)/ideas/[ideaId]/page.tsx
-'use server'
 
 import { redirect } from 'next/navigation'
 import { requireAdmin } from '@/modules/ideas/utils/admin-guard'
