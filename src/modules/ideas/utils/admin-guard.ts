@@ -3,7 +3,13 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
 
 export async function requireAdmin(): Promise<string> {
-  const userId = await getDevUserId()
+  let userId: string
+  try {
+    userId = await getDevUserId()
+  } catch {
+    redirect('/login')
+    throw new Error('unreachable')
+  }
   const supabase = createAdminClient()
   const { data: profile } = await supabase
     .from('profiles')
