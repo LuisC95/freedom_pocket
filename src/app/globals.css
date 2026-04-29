@@ -124,6 +124,18 @@
     color: var(--fc-text-primary);
     font-family: var(--font-sans);
   }
+
+  .ideas-chat-shell {
+    height: calc(100dvh - var(--fc-bottomnav-height) - 24px);
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  @media (min-width: 768px) {
+    .ideas-chat-shell {
+      height: calc(100dvh - 2rem);
+    }
+  }
 }
 
 @layer components {

@@ -25,7 +25,7 @@ export default async function NewIdeaPage({ searchParams }: NewIdeaPageProps) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh' }}>
+    <div className="ideas-chat-shell" style={{ display: 'flex', flexDirection: 'column' }}>
       {/* Topbar */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 12,
@@ -41,7 +41,7 @@ export default async function NewIdeaPage({ searchParams }: NewIdeaPageProps) {
       </div>
 
       {/* Chat fills remaining height */}
-      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <IdeaChat session={session} />
       </div>
     </div>

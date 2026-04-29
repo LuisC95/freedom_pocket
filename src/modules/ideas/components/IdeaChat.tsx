@@ -249,6 +249,7 @@ export function IdeaChat({ session }: IdeaChatProps) {
       <div
         style={{
           flex: 1,
+          minHeight: 0,
           overflowY: 'auto',
           padding: '16px',
           display: 'flex',
@@ -288,6 +289,7 @@ export function IdeaChat({ session }: IdeaChatProps) {
               <div
                 style={{
                   maxWidth: '80%',
+                  minWidth: 0,
                   padding: '10px 14px',
                   borderRadius: message.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
                   backgroundColor: message.role === 'user' ? '#3A9E6A' : '#F0FBF4',
@@ -295,6 +297,7 @@ export function IdeaChat({ session }: IdeaChatProps) {
                   fontSize: 13,
                   fontFamily: 'var(--font-sans)',
                   lineHeight: 1.5,
+                  overflowWrap: 'anywhere',
                 }}
               >
                 {message.role === 'user' ? (
@@ -504,6 +507,7 @@ export function IdeaChat({ session }: IdeaChatProps) {
             disabled={pending}
             style={{
               flex: 1,
+              minWidth: 0,
               border: '1.5px solid #E4EDE8',
               borderRadius: 10,
               padding: '9px 12px',
