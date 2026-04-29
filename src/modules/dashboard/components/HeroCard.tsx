@@ -54,7 +54,7 @@ export function HeroCard({ metrics, monthly_history, periodo_label, onExpand }: 
   }, [frame])
 
   return (
-    <div style={{ backgroundColor: '#1A2520' }} className="rounded-2xl p-5 mb-4">
+    <div style={{ backgroundColor: '#1A2520' }} className="mb-4 rounded-2xl p-4 sm:p-5">
       {/* Período */}
       {periodo_label && (
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.09em', color: '#7A9A8A', textTransform: 'uppercase' }} className="mb-2.5">
@@ -63,12 +63,12 @@ export function HeroCard({ metrics, monthly_history, periodo_label, onExpand }: 
       )}
 
       {/* Neto — protagonista */}
-      <div className="flex items-end justify-between mb-1">
-        <div>
+      <div className="mb-1 flex flex-wrap items-end justify-between gap-3">
+        <div style={{ minWidth: 0 }}>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.09em', color: '#3A9E6A' }} className="mb-1">
             retenido este mes
           </p>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '38px', fontWeight: 600, color: netColor, lineHeight: 1 }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(30px, 9vw, 38px)', fontWeight: 600, color: netColor, lineHeight: 1, overflowWrap: 'anywhere' }}>
             {isPositive ? '+' : '−'}{fmt(net_period)}
           </p>
         </div>

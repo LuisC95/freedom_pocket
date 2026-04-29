@@ -165,7 +165,7 @@ export function DashboardClient({ data }: DashboardClientProps) {
     : undefined
 
   return (
-    <div className="p-4 pb-24 max-w-2xl mx-auto">
+    <div className="dashboard-page">
       {/* Hero */}
       <HeroCard
         metrics={metrics}
@@ -201,7 +201,7 @@ export function DashboardClient({ data }: DashboardClientProps) {
 
       {/* FABs */}
       {periodo_activo && (
-        <div style={{ position: 'fixed', bottom: '96px', right: '20px', display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 30 }}>
+        <div className="dashboard-fab-stack" style={{ display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 30 }}>
           {/* Pagar CC — solo si hay tarjetas registradas */}
           {credit_card_options.length > 0 && (
             <button
