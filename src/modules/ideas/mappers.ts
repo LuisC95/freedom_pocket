@@ -1,192 +1,88 @@
-// src/modules/ideas/mappers.ts
-// Conversión pura de filas crudas (Supabase) → tipos domain (M4).
-//
-// Los mappers reciben el tipo Raw de los generated types de Supabase
-// (donde status/phase/provider son `string`) y devuelven el tipo domain
-// con literal unions y campos derivados calculados.
-//
-// Los casts internos son seguros: los CHECK constraints de Postgres
-// garantizan que solo valores válidos llegan desde la DB.
-//
-// Los mappers son FUNCIONES PURAS — no tocan I/O, no llaman a otros
-// servicios, no hidratan relaciones. Las relaciones opcionales (ideas,
-// messages, deep_dive, session) las llenan los actions con sus flags.
+// src/modules/ideas/mappers.ts — M4 v2
+// Conversión pura de filas crudas → tipos domain.
 
-import type { Database } from '@/types/database.types'
+import type { Idea, Observation, ObservationPattern, Sprint, DayProgress, Streak, SprintTask, IdeaStatus, IdeaSource, SprintStatus } from './types'
 
-import type {
-  IdeaSession,
-  Idea,
-  IdeaMessage,
-  IdeaDeepDive,
-  IdeaStatus,
-  SessionStatus,
-  BusinessModel,
-  EntryPoint,
-  Phase,
-  MessageRole,
-  AIProvider,
-  AssistantUIData,
-  PhaseSummariesMap,
-  IdeaRow,
-} from './types'
-import { NEXT_STEP_FALLBACK } from './constants'
-
-// ──────────────────────────────────────────────────────────
-// Tipos Raw (alias para lecturas más cortas)
-// ──────────────────────────────────────────────────────────
-
-type RawIdeaSessionRow  = Database['public']['Tables']['idea_sessions']['Row']
-type RawIdeaRow         = Database['public']['Tables']['ideas']['Row']
-type RawIdeaDeepDiveRow = Database['public']['Tables']['idea_deep_dives']['Row']
-type RawIdeaMessageRow  = Database['public']['Tables']['idea_session_messages']['Row']
-
-// ──────────────────────────────────────────────────────────
-// Helper: ¿el campo text del deep dive cuenta como "lleno"?
-// ──────────────────────────────────────────────────────────
-// Cuenta como lleno si no es null Y tiene contenido no-whitespace.
-// Defensa contra strings vacíos o solo-whitespace que podrían
-// llegar de imports, migraciones o edge cases no previstos hoy.
-
-function isFilled(value: string | null): boolean {
-  return value !== null && value.trim().length > 0
-}
-
-// ══════════════════════════════════════════════════════════
-// 1. mapSession
-// ══════════════════════════════════════════════════════════
-// Cast de entry_point y status a literal unions. Sin campos
-// derivados propios — ideas/messages/messages_count los
-// llena getSession según sus flags.
-
-export function mapSession(row: RawIdeaSessionRow): IdeaSession {
-  // phase_summaries todavía no está en los generated types (migración pendiente de regen).
-  // Leemos con cast seguro: default a {} si la columna no existe o es null.
-  const rawSummaries = (row as unknown as { phase_summaries?: PhaseSummariesMap | null })
-    .phase_summaries
-  const phaseSummaries: PhaseSummariesMap =
-    rawSummaries && typeof rawSummaries === 'object' ? rawSummaries : {}
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapIdea(row: any): Idea {
   return {
-    ...row,
-    entry_point: row.entry_point as EntryPoint,
-    status: row.status as SessionStatus,
-    current_phase: (row.current_phase as Phase | undefined) ?? 'observar',
-    ready_to_save: Boolean(row.ready_to_save),
-    phase_summaries: phaseSummaries,
+    id:              row.id,
+    user_id:         row.user_id,
+    title:           row.title,
+    concept:         row.concept ?? null,
+    description:     row.concept ?? null,
+    business_model:  row.business_model ?? null,
+    status:          row.status as IdeaStatus,
+    source:          (row.source ?? 'manual') as IdeaSource,
+    potential_score: row.potential_score ?? null,
+    created_at:      row.created_at,
+    updated_at:      row.updated_at,
   }
 }
 
-// ══════════════════════════════════════════════════════════
-// 2. mapIdea
-// ══════════════════════════════════════════════════════════
-// Cast de status y business_model a literal unions.
-// Calcula `cents_complete`: true si los 5 scores están
-// presentes (no null). El rango 1-10 lo garantiza el CHECK
-// constraint de Postgres — el mapper no re-valida.
-
-export function mapIdea(row: RawIdeaRow): Idea {
-  const centsComplete =
-    row.cents_score_control !== null &&
-    row.cents_score_entry   !== null &&
-    row.cents_score_need    !== null &&
-    row.cents_score_time    !== null &&
-    row.cents_score_scale   !== null
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapObservation(row: any): Observation {
   return {
-    ...row,
-    status:         row.status         as IdeaStatus,
-    business_model: row.business_model as BusinessModel | null,
-    cents_complete: centsComplete,
+    id:              row.id,
+    user_id:         row.user_id,
+    content:         row.content,
+    category:        row.category ?? null,
+    potential_score: row.potential_score ?? null,
+    pattern_id:      row.pattern_id ?? null,
+    created_at:      row.created_at,
   }
 }
 
-// ══════════════════════════════════════════════════════════
-// 3. mapDeepDive
-// ══════════════════════════════════════════════════════════
-// Calcula `fields_completed` (0-7) e `is_complete` (boolean).
-// `ai_notes` NO cuenta — no es parte del plan, son notas AI.
-// `is_complete = fields_completed === 7` → desbloquea promoción
-// de idea a 'operando' (crea business en M3).
-
-const DEEP_DIVE_PLAN_FIELDS = [
-  'market_analysis',
-  'competition_analysis',
-  'revenue_model',
-  'required_resources',
-  'time_to_first_revenue',
-  'first_steps',
-  'validation_metrics',
-] as const
-
-export function mapDeepDive(row: RawIdeaDeepDiveRow): IdeaDeepDive {
-  const fieldsCompleted = DEEP_DIVE_PLAN_FIELDS.reduce(
-    (count, field) => count + (isFilled(row[field]) ? 1 : 0),
-    0
-  )
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapPattern(row: any): ObservationPattern {
   return {
-    ...row,
-    fields_completed: fieldsCompleted,
-    is_complete:      fieldsCompleted === DEEP_DIVE_PLAN_FIELDS.length,
+    id:                row.id,
+    user_id:           row.user_id,
+    title:             row.title,
+    description:       row.description,
+    idea_id:           row.idea_id ?? null,
+    observation_count: row.observation_count,
+    created_at:        row.created_at,
+    updated_at:        row.updated_at,
   }
 }
 
-// ══════════════════════════════════════════════════════════
-// 4. mapMessage
-// ══════════════════════════════════════════════════════════
-// Cast de role, phase, provider a literal unions.
-// Convierte `cost_usd` de string (lo que Supabase devuelve
-// para columnas `numeric`) a number. Si por alguna razón
-// llega null, default a 0 (NOT NULL en DB, no debería pasar).
-
-export function mapMessage(row: RawIdeaMessageRow): IdeaMessage {
-  // ui_data todavía no está en los generated types (migración pendiente de regen).
-  const rawUiData = (row as unknown as { ui_data?: AssistantUIData | null }).ui_data
-  const uiData: AssistantUIData | null =
-    rawUiData && typeof rawUiData === 'object' ? rawUiData : null
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapSprint(row: any, progress?: DayProgress[]): Sprint {
   return {
-    ...row,
-    role:     row.role     as MessageRole,
-    phase:    row.phase    as Phase,
-    provider: row.provider as AIProvider,
-    cost_usd: Number(row.cost_usd) || 0,
-    is_pinned: Boolean(row.is_pinned),
-    pinned_at: row.pinned_at ?? null,
-    pinned_by: row.pinned_by ?? null,
-    ui_data: uiData,
+    id:           row.id,
+    user_id:      row.user_id,
+    idea_id:      row.idea_id,
+    status:       row.status as SprintStatus,
+    tasks_json:   Array.isArray(row.tasks_json) ? (row.tasks_json as SprintTask[]) : [],
+    started_at:   row.started_at,
+    completed_at: row.completed_at ?? null,
+    created_at:   row.created_at,
+    progress,
   }
 }
 
-// ══════════════════════════════════════════════════════════
-// 5. mapIdeaWithNextStep
-// ══════════════════════════════════════════════════════════
-// Enriquece una idea con el próximo paso real (desde última sesión
-// completada) o fallback, más días desde última actividad.
-
-interface NextStepRow {
-  next_step: string | null
-  completed_at: string | null
-}
-
-export function mapIdeaWithNextStep(
-  idea: Idea,
-  lastSession: NextStepRow | null
-): IdeaCardWithNextStep {
-  const nextStep = lastSession?.next_step ?? NEXT_STEP_FALLBACK[idea.status] ?? null
-  const lastActivity = lastSession?.completed_at
-    ? Math.floor((Date.now() - new Date(lastSession.completed_at).getTime()) / (1000 * 60 * 60 * 24))
-    : Math.floor((Date.now() - new Date(idea.updated_at ?? Date.now()).getTime()) / (1000 * 60 * 60 * 24))
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapDayProgress(row: any): DayProgress {
   return {
-    ...idea,
-    next_step: nextStep,
-    last_activity_days: lastActivity,
+    id:           row.id,
+    sprint_id:    row.sprint_id,
+    day_number:   row.day_number,
+    notes:        row.notes ?? null,
+    completed:    row.completed,
+    completed_at: row.completed_at ?? null,
+    created_at:   row.created_at,
   }
 }
 
-export interface IdeaCardWithNextStep extends Idea {
-  next_step: string | null
-  last_activity_days: number
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapStreak(row: any): Streak {
+  return {
+    id:            row.id,
+    user_id:       row.user_id,
+    feature:       row.feature,
+    current_count: row.current_count,
+    longest_count: row.longest_count,
+    last_activity: row.last_activity ?? null,
+  }
 }

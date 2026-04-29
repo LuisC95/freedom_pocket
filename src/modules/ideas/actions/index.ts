@@ -1,7 +1,7 @@
-// Barrel de re-exportaciones — cada módulo declara su propio 'use server'
-export * from './sessions'
-export * from './messages'
-export * from './phases'
+// Barrel — M4 v2
+export * from './observations'
+export * from './patterns'
 export * from './ideas'
-export * from './transitions'
-export * from './deepDive'
+export * from './sprints'
+export * from './mapa'
+export * from './chat'

@@ -1,11 +1,20 @@
 import { requireAdmin } from '@/modules/ideas/utils/admin-guard'
-import { listIdeas } from '@/modules/ideas/actions'
-import { IdeasPage } from '@/modules/ideas/components/IdeasPage'
+import { getMapaData } from '@/modules/ideas/actions/mapa'
+import { MapaPage } from '@/modules/ideas/components/MapaPage'
+import { MiniChat } from '@/modules/ideas/components/MiniChat'
 
 export default async function IdeasPageRoute() {
   await requireAdmin()
-  const result = await listIdeas()
-  const ideas = result.ok ? result.data : []
+  const result = await getMapaData()
+  const data   = result.ok ? result.data : {
+    hourly_rate: 15, free_hours_week: 20, monthly_gap: 1000, occupation: null,
+    caminos: [{ id: 'servicios', match: 94 }, { id: 'problemas', match: 78 }, { id: 'contenido', match: 61 }],
+  }
 
-  return <IdeasPage ideas={ideas} />
+  return (
+    <>
+      <MapaPage data={data} />
+      <MiniChat context={{ screen: 'mapa' }} />
+    </>
+  )
 }
