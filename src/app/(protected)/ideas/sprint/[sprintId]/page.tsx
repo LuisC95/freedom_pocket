@@ -23,7 +23,9 @@ export default async function SprintPageRoute({ params }: Props) {
 
   return (
     <>
-      <SprintPage sprint={sprint} idea={idea} />
+      <div className="ideas-v2-page">
+        <SprintPage sprint={sprint} idea={idea} />
+      </div>
       <MiniChat context={{ screen: 'sprint', ideaId: idea.id, sprintId: sprint.id }} />
     </>
   )

@@ -19,7 +19,9 @@ export default async function CazadorPageRoute() {
 
   return (
     <>
-      <CazadorPage observations={observations} pattern={pattern} streak={streak} />
+      <div className="ideas-v2-page">
+        <CazadorPage observations={observations} pattern={pattern} streak={streak} />
+      </div>
       <MiniChat context={{ screen: 'cazador' }} />
     </>
   )

@@ -11,7 +11,9 @@ export default async function BancoPageRoute() {
 
   return (
     <>
-      <BancoPage ideas={ideas} />
+      <div className="ideas-v2-page">
+        <BancoPage ideas={ideas} />
+      </div>
       <MiniChat context={{ screen: 'banco' }} />
     </>
   )

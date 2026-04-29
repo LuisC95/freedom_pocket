@@ -13,7 +13,9 @@ export default async function IdeasPageRoute() {
 
   return (
     <>
-      <MapaPage data={data} />
+      <div className="ideas-v2-page">
+        <MapaPage data={data} />
+      </div>
       <MiniChat context={{ screen: 'mapa' }} />
     </>
   )

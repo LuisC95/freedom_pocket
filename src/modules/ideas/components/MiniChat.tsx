@@ -55,8 +55,12 @@ export function MiniChat({ context }: Props) {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-[76px] right-4 z-[999] flex h-[50px] w-[50px] items-center justify-center rounded-full text-xl shadow-lg transition-transform hover:scale-105"
-          style={{ background: '#1A2520', border: '2px solid #C69B30' }}
+          className="ideas-mini-chat-fab fixed z-[999] flex h-[50px] w-[50px] items-center justify-center rounded-full text-xl shadow-lg transition-transform hover:scale-105"
+          aria-label="Abrir coach AI"
+          style={{
+            background: '#1A2520',
+            border: '2px solid #C69B30',
+          }}
         >
           ✨
         </button>
@@ -65,8 +69,12 @@ export function MiniChat({ context }: Props) {
       {/* Panel de chat */}
       {open && (
         <div
-          className="fixed bottom-[76px] right-4 z-[1000] flex w-[300px] max-h-[420px] flex-col overflow-hidden rounded-2xl shadow-2xl"
-          style={{ border: '1px solid #e0ebe4', background: '#fff' }}
+          className="ideas-mini-chat-panel fixed z-[1000] flex max-h-[min(520px,calc(100dvh-128px))] flex-col overflow-hidden rounded-2xl shadow-2xl"
+          style={{
+            width: 'min(340px, calc(100vw - 32px))',
+            border: '1px solid #e0ebe4',
+            background: '#fff',
+          }}
         >
           {/* Header */}
           <div className="flex items-center justify-between bg-[#1A2520] px-4 py-3">
