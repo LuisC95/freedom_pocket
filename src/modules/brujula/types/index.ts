@@ -2,6 +2,7 @@
 // MÓDULO 3 — MI BRÚJULA
 // Types — src/modules/brujula/types/index.ts
 // ============================================================
+import type { LiquidityAccount } from '@/types/liquidity'
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,10 @@ export interface Asset {
   registered_by_name?: string
   household_id: string | null
   is_shared: boolean
+  institution: string | null
+  liquidity_kind: 'bank' | 'cash' | null
+  account_ownership: 'regular' | 'joint'
+  household_manage_access: boolean
   name: string
   asset_type: AssetType
   notes: string | null
@@ -240,4 +245,5 @@ export interface BrujulaData {
   precio_real_hora: number | null
   gasto_diario_m2: number | null
   retention_rate_m2: number | null
+  liquidity_accounts: LiquidityAccount[]
 }

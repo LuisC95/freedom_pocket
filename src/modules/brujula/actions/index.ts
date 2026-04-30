@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
 import { getHouseholdScope, getHouseholdVisibilityScope } from '@/lib/household'
+import { adjustLiquidityBalance, getLiquidityAccounts } from '@/lib/liquidity'
 import type {
   Asset, AssetInsert, AssetUpdate,
   Liability, LiabilityInsert, LiabilityUpdate,
@@ -223,6 +224,7 @@ export async function getBrujulaData(): Promise<BrujulaData> {
   const businesses: Business[] = (bizsRaw ?? []).map(b => ({ ...b, monthly_net_profit: Number(b.monthly_net_profit), reinvestment_percentage: Number(b.reinvestment_percentage), sector_multiplier: Number(b.sector_multiplier) }))
   const freedom_goals: FreedomGoal[] = (goalsRaw ?? [])
   const latest_score: ProgressScore | null = latestScoreRaw ? { ...latestScoreRaw, d1_time_decoupling: Number(latestScoreRaw.d1_time_decoupling), d2_asset_health: Number(latestScoreRaw.d2_asset_health), d3_financial_freedom: Number(latestScoreRaw.d3_financial_freedom), d4_momentum: Number(latestScoreRaw.d4_momentum), total_score: latestScoreRaw.total_score != null ? Number(latestScoreRaw.total_score) : null, level_percentage: Number(latestScoreRaw.level_percentage) } : null
+  const liquidity_accounts = await getLiquidityAccounts(supabase, DEV_USER_ID, true)
 
   // ── Cross-module: datos de M1 ──────────────────────────────────────────────
   const period = visibilityScope.activePeriod
@@ -322,10 +324,23 @@ export async function getBrujulaData(): Promise<BrujulaData> {
     precio_real_hora,
     gasto_diario_m2,
     retention_rate_m2,
+    liquidity_accounts,
   }
 }
 
 // ─── Assets CRUD ──────────────────────────────────────────────────────────────
+
+function mapLiquiditySchemaError(message: string): string {
+  if (
+    message.includes('account_ownership') ||
+    message.includes('liquidity_kind') ||
+    message.includes('household_manage_access') ||
+    message.includes('institution')
+  ) {
+    return 'La base de datos todavía no tiene la migración de cuentas líquidas aplicada. Ejecuta la migración 20260430000007_liquidity_accounts.sql y vuelve a intentar.'
+  }
+  return message
+}
 
 export async function createAsset(data: AssetInsert): Promise<{ data: Asset | null; error: string | null }> {
   const DEV_USER_ID = await getDevUserId()
@@ -341,7 +356,7 @@ export async function createAsset(data: AssetInsert): Promise<{ data: Asset | nu
     })
     .select()
     .single()
-  if (error) return { data: null, error: error.message }
+  if (error) return { data: null, error: mapLiquiditySchemaError(error.message) }
   return { data: { ...row, current_value: Number(row.current_value), monthly_yield: row.monthly_yield != null ? Number(row.monthly_yield) : null, value_in_usd: row.value_in_usd != null ? Number(row.value_in_usd) : null, annual_rate_pct: row.annual_rate_pct != null ? Number(row.annual_rate_pct) : null, quantity: row.quantity != null ? Number(row.quantity) : null }, error: null }
 }
 
@@ -357,7 +372,7 @@ export async function updateAsset(data: AssetUpdate): Promise<{ data: Asset | nu
     .in('user_id', household.householdId ? household.memberUserIds : [DEV_USER_ID])
     .select()
     .single()
-  if (error) return { data: null, error: error.message }
+  if (error) return { data: null, error: mapLiquiditySchemaError(error.message) }
   return { data: { ...row, current_value: Number(row.current_value), monthly_yield: row.monthly_yield != null ? Number(row.monthly_yield) : null, value_in_usd: row.value_in_usd != null ? Number(row.value_in_usd) : null, annual_rate_pct: row.annual_rate_pct != null ? Number(row.annual_rate_pct) : null, quantity: row.quantity != null ? Number(row.quantity) : null }, error: null }
 }
 
@@ -415,12 +430,15 @@ export async function deleteLiability(id: string): Promise<{ error: string | nul
 
 export async function payOffCreditCard({
   liability_id,
+  liquidity_asset_id,
   amount,
 }: {
   liability_id: string
+  liquidity_asset_id: string
   amount: number
 }): Promise<{ data: Liability | null; error: string | null }> {
   if (amount <= 0) return { data: null, error: 'El monto debe ser mayor a 0' }
+  if (!liquidity_asset_id) return { data: null, error: 'Selecciona una cuenta bancaria' }
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const household = await getHouseholdScope(supabase, DEV_USER_ID)
@@ -431,6 +449,16 @@ export async function payOffCreditCard({
     .in('user_id', household.householdId ? household.memberUserIds : [DEV_USER_ID])
     .single()
   if (!lib) return { data: null, error: 'Tarjeta no encontrada' }
+  const liquidityResult = await adjustLiquidityBalance(supabase, {
+    assetId: liquidity_asset_id,
+    currentUserId: DEV_USER_ID,
+    delta: -amount,
+    movementType: 'credit_card_payment',
+    allowCash: false,
+    relatedLiabilityId: liability_id,
+    notes: 'Pago de tarjeta desde brújula',
+  })
+  if (liquidityResult.error) return { data: null, error: liquidityResult.error }
   const newBalance = Math.max(0, Number(lib.current_balance) - amount)
   return updateLiability({ id: liability_id, current_balance: newBalance })
 }

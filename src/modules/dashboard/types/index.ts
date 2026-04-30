@@ -1,3 +1,5 @@
+import type { LiquidityAccount } from '@/types/liquidity'
+
 export type TransactionType = 'income' | 'expense'
 export type PaymentSource = 'cash_debit' | 'credit_card'
 export type RecurringFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'annual' | 'custom' | 'manual'
@@ -25,6 +27,8 @@ export interface Transaction {
   recurring_template_id: string | null
   payment_source: PaymentSource
   liability_id: string | null
+  liquidity_asset_id: string | null
+  exclude_from_metrics: boolean
   type: TransactionType
   amount: number
   currency: string
@@ -53,6 +57,7 @@ export interface TransactionInsert {
   recurring_template_id?: string | null
   payment_source?: PaymentSource
   liability_id?: string | null
+  liquidity_asset_id?: string | null
   split_type?: string | null
   split_percentage?: number | null
   status?: 'pending' | 'confirmed'
@@ -96,6 +101,9 @@ export interface RecurringTemplate {
   registered_by_name?: string
   household_id: string | null
   category_id: string
+  payment_source: PaymentSource
+  liability_id: string | null
+  liquidity_asset_id: string | null
   name: string
   type: TransactionType
   amount: number
@@ -123,6 +131,9 @@ export interface RecurringTemplateInsert {
   household_id?: string | null
   name: string
   type: TransactionType
+  payment_source?: PaymentSource
+  liability_id?: string | null
+  liquidity_asset_id?: string | null
   amount: number
   currency?: string
   frequency?: RecurringFrequency
@@ -171,4 +182,5 @@ export interface DashboardData {
   categories: TransactionCategory[]
   credit_card_options: CreditCardOption[]
   user_settings: DashboardUserSettings
+  liquidity_accounts: LiquidityAccount[]
 }

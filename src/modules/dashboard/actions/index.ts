@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
 import { getHouseholdScope, getHouseholdVisibilityScope } from '@/lib/household'
+import { adjustLiquidityBalance, getLiquidityAccounts } from '@/lib/liquidity'
 import type { ActionResult } from '@/types/actions'
 import type {
   CreditCardOption,
@@ -63,6 +64,8 @@ function mapTransaction(raw: any, ownerNames: Record<string, string> = {}): Tran
     recurring_template_id: raw.recurring_template_id,
     payment_source: raw.payment_source ?? 'cash_debit',
     liability_id: raw.liability_id ?? null,
+    liquidity_asset_id: raw.liquidity_asset_id ?? null,
+    exclude_from_metrics: Boolean(raw.exclude_from_metrics),
     type: raw.type,
     amount: Number(raw.amount),
     currency: raw.currency,
@@ -307,6 +310,7 @@ export async function getDashboardData(): Promise<DashboardData> {
         default_payment_source: 'cash_debit',
         default_liability_id: null,
       },
+      liquidity_accounts: [],
     }
   }
 
@@ -342,7 +346,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       .order('transaction_date', { ascending: false }),
     supabase
       .from('transactions')
-      .select('type, amount, transaction_date')
+      .select('type, amount, transaction_date, exclude_from_metrics')
       .in('user_id', scope.visibleExpenseUserIds)
       .gte('transaction_date', seisAtrasStr)
       .lte('transaction_date', todayStr),
@@ -380,6 +384,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   ])
 
   const pricePerHour = await getPricePerHour(supabase, period.id, DEV_USER_ID)
+  const liquidity_accounts = await getLiquidityAccounts(supabase, DEV_USER_ID, true)
   const profileNames = await getProfileNames(supabase, [
     ...(txRaw ?? []).map(tx => tx.user_id),
     ...(templatesRaw ?? []).map(template => template.user_id),
@@ -407,7 +412,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     monthlyMap.set(key, { income: 0, expense: 0 })
   }
-  for (const tx of txHistoryRaw ?? []) {
+  for (const tx of (txHistoryRaw ?? []).filter(tx => !tx.exclude_from_metrics)) {
     const key = tx.transaction_date.slice(0, 7)
     if (monthlyMap.has(key)) {
       const entry = monthlyMap.get(key)!
@@ -436,7 +441,8 @@ export async function getDashboardData(): Promise<DashboardData> {
   })
 
   // ── Budgets ───────────────────────────────────────────────────────────────
-  const txThisMonth = transactions.filter(t => t.transaction_date >= inicioMesStr && t.type === 'expense')
+  const metricTransactions = transactions.filter(t => !t.exclude_from_metrics)
+  const txThisMonth = metricTransactions.filter(t => t.transaction_date >= inicioMesStr && t.type === 'expense')
   const spentByCategory: Record<string, number> = {}
   for (const tx of txThisMonth) {
     spentByCategory[tx.category_id] = (spentByCategory[tx.category_id] ?? 0) + tx.amount
@@ -473,6 +479,9 @@ export async function getDashboardData(): Promise<DashboardData> {
     registered_by_name: profileNames[t.user_id],
     household_id: t.household_id,
     category_id: t.category_id,
+    payment_source: t.payment_source ?? 'cash_debit',
+    liability_id: t.liability_id ?? null,
+    liquidity_asset_id: t.liquidity_asset_id ?? null,
     name: t.name,
     type: t.type,
     amount: Number(t.amount),
@@ -535,7 +544,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       }, 0)
 
   // Gastos: solo los que caen dentro de la ventana rodante
-  const total_expense_period = transactions
+  const total_expense_period = metricTransactions
     .filter(t => t.transaction_date >= ventanaStr)
     .reduce((s, t) => s + t.amount, 0)
   const net_period = total_income_period - total_expense_period
@@ -559,6 +568,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     categories,
     credit_card_options,
     user_settings,
+    liquidity_accounts,
   }
 }
 
@@ -576,7 +586,7 @@ export async function getMonthlyHistory(months: number): Promise<MonthlySnapshot
   const [{ data: txRaw }, { data: entriesRaw }] = await Promise.all([
     supabase
       .from('transactions')
-      .select('type, amount, transaction_date')
+      .select('type, amount, transaction_date, exclude_from_metrics')
       .in('user_id', scope.visibleExpenseUserIds)
       .gte('transaction_date', nAtrasStr)
       .lte('transaction_date', todayStr),
@@ -595,7 +605,7 @@ export async function getMonthlyHistory(months: number): Promise<MonthlySnapshot
     monthlyMap.set(key, { income: 0, expense: 0 })
   }
 
-  for (const tx of txRaw ?? []) {
+  for (const tx of (txRaw ?? []).filter(tx => !tx.exclude_from_metrics)) {
     const key = tx.transaction_date.slice(0, 7)
     if (monthlyMap.has(key)) {
       const m = monthlyMap.get(key)!
@@ -664,6 +674,9 @@ export async function createTransaction(
   if (paymentFields.payment_source === 'credit_card' && !paymentFields.liability_id) {
     return { data: null, error: 'Selecciona una tarjeta de credito' }
   }
+  if (data.type === 'expense' && paymentFields.payment_source === 'cash_debit' && !data.liquidity_asset_id) {
+    return { data: null, error: 'Selecciona una cuenta o cash' }
+  }
 
   const { data: row, error } = await supabase
     .from('transactions')
@@ -681,6 +694,22 @@ export async function createTransaction(
 
   if (paymentFields.payment_source === 'credit_card' && paymentFields.liability_id && data.type === 'expense') {
     await adjustLiabilityBalance(supabase, paymentFields.liability_id, Number(data.amount))
+  }
+  if (paymentFields.payment_source === 'cash_debit' && data.type === 'expense' && data.liquidity_asset_id) {
+    const result = await adjustLiquidityBalance(supabase, {
+      assetId: data.liquidity_asset_id,
+      currentUserId: DEV_USER_ID,
+      delta: -Number(data.amount),
+      movementType: 'expense_payment',
+      currency: data.currency,
+      allowCash: true,
+      relatedTransactionId: row.id,
+      notes: data.notes,
+    })
+    if (result.error) {
+      await supabase.from('transactions').delete().eq('id', row.id)
+      return { data: null, error: result.error }
+    }
   }
 
   await recalculateBudgetAvgs(DEV_USER_ID)
@@ -703,6 +732,15 @@ export async function updateTransaction(
   if (paymentFields.payment_source === 'credit_card' && !paymentFields.liability_id) {
     return { data: null, error: 'Selecciona una tarjeta de credito' }
   }
+  if (data.type === 'expense' && paymentFields.payment_source === 'cash_debit' && !data.liquidity_asset_id) {
+    return { data: null, error: 'Selecciona una cuenta o cash' }
+  }
+
+  const { data: previous } = await supabase
+    .from('transactions')
+    .select('id, amount, type, payment_source, liability_id, liquidity_asset_id')
+    .eq('id', id)
+    .maybeSingle()
 
   const { data: row, error } = await supabase
     .from('transactions')
@@ -713,6 +751,42 @@ export async function updateTransaction(
     .single()
 
   if (error) return { data: null, error: error.message }
+
+  if (previous?.type === 'expense') {
+    if (previous.payment_source === 'credit_card' && previous.liability_id) {
+      await adjustLiabilityBalance(supabase, previous.liability_id, -Number(previous.amount))
+    }
+    if (previous.payment_source === 'cash_debit' && previous.liquidity_asset_id) {
+      await adjustLiquidityBalance(supabase, {
+        assetId: previous.liquidity_asset_id,
+        currentUserId: DEV_USER_ID,
+        delta: Number(previous.amount),
+        movementType: 'manual_adjustment',
+        allowCash: true,
+        relatedTransactionId: previous.id,
+      })
+    }
+  }
+
+  if (row.type === 'expense') {
+    if (row.payment_source === 'credit_card' && row.liability_id) {
+      await adjustLiabilityBalance(supabase, row.liability_id, Number(row.amount))
+    }
+    if (row.payment_source === 'cash_debit' && row.liquidity_asset_id) {
+      const result = await adjustLiquidityBalance(supabase, {
+        assetId: row.liquidity_asset_id,
+        currentUserId: DEV_USER_ID,
+        delta: -Number(row.amount),
+        movementType: 'expense_payment',
+        currency: row.currency,
+        allowCash: true,
+        relatedTransactionId: row.id,
+        notes: row.notes,
+      })
+      if (result.error) return { data: null, error: result.error }
+    }
+  }
+
   return { data: mapTransaction(row), error: null }
 }
 
@@ -725,7 +799,7 @@ export async function deleteTransaction(id: string): Promise<{ error: string | n
 
   const { data: txn } = await supabase
     .from('transactions')
-    .select('id, user_id, period_id, payment_source, liability_id, amount, type')
+    .select('id, user_id, period_id, payment_source, liability_id, liquidity_asset_id, amount, type')
     .eq('id', id)
     .maybeSingle()
 
@@ -758,6 +832,16 @@ export async function deleteTransaction(id: string): Promise<{ error: string | n
   ) {
     await adjustLiabilityBalance(supabase, txn.liability_id, -Number(txn.amount))
   }
+  if (txn?.type === 'expense' && txn.payment_source === 'cash_debit' && txn.liquidity_asset_id) {
+    await adjustLiquidityBalance(supabase, {
+      assetId: txn.liquidity_asset_id,
+      currentUserId: DEV_USER_ID,
+      delta: Number(txn.amount),
+      movementType: 'manual_adjustment',
+      allowCash: true,
+      relatedTransactionId: txn.id,
+    })
+  }
 
   await recalculateBudgetAvgs(DEV_USER_ID)
   return { error: null }
@@ -767,6 +851,7 @@ export async function deleteTransaction(id: string): Promise<{ error: string | n
 
 export async function registerCCPayment({
   liability_id,
+  liquidity_asset_id,
   amount,
   currency,
   transaction_date,
@@ -774,6 +859,7 @@ export async function registerCCPayment({
   notes,
 }: {
   liability_id: string
+  liquidity_asset_id: string
   amount: number
   currency: string
   transaction_date: string
@@ -781,6 +867,7 @@ export async function registerCCPayment({
   notes?: string | null
 }): Promise<{ error: string | null }> {
   if (amount <= 0) return { error: 'El monto debe ser mayor a 0' }
+  if (!liquidity_asset_id) return { error: 'Selecciona una cuenta bancaria' }
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
@@ -804,14 +891,15 @@ export async function registerCCPayment({
 
   const pricePerHour = await getPricePerHour(supabase, period_id, DEV_USER_ID)
 
-  const { error: txErr } = await supabase
+  const { data: txRow, error: txErr } = await supabase
     .from('transactions')
     .insert({
       user_id: DEV_USER_ID,
       period_id,
       category_id: category!.id,
       payment_source: 'cash_debit',
-      liability_id: null,
+      liability_id,
+      liquidity_asset_id,
       type: 'expense',
       amount,
       currency,
@@ -819,9 +907,28 @@ export async function registerCCPayment({
       notes: notes?.trim() || 'Pago de tarjeta de crédito',
       status: 'confirmed',
       price_per_hour_snapshot: pricePerHour,
+      exclude_from_metrics: true,
     })
+    .select('id')
+    .single()
 
   if (txErr) return { error: txErr.message }
+
+  const liquidityResult = await adjustLiquidityBalance(supabase, {
+    assetId: liquidity_asset_id,
+    currentUserId: DEV_USER_ID,
+    delta: -amount,
+    movementType: 'credit_card_payment',
+    currency,
+    allowCash: false,
+    relatedTransactionId: txRow.id,
+    relatedLiabilityId: liability_id,
+    notes,
+  })
+  if (liquidityResult.error) {
+    await supabase.from('transactions').delete().eq('id', txRow.id)
+    return { error: liquidityResult.error }
+  }
 
   // Reduce CC debt
   await adjustLiabilityBalance(supabase, liability_id, -amount)
@@ -989,7 +1096,7 @@ async function recalculateBudgetAvgs(userId: string): Promise<void> {
 
   const { data: txs } = await supabase
     .from('transactions')
-    .select('category_id, amount, transaction_date')
+    .select('category_id, amount, transaction_date, exclude_from_metrics')
     .eq('user_id', userId)
     .eq('type', 'expense')
     .gte('transaction_date', tresMesesAtras.toISOString().slice(0, 10))
@@ -999,7 +1106,7 @@ async function recalculateBudgetAvgs(userId: string): Promise<void> {
 
   // Agrupar por categoría y por mes
   const byCategory: Record<string, Record<string, number>> = {}
-  for (const tx of txs) {
+  for (const tx of txs.filter(tx => !tx.exclude_from_metrics)) {
     const month = tx.transaction_date.slice(0, 7)
     if (!byCategory[tx.category_id]) byCategory[tx.category_id] = {}
     byCategory[tx.category_id][month] = (byCategory[tx.category_id][month] ?? 0) + Number(tx.amount)
@@ -1096,6 +1203,9 @@ export async function approveRecurringTransaction(
     period_id: period.id,
     category_id: template.category_id,
     recurring_template_id: template.id,
+    payment_source: template.payment_source ?? 'cash_debit',
+    liability_id: template.liability_id ?? null,
+    liquidity_asset_id: template.liquidity_asset_id ?? null,
     type: template.type,
     amount: template.amount,
     currency: template.currency,
@@ -1106,6 +1216,23 @@ export async function approveRecurringTransaction(
   })
 
   if (error) return { error: error.message }
+
+  if (template.type === 'expense' && (template.payment_source ?? 'cash_debit') === 'credit_card' && template.liability_id) {
+    await adjustLiabilityBalance(supabase, template.liability_id, Number(template.amount))
+  }
+  if (template.type === 'expense' && (template.payment_source ?? 'cash_debit') === 'cash_debit') {
+    if (!template.liquidity_asset_id) return { error: 'Esta recurrencia no tiene cuenta o cash configurado' }
+    const liquidityResult = await adjustLiquidityBalance(supabase, {
+      assetId: template.liquidity_asset_id,
+      currentUserId: DEV_USER_ID,
+      delta: -Number(template.amount),
+      movementType: 'expense_payment',
+      currency: template.currency,
+      allowCash: true,
+      notes: template.name,
+    })
+    if (liquidityResult.error) return { error: liquidityResult.error }
+  }
 
   await supabase
     .from('recurring_templates')

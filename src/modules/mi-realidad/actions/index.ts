@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
 import { getHouseholdVisibilityScope } from '@/lib/household'
+import { adjustLiquidityBalance, getLiquidityAccounts } from '@/lib/liquidity'
 import type {
   Income,
   IncomeInsert,
@@ -115,6 +116,7 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
     return {
       periodo_activo: null, ingresos: [], allEntries: [], real_hours: null, precio_real_por_hora: null, estado: 'sin_datos',
       diasDelPeriodo: null, costoRealDeTrabajar: null, rendimientoDeTuTiempo: null, valorRealDeTuTiempo: null,
+      liquidity_accounts: [],
     }
   }
 
@@ -138,6 +140,7 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
       .eq('period_id', period.id)
       .single(),
   ])
+  const liquidity_accounts = await getLiquidityAccounts(supabase, DEV_USER_ID, true)
 
   const ingresos: Income[] = (incomesRaw ?? []).map(i => ({ ...i, amount: Number(i.amount) }))
   const incomeIds = ingresos.map(income => income.id)
@@ -211,6 +214,7 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
     costoRealDeTrabajar,
     rendimientoDeTuTiempo,
     valorRealDeTuTiempo: null,
+    liquidity_accounts,
   }
 }
 
@@ -338,6 +342,12 @@ export async function deleteIncomeEntry(id: string): Promise<{ error: string | n
   const supabase = createAdminClient()
   const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
 
+  const { data: entry } = await supabase
+    .from('income_entries')
+    .select('id,user_id,amount,entry_type,liquidity_asset_id')
+    .eq('id', id)
+    .maybeSingle()
+
   const { data, error } = await supabase
     .from('income_entries')
     .delete()
@@ -347,6 +357,16 @@ export async function deleteIncomeEntry(id: string): Promise<{ error: string | n
 
   if (error) return { error: error.message }
   if (!data?.length) return { error: 'No tienes permiso para eliminar este registro' }
+  if (entry?.liquidity_asset_id) {
+    await adjustLiquidityBalance(supabase, {
+      assetId: entry.liquidity_asset_id,
+      currentUserId: DEV_USER_ID,
+      delta: entry.entry_type === 'deduction' ? Number(entry.amount) : -Number(entry.amount),
+      movementType: 'manual_adjustment',
+      allowCash: true,
+      notes: 'Eliminación de registro de pago',
+    })
+  }
   return { error: null }
 }
 
@@ -358,6 +378,12 @@ export async function deleteIncomeEntries(ids: string[]): Promise<{ error: strin
   const supabase = createAdminClient()
   const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
 
+  const { data: entries } = await supabase
+    .from('income_entries')
+    .select('id,amount,entry_type,liquidity_asset_id')
+    .in('id', ids)
+    .in('user_id', scope.visibleIncomeUserIds)
+
   const { data, error } = await supabase
     .from('income_entries')
     .delete()
@@ -367,6 +393,22 @@ export async function deleteIncomeEntries(ids: string[]): Promise<{ error: strin
 
   if (error) return { error: error.message }
   if (!data?.length) return { error: 'No tienes permiso para eliminar estos registros' }
+  const deltas = new Map<string, number>()
+  for (const entry of entries ?? []) {
+    if (!entry.liquidity_asset_id) continue
+    const delta = entry.entry_type === 'deduction' ? Number(entry.amount) : -Number(entry.amount)
+    deltas.set(entry.liquidity_asset_id, (deltas.get(entry.liquidity_asset_id) ?? 0) + delta)
+  }
+  for (const [assetId, delta] of deltas) {
+    await adjustLiquidityBalance(supabase, {
+      assetId,
+      currentUserId: DEV_USER_ID,
+      delta,
+      movementType: 'manual_adjustment',
+      allowCash: true,
+      notes: 'Eliminación de registro de pago',
+    })
+  }
   return { error: null }
 }
 
@@ -380,6 +422,12 @@ export async function updateIncomeEntry(
   const supabase = createAdminClient()
   const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
 
+  const { data: previous } = await supabase
+    .from('income_entries')
+    .select('id,amount,entry_type,liquidity_asset_id')
+    .eq('id', id)
+    .maybeSingle()
+
   const { data: row, error } = await supabase
     .from('income_entries')
     .update(fields)
@@ -389,6 +437,22 @@ export async function updateIncomeEntry(
     .single()
 
   if (error) return { data: null, error: error.message }
+  if (previous?.liquidity_asset_id) {
+    const previousSigned = previous.entry_type === 'deduction' ? -Number(previous.amount) : Number(previous.amount)
+    const nextSigned = row.entry_type === 'deduction' ? -Number(row.amount) : Number(row.amount)
+    const delta = nextSigned - previousSigned
+    if (delta !== 0) {
+      const liquidityResult = await adjustLiquidityBalance(supabase, {
+        assetId: previous.liquidity_asset_id,
+        currentUserId: DEV_USER_ID,
+        delta,
+        movementType: 'manual_adjustment',
+        allowCash: true,
+        notes: 'Edición de registro de pago',
+      })
+      if (liquidityResult.error) return { data: null, error: liquidityResult.error }
+    }
+  }
   return { data: { ...row, amount: Number(row.amount) }, error: null }
 }
 
@@ -400,6 +464,7 @@ export async function registerPayment(
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
+  if (!payload.liquidity_asset_id) return { data: null, error: 'Selecciona cuenta o cash de destino' }
 
   // Validar que todos los income_ids sean visibles dentro del grupo familiar
   const incomeIds = [...new Set(payload.components.map(c => c.income_id))]
@@ -420,10 +485,15 @@ export async function registerPayment(
   if (unauthorized) return { data: null, error: 'Fuente de ingreso no válida' }
 
   const batchId = crypto.randomUUID()
+  const netAmount = payload.components.reduce((sum, component) => (
+    component.entry_type === 'deduction' ? sum - component.amount : sum + component.amount
+  ), 0)
+  if (netAmount <= 0) return { data: null, error: 'El neto del pago debe ser mayor a 0' }
 
   const rows = payload.components.map(c => ({
     income_id: c.income_id,
     user_id: DEV_USER_ID,
+    liquidity_asset_id: payload.liquidity_asset_id,
     amount: c.amount,
     currency: 'USD',
     entry_date: payload.entry_date,
@@ -440,6 +510,20 @@ export async function registerPayment(
     .select()
 
   if (error) return { data: null, error: error.message }
+  const liquidityResult = await adjustLiquidityBalance(supabase, {
+    assetId: payload.liquidity_asset_id,
+    currentUserId: DEV_USER_ID,
+    delta: netAmount,
+    movementType: 'income_deposit',
+    currency: 'USD',
+    allowCash: true,
+    relatedIncomeEntryBatchId: batchId,
+    notes: `Registro de pago ${payload.entry_date}`,
+  })
+  if (liquidityResult.error) {
+    await supabase.from('income_entries').delete().eq('batch_id', batchId)
+    return { data: null, error: liquidityResult.error }
+  }
   return {
     data: (data ?? []).map(e => ({ ...e, amount: Number(e.amount) })),
     error: null,

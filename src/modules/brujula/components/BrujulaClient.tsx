@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { BrujulaData, Asset, Liability, Business, FreedomGoal } from '../types'
+import type { LiquidityAccount } from '@/types/liquidity'
 import { ASSET_TYPE_LABELS, BUSINESS_MODEL_LABELS, BUSINESS_STATUS_LABELS, LIABILITY_TYPE_LABELS, PROGRESS_LEVEL_LABELS } from '../types'
 import { deleteAsset, deleteLiability, deleteBusiness, deleteFreedomGoal, updateFreedomGoal, payOffCreditCard } from '../actions'
 import { AssetModal } from './AssetModal'
@@ -108,6 +109,14 @@ function AssetCard({ asset, onEdit, onDelete, pending }: {
           </span>
           {asset.is_liquid && (
             <span className="shrink-0 text-[10px] rounded-md px-1.5 py-0.5" style={{ background: 'rgba(58,158,106,0.15)', color: 'var(--green-bright)' }}>Líquido</span>
+          )}
+          {asset.liquidity_kind && (
+            <span className="shrink-0 text-[10px] rounded-md px-1.5 py-0.5" style={{ background: 'rgba(58,158,106,0.15)', color: 'var(--green-bright)' }}>
+              {asset.liquidity_kind === 'cash' ? 'Cash' : asset.institution ?? 'Banco'}
+            </span>
+          )}
+          {asset.account_ownership === 'joint' && (
+            <span className="shrink-0 text-[10px] rounded-md px-1.5 py-0.5" style={{ background: 'rgba(58,158,106,0.15)', color: 'var(--green-bright)' }}>Mancomunada</span>
           )}
         </div>
         <p className="font-mono text-[20px] font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>
@@ -233,13 +242,18 @@ function FreedomGoalRow({ goal, diasActuales, onEdit, onDelete, onToggle, pendin
     : null
 
   return (
-    <div className={`border rounded-xl p-3.5 transition-colors ${goal.is_completed ? 'border-[#2E7D52]/30 bg-[#EAF0EC]' : 'border-[#EAF0EC] bg-white'}`}>
+    <div
+      className="glass rounded-xl p-3.5 transition-colors"
+      style={goal.is_completed ? { borderColor: 'rgba(46,125,82,0.30)', background: 'rgba(46,125,82,0.08)' } : undefined}
+    >
       <div className="flex items-start gap-3">
         {/* Checkbox */}
         <button onClick={onToggle} disabled={pending}
-          className={`mt-0.5 w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors ${
-            goal.is_completed ? 'border-[#2E7D52] bg-[#2E7D52]' : 'border-[#D0DDD6] bg-white'
-          }`}>
+          className="mt-0.5 w-5 h-5 rounded-full shrink-0 flex items-center justify-center transition-colors"
+          style={{
+            border: goal.is_completed ? '2px solid #3A9E6A' : '2px solid rgba(255,255,255,0.20)',
+            background: goal.is_completed ? '#2E7D52' : 'rgba(255,255,255,0.08)',
+          }}>
           {goal.is_completed && (
             <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
               <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -286,23 +300,29 @@ function FreedomGoalRow({ goal, diasActuales, onEdit, onDelete, onToggle, pendin
 
 // ─── Pay CC Modal ─────────────────────────────────────────────────────────────
 
-function PayCCModal({ liability, onClose, onSaved }: {
+function PayCCModal({ liability, liquidityAccounts, onClose, onSaved }: {
   liability: Liability
+  liquidityAccounts: LiquidityAccount[]
   onClose: () => void
   onSaved: () => void
 }) {
   const [amount, setAmount] = useState('')
+  const bankAccounts = liquidityAccounts.filter(account => account.liquidity_kind === 'bank')
+  const [liquidityAssetId, setLiquidityAssetId] = useState(bankAccounts[0]?.id ?? '')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const n = parseFloat(amount)
+    const selectedAccount = bankAccounts.find(account => account.id === liquidityAssetId)
     if (isNaN(n) || n <= 0) return setError('Ingresá un monto válido')
+    if (!selectedAccount) return setError('Selecciona una cuenta bancaria')
     if (n > liability.current_balance) return setError(`El monto supera la deuda actual (${fmtFull(liability.current_balance, liability.currency)})`)
+    if (n > selectedAccount.current_value) return setError(`Saldo insuficiente en ${selectedAccount.name}`)
     setError(null)
     startTransition(async () => {
-      const res = await payOffCreditCard({ liability_id: liability.id, amount: n })
+      const res = await payOffCreditCard({ liability_id: liability.id, liquidity_asset_id: liquidityAssetId, amount: n })
       if (res.error) return setError(res.error)
       onSaved()
     })
@@ -327,6 +347,23 @@ function PayCCModal({ liability, onClose, onSaved }: {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-1">
+              Pagar desde
+            </label>
+            <select
+              value={liquidityAssetId}
+              onChange={e => { setLiquidityAssetId(e.target.value); setError(null) }}
+              className="w-full px-3 py-2.5 rounded-lg border border-[#D0DDD6] text-[14px] text-[#141F19] focus:outline-none focus:border-[#2E7D52] bg-white"
+            >
+              {bankAccounts.map(account => (
+                <option key={account.id} value={account.id}>
+                  {account.name} · {account.institution} ({fmtFull(account.current_value, account.currency)})
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-1">
               Monto a pagar ({liability.currency})
@@ -390,7 +427,7 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
   const [vehicleTab, setVehicleTab] = useState<VehicleTab>('activos')
   const [pending, startTransition] = useTransition()
 
-  const { assets, liabilities, businesses, freedom_goals, score, dias_de_libertad, fastlane, precio_real_hora } = data
+  const { assets, liabilities, businesses, freedom_goals, score, dias_de_libertad, fastlane, precio_real_hora, liquidity_accounts } = data
 
   function refresh() {
     setModal(null)
@@ -509,12 +546,10 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-3 bg-[#EAF0EC] rounded-xl p-1">
+        <div className="fc-tabs mb-3">
           {(['activos', 'negocios'] as VehicleTab[]).map(tab => (
             <button key={tab} onClick={() => setVehicleTab(tab)}
-              className={`flex-1 py-1.5 rounded-lg text-[12px] font-medium transition-colors ${
-                vehicleTab === tab ? 'bg-white text-[#141F19] shadow-sm' : 'text-[#7A9A8A]'
-              }`}>
+              className={`fc-tab ${vehicleTab === tab ? 'active' : ''}`}>
               {tab === 'activos' ? `Activos (${assets.length})` : `Negocios (${businesses.length})`}
             </button>
           ))}
@@ -650,7 +685,7 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
         <LiabilityModal liability={modal.liability} onClose={() => setModal(null)} onSaved={refresh} />
       )}
       {modal?.type === 'pay_cc' && (
-        <PayCCModal liability={modal.liability} onClose={() => setModal(null)} onSaved={refresh} />
+        <PayCCModal liability={modal.liability} liquidityAccounts={liquidity_accounts} onClose={() => setModal(null)} onSaved={refresh} />
       )}
       {modal?.type === 'business_new' && (
         <BusinessModal onClose={() => setModal(null)} onSaved={refresh} />

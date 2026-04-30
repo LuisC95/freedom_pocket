@@ -9,6 +9,7 @@ import type {
 } from '../types'
 import { DEDUCTION_CATEGORY_LABELS } from '../types'
 import { registerPayment, scanPaystub, createIncome } from '../actions'
+import type { LiquidityAccount } from '@/types/liquidity'
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ function fileToBase64(file: File): Promise<string> {
 
 interface RegisterPaymentModalProps {
   incomes: Income[]
+  liquidityAccounts: LiquidityAccount[]
   periodId: string
   onClose: () => void
   onSaved: () => void
@@ -82,7 +84,7 @@ interface RegisterPaymentModalProps {
 
 // ─── Componente ──────────────────────────────────────────────────────────────
 
-export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIncomeCreated }: RegisterPaymentModalProps) {
+export function RegisterPaymentModal({ incomes, liquidityAccounts, periodId, onClose, onSaved, onIncomeCreated }: RegisterPaymentModalProps) {
   const today = new Date().toISOString().split('T')[0]
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -91,6 +93,7 @@ export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIn
   const [error, setError] = useState<string | null>(null)
   const [entryDate, setEntryDate] = useState(today)
   const [availableIncomes, setAvailableIncomes] = useState<Income[]>(incomes)
+  const [liquidityAssetId, setLiquidityAssetId] = useState(liquidityAccounts[0]?.id ?? '')
 
   const [earnings, setEarnings] = useState<EarningRow[]>([
     { income_id: incomes[0]?.id ?? '', amount: '', hours_worked: '' },
@@ -220,6 +223,7 @@ export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIn
     setError(null)
 
     if (earnings.length === 0) return setError('Agrega al menos una ganancia')
+    if (!liquidityAssetId) return setError('Selecciona cuenta o cash de destino')
     if (earnings.some(row => !row.income_id || parseFloat(row.amount) <= 0 || isNaN(parseFloat(row.amount)))) {
       return setError('Completa todos los campos de ganancias')
     }
@@ -246,7 +250,7 @@ export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIn
     ]
 
     startTransition(async () => {
-      const res = await registerPayment({ entry_date: entryDate, components })
+      const res = await registerPayment({ entry_date: entryDate, liquidity_asset_id: liquidityAssetId, components })
       if (res.error) return setError(res.error)
       onSaved()
     })
@@ -307,6 +311,22 @@ export function RegisterPaymentModal({ incomes, periodId, onClose, onSaved, onIn
               onChange={e => setEntryDate(e.target.value)}
               style={inputStyle}
             />
+          </div>
+
+          {/* Botón scanner + input hidden */}
+          <div>
+            <FieldLabel>Depositar en</FieldLabel>
+            <select
+              value={liquidityAssetId}
+              onChange={e => setLiquidityAssetId(e.target.value)}
+              style={selectStyle}
+            >
+              {liquidityAccounts.map(account => (
+                <option key={account.id} value={account.id} style={{ background: '#1A2520', color: '#fff' }}>
+                  {account.name} · {account.liquidity_kind === 'cash' ? 'Cash' : account.institution} ({fmt(account.current_value)})
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Botón scanner + input hidden */}

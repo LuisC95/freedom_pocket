@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Check, ChevronDown, ChevronUp, CreditCard, WalletCards } from 'lucide-react'
 import { createTransaction, updateTransaction, createRecurringTemplate, createCategory, deleteCategory, updateDefaultPayment } from '../actions'
 import type { CreditCardOption, PaymentSource, Transaction, TransactionCategory, RecurringFrequency } from '../types'
+import type { LiquidityAccount } from '@/types/liquidity'
 
 const CATEGORY_COLORS = [
   '#6366f1','#f59e0b','#3b82f6','#ef4444','#8b5cf6',
@@ -38,6 +39,7 @@ interface AddTransactionModalProps {
   pricePerHour: number | null
   categories: TransactionCategory[]
   creditCardOptions: CreditCardOption[]
+  liquidityAccounts: LiquidityAccount[]
   defaultPaymentSource: PaymentSource
   defaultLiabilityId: string | null
   transaction?: Transaction
@@ -86,6 +88,7 @@ export function AddTransactionModal({
   pricePerHour,
   categories,
   creditCardOptions,
+  liquidityAccounts,
   defaultPaymentSource,
   defaultLiabilityId,
   transaction,
@@ -122,6 +125,9 @@ export function AddTransactionModal({
   )
   const [paymentSource, setPaymentSource] = useState<PaymentSource>(initialPaymentSource)
   const [selectedLiabilityId, setSelectedLiabilityId] = useState<string | null>(initialLiabilityId)
+  const [selectedLiquidityAssetId, setSelectedLiquidityAssetId] = useState<string | null>(
+    transaction?.liquidity_asset_id ?? liquidityAccounts[0]?.id ?? null
+  )
   const [selectorExpanded, setSelectorExpanded] = useState(false)
   const [rememberAsDefault, setRememberAsDefault] = useState(false)
 
@@ -142,20 +148,25 @@ export function AddTransactionModal({
   const selectedCard = paymentSource === 'credit_card'
     ? creditCardOptions.find(card => card.id === selectedLiabilityId)
     : undefined
+  const selectedLiquidity = paymentSource === 'cash_debit'
+    ? liquidityAccounts.find(account => account.id === selectedLiquidityAssetId)
+    : undefined
   const amountValue = parseFloat(amount)
   const projectedCardBalance = selectedCard && !Number.isNaN(amountValue)
     ? selectedCard.current_balance + amountValue
     : selectedCard?.current_balance ?? 0
-  const canExpandPaymentSelector = creditCardOptions.length > 0
+  const canExpandPaymentSelector = creditCardOptions.length > 0 || liquidityAccounts.length > 0
 
-  function selectCashDebit() {
+  function selectCashDebit(assetId: string) {
     setPaymentSource('cash_debit')
+    setSelectedLiquidityAssetId(assetId)
     setSelectedLiabilityId(null)
     setSelectorExpanded(false)
   }
 
   function selectCreditCard(cardId: string) {
     setPaymentSource('credit_card')
+    setSelectedLiquidityAssetId(null)
     setSelectedLiabilityId(cardId)
     setSelectorExpanded(false)
   }
@@ -214,6 +225,11 @@ export function AddTransactionModal({
     if (isNaN(amt) || amt <= 0) return setError('El monto debe ser mayor a 0')
     if (!categoryId) return setError('Selecciona una categoría')
     if (paymentSource === 'credit_card' && !selectedLiabilityId) return setError('Selecciona una tarjeta de credito')
+    if (paymentSource === 'cash_debit' && !selectedLiquidityAssetId) return setError('Selecciona una cuenta o cash')
+    const selectedLiquidity = liquidityAccounts.find(account => account.id === selectedLiquidityAssetId)
+    if (paymentSource === 'cash_debit' && selectedLiquidity && amt > selectedLiquidity.current_value) {
+      return setError(`Saldo insuficiente en ${selectedLiquidity.name}`)
+    }
 
     startTransition(async () => {
       const templateName = notes || (filteredCategories.find(c => c.id === categoryId)?.name ?? 'Habitual')
@@ -227,6 +243,9 @@ export function AddTransactionModal({
           category_id: categoryId,
           name: templateName,
           type,
+          payment_source: paymentSource,
+          liability_id: paymentSource === 'credit_card' ? selectedLiabilityId : null,
+          liquidity_asset_id: paymentSource === 'cash_debit' ? selectedLiquidityAssetId : null,
           amount: amt,
           currency,
           frequency,
@@ -251,6 +270,7 @@ export function AddTransactionModal({
           currency,
           payment_source: paymentSource,
           liability_id: paymentSource === 'credit_card' ? selectedLiabilityId : null,
+          liquidity_asset_id: paymentSource === 'cash_debit' ? selectedLiquidityAssetId : null,
         })
         if (res.error) return setError(res.error)
       } else {
@@ -265,6 +285,7 @@ export function AddTransactionModal({
           price_per_hour_snapshot: pricePerHour,
           payment_source: paymentSource,
           liability_id: paymentSource === 'credit_card' ? selectedLiabilityId : null,
+          liquidity_asset_id: paymentSource === 'cash_debit' ? selectedLiquidityAssetId : null,
           status: 'confirmed',
         })
         if (res.error) return setError(res.error)
@@ -274,6 +295,9 @@ export function AddTransactionModal({
             category_id: categoryId,
             name: templateName,
             type,
+            payment_source: paymentSource,
+            liability_id: paymentSource === 'credit_card' ? selectedLiabilityId : null,
+            liquidity_asset_id: paymentSource === 'cash_debit' ? selectedLiquidityAssetId : null,
             amount: amt,
             currency,
             frequency,
@@ -544,7 +568,7 @@ export function AddTransactionModal({
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                     <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500, color: '#F2F7F4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {paymentSource === 'credit_card' && selectedCard ? selectedCard.name : 'Efectivo / Débito'}
+                      {paymentSource === 'credit_card' && selectedCard ? selectedCard.name : selectedLiquidity ? selectedLiquidity.name : 'Selecciona cuenta o cash'}
                     </span>
                     {paymentSource === 'credit_card' && selectedCard?.id === defaultLiabilityId && (
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: '#2E7D52', backgroundColor: '#2E7D5220', borderRadius: '3px', padding: '1px 5px', flexShrink: 0 }}>
@@ -557,6 +581,14 @@ export function AddTransactionModal({
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#7A9A8A' }}>Después de este gasto</span>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: '#E84434', fontWeight: 500 }}>
                         {fmtMoney(projectedCardBalance)}
+                      </span>
+                    </div>
+                  )}
+                  {paymentSource === 'cash_debit' && selectedLiquidity && (
+                    <div style={{ marginTop: '2px', display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#7A9A8A' }}>{selectedLiquidity.institution}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: '#3A9E6A', fontWeight: 500 }}>
+                        {fmtMoney(selectedLiquidity.current_value)}
                       </span>
                     </div>
                   )}
@@ -577,26 +609,42 @@ export function AddTransactionModal({
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#7A9A8A' }}>Selecciona un método</span>
                     <ChevronUp size={16} color="#7A9A8A" />
                   </div>
-                  <button
-                    type="button"
-                    onClick={selectCashDebit}
-                    style={{
-                      width: '100%',
-                      padding: '11px 12px',
-                      border: 'none',
-                      borderTop: '0.5px solid #2a3a33',
-                      borderLeft: paymentSource === 'cash_debit' ? '3px solid #E84434' : '3px solid transparent',
-                      backgroundColor: paymentSource === 'cash_debit' ? '#E8443410' : 'transparent',
-                      color: '#F2F7F4',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                    }}
-                  >
-                    <WalletCards size={18} color="#7A9A8A" />
-                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500 }}>Efectivo / Débito</span>
-                  </button>
+                  {liquidityAccounts.map(account => {
+                    const selected = paymentSource === 'cash_debit' && selectedLiquidityAssetId === account.id
+                    return (
+                      <button
+                        key={account.id}
+                        type="button"
+                        onClick={() => selectCashDebit(account.id)}
+                        style={{
+                          width: '100%',
+                          padding: '11px 12px',
+                          border: 'none',
+                          borderTop: '0.5px solid #2a3a33',
+                          borderLeft: selected ? '3px solid #3A9E6A' : '3px solid transparent',
+                          backgroundColor: selected ? '#2E7D5210' : 'transparent',
+                          color: '#F2F7F4',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                        }}
+                      >
+                        <WalletCards size={18} color={selected ? '#3A9E6A' : '#7A9A8A'} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500 }}>
+                            {account.name}
+                          </span>
+                          <span style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#7A9A8A' }}>
+                            {account.liquidity_kind === 'cash' ? 'Cash' : account.institution}
+                          </span>
+                        </div>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#3A9E6A' }}>
+                          {fmtMoney(account.current_value)}
+                        </span>
+                      </button>
+                    )
+                  })}
                   {creditCardOptions.map(card => {
                     const selected = paymentSource === 'credit_card' && selectedLiabilityId === card.id
                     return (

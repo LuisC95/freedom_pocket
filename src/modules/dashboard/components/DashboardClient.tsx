@@ -9,6 +9,7 @@ import { AddTransactionModal } from './AddTransactionModal'
 import { ChartModal } from './ChartModal'
 import { registerCCPayment } from '../actions'
 import type { DashboardData, Transaction, CreditCardOption } from '../types'
+import type { LiquidityAccount } from '@/types/liquidity'
 
 interface DashboardClientProps {
   data: DashboardData
@@ -27,13 +28,16 @@ function fmt(n: number, currency = 'USD') {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n)
 }
 
-function PayCCModal({ cards, periodId, onClose, onSaved }: {
+function PayCCModal({ cards, liquidityAccounts, periodId, onClose, onSaved }: {
   cards: CreditCardOption[]
+  liquidityAccounts: LiquidityAccount[]
   periodId: string
   onClose: () => void
   onSaved: () => void
 }) {
   const [cardId, setCardId] = useState(cards[0]?.id ?? '')
+  const bankAccounts = liquidityAccounts.filter(account => account.liquidity_kind === 'bank')
+  const [liquidityAssetId, setLiquidityAssetId] = useState(bankAccounts[0]?.id ?? '')
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [notes, setNotes] = useState('')
@@ -41,17 +45,21 @@ function PayCCModal({ cards, periodId, onClose, onSaved }: {
   const [pending, startTransition] = useTransition()
 
   const selectedCard = cards.find(c => c.id === cardId)
+  const selectedAccount = bankAccounts.find(account => account.id === liquidityAssetId)
   const parsedAmount = parseFloat(amount)
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!selectedCard) return setError('Seleccioná una tarjeta')
+    if (!selectedAccount) return setError('Seleccioná una cuenta bancaria')
     if (isNaN(parsedAmount) || parsedAmount <= 0) return setError('Ingresá un monto válido')
     if (parsedAmount > selectedCard.current_balance) return setError(`Supera la deuda actual (${fmt(selectedCard.current_balance, selectedCard.currency)})`)
+    if (parsedAmount > selectedAccount.current_value) return setError(`Saldo insuficiente en ${selectedAccount.name}`)
     setError(null)
     startTransition(async () => {
       const res = await registerCCPayment({
         liability_id: cardId,
+        liquidity_asset_id: liquidityAssetId,
         amount: parsedAmount,
         currency: selectedCard.currency,
         transaction_date: date,
@@ -88,6 +96,19 @@ function PayCCModal({ cards, periodId, onClose, onSaved }: {
                 Deuda actual: {fmt(selectedCard.current_balance, selectedCard.currency)}
               </p>
             )}
+          </div>
+
+          {/* Monto */}
+          <div>
+            <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-1">Pagar desde</label>
+            <select value={liquidityAssetId} onChange={e => { setLiquidityAssetId(e.target.value); setError(null) }}
+              className="w-full px-3 py-2.5 rounded-lg border border-[#D0DDD6] text-[14px] text-[#141F19] focus:outline-none focus:border-[#2E7D52] bg-white">
+              {bankAccounts.map(account => (
+                <option key={account.id} value={account.id}>
+                  {account.name} · {account.institution} ({fmt(account.current_value, account.currency)})
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Monto */}
@@ -153,6 +174,7 @@ export function DashboardClient({ data }: DashboardClientProps) {
     categories,
     credit_card_options,
     user_settings,
+    liquidity_accounts,
   } = data
 
   function refresh() {
@@ -246,6 +268,7 @@ export function DashboardClient({ data }: DashboardClientProps) {
           pricePerHour={metrics.price_per_hour}
           categories={categories}
           creditCardOptions={credit_card_options}
+          liquidityAccounts={liquidity_accounts}
           defaultPaymentSource={user_settings.default_payment_source}
           defaultLiabilityId={user_settings.default_liability_id}
           onClose={() => setModal(null)}
@@ -255,6 +278,7 @@ export function DashboardClient({ data }: DashboardClientProps) {
       {modal?.type === 'pay_cc' && periodo_activo && credit_card_options.length > 0 && (
         <PayCCModal
           cards={credit_card_options}
+          liquidityAccounts={liquidity_accounts}
           periodId={periodo_activo.id}
           onClose={() => setModal(null)}
           onSaved={refresh}
@@ -266,6 +290,7 @@ export function DashboardClient({ data }: DashboardClientProps) {
           pricePerHour={metrics.price_per_hour}
           categories={categories}
           creditCardOptions={credit_card_options}
+          liquidityAccounts={liquidity_accounts}
           defaultPaymentSource={user_settings.default_payment_source}
           defaultLiabilityId={user_settings.default_liability_id}
           transaction={modal.transaction}

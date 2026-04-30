@@ -147,7 +147,11 @@
 }
 
 @layer base {
-  *, *::before, *::after { box-sizing: border-box; }
+  *, *::before, *::after {
+    box-sizing: border-box;
+    /* Prevent white tap-highlight flash on mobile */
+    -webkit-tap-highlight-color: transparent;
+  }
 
   html { height: 100%; }
 
@@ -732,11 +736,27 @@ input[type="date"] { color-scheme: dark; }
   border-color: rgba(255,255,255,0.09) !important;
 }
 
-/* ── 4. Plain bg-white without border (transaction list containers) ── */
-/* Target via inline style with backgroundColor white — can't override inline styles via CSS.
-   Instead, target Tailwind's bg-white class specifically */
-.bg-white:not(.shadow-xl):not(.border):not([class*="text-white"]) {
-  background: rgba(255,255,255,0.05) !important;
+/* ── 4. bg-white variants — ordered from most-specific to least ── */
+
+/* Toggle switch knobs: bg-white rounded-full shadow → solid white knob */
+.bg-white.rounded-full.shadow,
+.bg-white.rounded-full.shadow-sm {
+  background: rgba(255,255,255,0.92) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.35) !important;
+}
+
+/* Active tab pattern (bg-white + shadow-sm) → clearly visible against container */
+.bg-white.shadow-sm:not(.rounded-full) {
+  background: rgba(255,255,255,0.18) !important;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.30) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Modal/sheet with shadow-xl already handled above.
+   Cards with border already handled above.
+   General bg-white (containers without special modifier) → subtle glass */
+.bg-white:not(.shadow-xl):not(.shadow-sm):not(.shadow):not(.border):not([class*="text-white"]) {
+  background: rgba(255,255,255,0.06) !important;
 }
 
 /* ── 5. Light surface backgrounds → dark glass surfaces ── */
@@ -752,10 +772,14 @@ input[type="date"] { color-scheme: dark; }
 /* Secondary text stays readable on dark bg */
 .text-\[\#7A9A8A\] { color: var(--text-secondary) !important; }
 
-/* ── 7. Border color overrides ── */
+/* ── 7. Border and background color overrides ── */
 .border-\[\#D0DDD6\] { border-color: rgba(255,255,255,0.10) !important; }
 .border-\[\#EAF0EC\] { border-color: rgba(255,255,255,0.08) !important; }
 .border-\[\#e0ebe4\] { border-color: rgba(255,255,255,0.08) !important; }
+/* bg-[#D0DDD6] — used as dot/indicator background (inactive state) */
+.bg-\[\#D0DDD6\]     { background-color: rgba(255,255,255,0.20) !important; }
+/* bg-[#FAFCFB] — near-white hover/selected bg */
+.bg-\[\#FAFCFB\]     { background-color: rgba(255,255,255,0.07) !important; }
 
 /* ── 8. Category / toggle buttons (bg-[#EAF0EC] text-[#7A9A8A]) ── */
 .bg-\[\#EAF0EC\].text-\[\#7A9A8A\] {
@@ -810,8 +834,14 @@ input[type="date"] { color-scheme: dark; }
   background: rgba(8,20,13,0.94) !important;
 }
 
-/* ── 15. Prevent white flash on hover for dark background buttons ── */
-.hover\:text-\[\#141F19\]:hover { color: var(--text-primary) !important; }
+/* ── 15. Hover states: prevent bright white/light flash ── */
+.hover\:text-\[\#141F19\]:hover   { color: var(--text-primary) !important; }
+.hover\:bg-\[\#FAFCFB\]:hover,
+.hover\:bg-\[\#F2F7F4\]:hover,
+.hover\:bg-\[\#EAF0EC\]:hover     { background-color: rgba(255,255,255,0.09) !important; }
+.hover\:border-\[\#2E7D52\]:hover { border-color: rgba(58,158,106,0.50) !important; }
+.group:hover .group-hover\:bg-\[\#7A9A8A\] { background-color: rgba(255,255,255,0.25) !important; }
+.group:hover .group-hover\:text-\[\#141F19\] { color: var(--text-primary) !important; }
 
 /* ── 16. Inline style overrides: CSS attribute selectors target React-rendered values ── */
 /* Light surface inline backgrounds */
@@ -852,4 +882,14 @@ input[type="date"] { color-scheme: dark; }
 .bg-\[\#EAF0EC\] > div > button.bg-white {
   background: rgba(255,255,255,0.14) !important;
   color: var(--text-primary) !important;
+}
+
+/* ── 21. Native select dropdown menus on dark app surfaces ── */
+select {
+  color-scheme: dark;
+}
+
+select option {
+  background-color: #1A2520;
+  color: #F2F7F4;
 }

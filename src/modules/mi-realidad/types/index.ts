@@ -1,3 +1,5 @@
+import type { LiquidityAccount } from '@/types/liquidity'
+
 // ============================================================
 // MÓDULO 1 — MI REALIDAD ACTUAL
 // Types — src/modules/mi-realidad/types/index.ts
@@ -79,6 +81,7 @@ export interface IncomeEntry {
   income_id: string
   user_id: string
   registered_by_name?: string
+  liquidity_asset_id: string | null
   amount: number
   currency: string
   entry_date: string
@@ -106,6 +109,7 @@ export interface PaymentComponent {
 // Payload completo del modal de registro
 export interface RegisterPaymentPayload {
   entry_date: string
+  liquidity_asset_id: string
   components: PaymentComponent[]
 }
 
@@ -183,4 +187,5 @@ export interface MiRealidadData {
   costoRealDeTrabajar: number | null     // ingreso ÷ horas reales (ya en precioRealPorHora, alias explícito)
   rendimientoDeTuTiempo: number | null   // ingreso ÷ horas de vida del período
   valorRealDeTuTiempo: null              // Módulo 2 — pendiente
+  liquidity_accounts: LiquidityAccount[]
 }

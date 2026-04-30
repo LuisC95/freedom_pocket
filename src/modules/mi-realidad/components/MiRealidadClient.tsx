@@ -488,7 +488,7 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
   const [modal, setModal] = useState<Modal>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const { periodo_activo, ingresos, allEntries, real_hours, precio_real_por_hora, costoRealDeTrabajar, rendimientoDeTuTiempo } = data
+  const { periodo_activo, ingresos, allEntries, real_hours, precio_real_por_hora, costoRealDeTrabajar, rendimientoDeTuTiempo, liquidity_accounts } = data
 
   function refresh() {
     setModal(null)
@@ -705,6 +705,7 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
       {modal?.type === 'register_payment' && periodo_activo && (
         <RegisterPaymentModal
           incomes={ingresos}
+          liquidityAccounts={liquidity_accounts}
           periodId={periodo_activo.id}
           onClose={() => setModal(null)}
           onSaved={refresh}
