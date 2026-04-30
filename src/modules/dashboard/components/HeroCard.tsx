@@ -54,7 +54,7 @@ export function HeroCard({ metrics, monthly_history, periodo_label, onExpand }: 
   }, [frame])
 
   return (
-    <div style={{ backgroundColor: '#1A2520' }} className="mb-4 rounded-2xl p-4 sm:p-5">
+    <div className="glass-hero mb-4 p-4 sm:p-5">
       {/* Período */}
       {periodo_label && (
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.09em', color: '#7A9A8A', textTransform: 'uppercase' }} className="mb-2.5">

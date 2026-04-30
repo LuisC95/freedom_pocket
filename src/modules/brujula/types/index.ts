@@ -42,6 +42,7 @@ export type ProgressLevel =
 export interface Asset {
   id: string
   user_id: string
+  registered_by_name?: string
   household_id: string | null
   is_shared: boolean
   name: string
@@ -68,6 +69,7 @@ export type AssetUpdate = Partial<Omit<Asset, 'id' | 'user_id' | 'created_at'>> 
 export interface Liability {
   id: string
   user_id: string
+  registered_by_name?: string
   household_id: string | null
   is_shared: boolean
   name: string

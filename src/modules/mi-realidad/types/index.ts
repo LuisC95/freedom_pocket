@@ -26,6 +26,7 @@ export type IncomeFrequency = 'weekly' | 'biweekly' | 'monthly' | 'irregular'
 export interface Income {
   id: string
   user_id: string
+  registered_by_name?: string
   period_id: string
   household_id: string | null
   contributed_by: string
@@ -77,6 +78,7 @@ export interface IncomeEntry {
   id: string
   income_id: string
   user_id: string
+  registered_by_name?: string
   amount: number
   currency: string
   entry_date: string

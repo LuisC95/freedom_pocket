@@ -18,6 +18,7 @@ export interface TransactionCategory {
 export interface Transaction {
   id: string
   user_id: string
+  registered_by_name?: string
   period_id: string
   category_id: string
   household_id: string | null
@@ -92,6 +93,7 @@ export interface Budget {
 export interface RecurringTemplate {
   id: string
   user_id: string
+  registered_by_name?: string
   household_id: string | null
   category_id: string
   name: string

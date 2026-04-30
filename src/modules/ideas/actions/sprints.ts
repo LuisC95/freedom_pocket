@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
+import { getHouseholdVisibilityScope } from '@/lib/household'
 import type { ActionResult } from '@/types/actions'
 import type { Sprint, DayProgress, SprintTask, CompleteDayInput, UpdateDayNotesInput } from '@/modules/ideas/types'
 import { mapSprint, mapDayProgress } from '@/modules/ideas/mappers'
@@ -27,6 +28,7 @@ async function getUserContext(
 ): Promise<SprintGenerationContext> {
   // Intentar obtener datos de M1 (mi-realidad)
   try {
+    const scope = await getHouseholdVisibilityScope(supabase, userId)
     const { data: realHours } = await supabase
       .from('real_hours')
       .select('contracted_hours_per_week, extra_hours_per_week, commute_minutes_per_day, preparation_minutes_per_day, mental_load_hours_per_week, working_days_per_week')
@@ -36,7 +38,7 @@ async function getUserContext(
     const { data: incomes } = await supabase
       .from('incomes')
       .select('amount, frequency')
-      .eq('user_id', userId)
+      .in('user_id', scope.visibleIncomeUserIds)
       .eq('is_active', true)
 
     let hourly_rate     = 15

@@ -28,7 +28,7 @@ export function IdeasModuleNav({ activeSprintId }: IdeasModuleNavProps) {
           <>
             <span className="text-[16px] leading-none">{item.icon}</span>
             <span className="text-[10px] font-semibold">{item.label}</span>
-            {active && <span className="h-1 w-1 rounded-full bg-[#2E7D52]" />}
+            {active && <span className="h-1 w-1 rounded-full" style={{ background: 'var(--green-bright)' }} />}
           </>
         )
 
@@ -38,7 +38,8 @@ export function IdeasModuleNav({ activeSprintId }: IdeasModuleNavProps) {
               key={item.key}
               type="button"
               disabled
-              className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2 text-[#7A9A8A] opacity-35"
+              className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2 opacity-30"
+              style={{ color: 'var(--text-secondary)' }}
             >
               {content}
             </button>
@@ -49,8 +50,8 @@ export function IdeasModuleNav({ activeSprintId }: IdeasModuleNavProps) {
           <Link
             key={item.key}
             href={item.href}
-            className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2"
-            style={{ color: active ? '#2E7D52' : '#7A9A8A', background: active ? '#2E7D5212' : 'transparent' }}
+            className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2 transition-all"
+            style={{ color: active ? 'var(--green-bright)' : 'var(--text-muted)', background: active ? 'var(--green-dim)' : 'transparent' }}
           >
             {content}
           </Link>

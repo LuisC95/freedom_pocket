@@ -99,30 +99,31 @@ function AssetCard({ asset, onEdit, onDelete, pending }: {
   pending: boolean
 }) {
   return (
-    <div className="bg-white border border-[#EAF0EC] rounded-xl p-3.5 flex gap-3 items-start">
+    <div className="glass rounded-xl p-3.5 flex gap-3 items-start">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-[13px] font-medium text-[#141F19] truncate">{asset.name}</span>
-          <span className="shrink-0 text-[10px] bg-[#EAF0EC] text-[#7A9A8A] rounded-md px-1.5 py-0.5">
+          <span className="text-[13px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{asset.name}</span>
+          <span className="shrink-0 text-[10px] rounded-md px-1.5 py-0.5" style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)' }}>
             {ASSET_TYPE_LABELS[asset.asset_type]}
           </span>
           {asset.is_liquid && (
-            <span className="shrink-0 text-[10px] bg-[#EAF0EC] text-[#2E7D52] rounded-md px-1.5 py-0.5">Líquido</span>
+            <span className="shrink-0 text-[10px] rounded-md px-1.5 py-0.5" style={{ background: 'rgba(58,158,106,0.15)', color: 'var(--green-bright)' }}>Líquido</span>
           )}
         </div>
-        <p className="font-mono text-[20px] font-semibold text-[#141F19] leading-tight">
+        <p className="font-mono text-[20px] font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>
           {fmtFull(asset.current_value, asset.currency)}
         </p>
         {asset.monthly_yield != null && asset.monthly_yield > 0 && (
-          <p className="text-[11px] text-[#7A9A8A] mt-0.5">
+          <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
             +{fmtFull(asset.monthly_yield, asset.currency)}/mes
             {asset.annual_rate_pct != null && ` · ${asset.annual_rate_pct}% anual`}
           </p>
         )}
-        {asset.notes && <p className="text-[10px] text-[#7A9A8A] mt-1 truncate">{asset.notes}</p>}
+        {asset.notes && <p className="text-[10px] mt-1 truncate" style={{ color: 'var(--text-secondary)' }}>{asset.notes}</p>}
+        {asset.registered_by_name && <p className="text-[10px] mt-1 truncate" style={{ color: 'var(--text-secondary)' }}>Registró {asset.registered_by_name}</p>}
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        <button onClick={onEdit} className="text-[12px] text-[#7A9A8A] hover:text-[#2E7D52] transition-colors px-1">
+        <button onClick={onEdit} className="text-[12px] transition-colors px-1" style={{ color: 'var(--text-secondary)' }}>
           Editar
         </button>
         <DeleteBtn onConfirm={onDelete} pending={pending} />
@@ -199,6 +200,7 @@ function LiabilityCard({ liability, onEdit, onDelete, onPayCC, pending }: {
           {liability.monthly_payment != null && ` · ${fmtFull(liability.monthly_payment, liability.currency)}/mes`}
         </p>
         {liability.notes && <p className="text-[10px] text-[#7A9A8A] mt-1 truncate">{liability.notes}</p>}
+        {liability.registered_by_name && <p className="text-[10px] text-[#7A9A8A] mt-1 truncate">Registró {liability.registered_by_name}</p>}
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
         {liability.liability_type === 'credit_card' && (

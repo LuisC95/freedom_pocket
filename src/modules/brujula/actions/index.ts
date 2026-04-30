@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
+import { getHouseholdScope, getHouseholdVisibilityScope } from '@/lib/household'
 import type {
   Asset, AssetInsert, AssetUpdate,
   Liability, LiabilityInsert, LiabilityUpdate,
@@ -14,6 +15,24 @@ import type {
 import { PROGRESS_LEVEL_LABELS } from '../types'
 
 // ─── Helpers internos M1 (replicados para evitar circular imports) ─────────────
+
+async function getProfileNames(
+  supabase: ReturnType<typeof createAdminClient>,
+  userIds: string[]
+): Promise<Record<string, string>> {
+  const ids = Array.from(new Set(userIds.filter(Boolean)))
+  if (ids.length === 0) return {}
+
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, display_name')
+    .in('id', ids)
+
+  return (data ?? []).reduce<Record<string, string>>((acc, profile) => {
+    acc[profile.id] = profile.display_name || 'Miembro'
+    return acc
+  }, {})
+}
 
 function calcularIngresoMes(
   income: { id: string; amount: number; frequency: string | null; type: string },
@@ -176,6 +195,9 @@ export async function getBrujulaData(): Promise<BrujulaData> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const hoy = new Date()
+  const householdScope = await getHouseholdScope(supabase, DEV_USER_ID)
+  const visibilityScope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
+  const visibleUserIds = householdScope.householdId ? householdScope.memberUserIds : [DEV_USER_ID]
 
   // ── Datos propios de M3 ────────────────────────────────────────────────────
   const [
@@ -185,21 +207,25 @@ export async function getBrujulaData(): Promise<BrujulaData> {
     { data: goalsRaw },
     { data: latestScoreRaw },
   ] = await Promise.all([
-    supabase.from('assets').select('*').eq('user_id', DEV_USER_ID).eq('is_active', true).order('created_at', { ascending: false }),
-    supabase.from('liabilities').select('*').eq('user_id', DEV_USER_ID).eq('is_active', true).order('created_at', { ascending: false }),
+    supabase.from('assets').select('*').in('user_id', visibleUserIds).eq('is_active', true).order('created_at', { ascending: false }),
+    supabase.from('liabilities').select('*').in('user_id', visibleUserIds).eq('is_active', true).order('created_at', { ascending: false }),
     supabase.from('businesses').select('*').eq('user_id', DEV_USER_ID).order('created_at', { ascending: false }),
     supabase.from('freedom_goals').select('*').eq('user_id', DEV_USER_ID).order('created_at', { ascending: false }),
     supabase.from('progress_score_history').select('*').eq('user_id', DEV_USER_ID).order('recorded_at', { ascending: false }).limit(1).maybeSingle(),
   ])
 
-  const assets: Asset[]       = (assetsRaw ?? []).map(a => ({ ...a, current_value: Number(a.current_value), monthly_yield: a.monthly_yield != null ? Number(a.monthly_yield) : null, value_in_usd: a.value_in_usd != null ? Number(a.value_in_usd) : null, annual_rate_pct: a.annual_rate_pct != null ? Number(a.annual_rate_pct) : null, quantity: a.quantity != null ? Number(a.quantity) : null }))
-  const liabilities: Liability[] = (liabsRaw ?? []).map(l => ({ ...l, current_balance: Number(l.current_balance), balance_in_usd: l.balance_in_usd != null ? Number(l.balance_in_usd) : null, interest_rate_pct: l.interest_rate_pct != null ? Number(l.interest_rate_pct) : null, monthly_payment: l.monthly_payment != null ? Number(l.monthly_payment) : null }))
+  const profileNames = await getProfileNames(supabase, [
+    ...(assetsRaw ?? []).map(asset => asset.user_id),
+    ...(liabsRaw ?? []).map(liability => liability.user_id),
+  ])
+  const assets: Asset[]       = (assetsRaw ?? []).map(a => ({ ...a, registered_by_name: profileNames[a.user_id], current_value: Number(a.current_value), monthly_yield: a.monthly_yield != null ? Number(a.monthly_yield) : null, value_in_usd: a.value_in_usd != null ? Number(a.value_in_usd) : null, annual_rate_pct: a.annual_rate_pct != null ? Number(a.annual_rate_pct) : null, quantity: a.quantity != null ? Number(a.quantity) : null }))
+  const liabilities: Liability[] = (liabsRaw ?? []).map(l => ({ ...l, registered_by_name: profileNames[l.user_id], current_balance: Number(l.current_balance), balance_in_usd: l.balance_in_usd != null ? Number(l.balance_in_usd) : null, interest_rate_pct: l.interest_rate_pct != null ? Number(l.interest_rate_pct) : null, monthly_payment: l.monthly_payment != null ? Number(l.monthly_payment) : null }))
   const businesses: Business[] = (bizsRaw ?? []).map(b => ({ ...b, monthly_net_profit: Number(b.monthly_net_profit), reinvestment_percentage: Number(b.reinvestment_percentage), sector_multiplier: Number(b.sector_multiplier) }))
   const freedom_goals: FreedomGoal[] = (goalsRaw ?? [])
   const latest_score: ProgressScore | null = latestScoreRaw ? { ...latestScoreRaw, d1_time_decoupling: Number(latestScoreRaw.d1_time_decoupling), d2_asset_health: Number(latestScoreRaw.d2_asset_health), d3_financial_freedom: Number(latestScoreRaw.d3_financial_freedom), d4_momentum: Number(latestScoreRaw.d4_momentum), total_score: latestScoreRaw.total_score != null ? Number(latestScoreRaw.total_score) : null, level_percentage: Number(latestScoreRaw.level_percentage) } : null
 
   // ── Cross-module: datos de M1 ──────────────────────────────────────────────
-  const { data: period } = await supabase.from('periods').select('*').eq('user_id', DEV_USER_ID).eq('is_active', true).single()
+  const period = visibilityScope.activePeriod
 
   let precio_real_hora: number | null = null
   let ingreso_activo_mensual = 0
@@ -207,9 +233,9 @@ export async function getBrujulaData(): Promise<BrujulaData> {
   if (period) {
     const inicioMes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`
     const [{ data: incomesRaw }, { data: hoursRaw }, { data: entriesRaw }] = await Promise.all([
-      supabase.from('incomes').select('*').eq('user_id', DEV_USER_ID).eq('period_id', period.id),
+      supabase.from('incomes').select('*').in('user_id', visibilityScope.visibleIncomeUserIds).in('period_id', visibilityScope.visibleIncomePeriodIds),
       supabase.from('real_hours').select('*').eq('user_id', DEV_USER_ID).eq('period_id', period.id).maybeSingle(),
-      supabase.from('income_entries').select('id,income_id,entry_type,amount,entry_date').eq('user_id', DEV_USER_ID).gte('entry_date', inicioMes),
+      supabase.from('income_entries').select('id,income_id,entry_type,amount,entry_date').in('user_id', visibilityScope.visibleIncomeUserIds).gte('entry_date', inicioMes),
     ])
 
     const incomes = (incomesRaw ?? []).map(i => ({ ...i, amount: Number(i.amount) }))
@@ -239,7 +265,7 @@ export async function getBrujulaData(): Promise<BrujulaData> {
   const { data: txRaw } = await supabase
     .from('transactions')
     .select('amount,type')
-    .eq('user_id', DEV_USER_ID)
+    .in('user_id', visibilityScope.visibleExpenseUserIds)
     .gte('transaction_date', ventanaStr)
 
   const total_expense_period = (txRaw ?? [])
@@ -304,9 +330,15 @@ export async function getBrujulaData(): Promise<BrujulaData> {
 export async function createAsset(data: AssetInsert): Promise<{ data: Asset | null; error: string | null }> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
+  const household = await getHouseholdScope(supabase, DEV_USER_ID)
   const { data: row, error } = await supabase
     .from('assets')
-    .insert({ ...data, user_id: DEV_USER_ID })
+    .insert({
+      ...data,
+      user_id: DEV_USER_ID,
+      household_id: data.household_id ?? household.householdId,
+      is_shared: household.householdId ? true : data.is_shared,
+    })
     .select()
     .single()
   if (error) return { data: null, error: error.message }
@@ -316,12 +348,13 @@ export async function createAsset(data: AssetInsert): Promise<{ data: Asset | nu
 export async function updateAsset(data: AssetUpdate): Promise<{ data: Asset | null; error: string | null }> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
+  const household = await getHouseholdScope(supabase, DEV_USER_ID)
   const { id, ...fields } = data
   const { data: row, error } = await supabase
     .from('assets')
     .update(fields)
     .eq('id', id)
-    .eq('user_id', DEV_USER_ID)
+    .in('user_id', household.householdId ? household.memberUserIds : [DEV_USER_ID])
     .select()
     .single()
   if (error) return { data: null, error: error.message }
@@ -331,7 +364,8 @@ export async function updateAsset(data: AssetUpdate): Promise<{ data: Asset | nu
 export async function deleteAsset(id: string): Promise<{ error: string | null }> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
-  const { error } = await supabase.from('assets').delete().eq('id', id).eq('user_id', DEV_USER_ID)
+  const household = await getHouseholdScope(supabase, DEV_USER_ID)
+  const { error } = await supabase.from('assets').delete().eq('id', id).in('user_id', household.householdId ? household.memberUserIds : [DEV_USER_ID])
   return { error: error?.message ?? null }
 }
 
@@ -340,9 +374,15 @@ export async function deleteAsset(id: string): Promise<{ error: string | null }>
 export async function createLiability(data: LiabilityInsert): Promise<{ data: Liability | null; error: string | null }> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
+  const household = await getHouseholdScope(supabase, DEV_USER_ID)
   const { data: row, error } = await supabase
     .from('liabilities')
-    .insert({ ...data, user_id: DEV_USER_ID })
+    .insert({
+      ...data,
+      user_id: DEV_USER_ID,
+      household_id: data.household_id ?? household.householdId,
+      is_shared: household.householdId ? true : data.is_shared,
+    })
     .select()
     .single()
   if (error) return { data: null, error: error.message }
@@ -352,12 +392,13 @@ export async function createLiability(data: LiabilityInsert): Promise<{ data: Li
 export async function updateLiability(data: LiabilityUpdate): Promise<{ data: Liability | null; error: string | null }> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
+  const household = await getHouseholdScope(supabase, DEV_USER_ID)
   const { id, ...fields } = data
   const { data: row, error } = await supabase
     .from('liabilities')
     .update(fields)
     .eq('id', id)
-    .eq('user_id', DEV_USER_ID)
+    .in('user_id', household.householdId ? household.memberUserIds : [DEV_USER_ID])
     .select()
     .single()
   if (error) return { data: null, error: error.message }
@@ -367,7 +408,8 @@ export async function updateLiability(data: LiabilityUpdate): Promise<{ data: Li
 export async function deleteLiability(id: string): Promise<{ error: string | null }> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
-  const { error } = await supabase.from('liabilities').delete().eq('id', id).eq('user_id', DEV_USER_ID)
+  const household = await getHouseholdScope(supabase, DEV_USER_ID)
+  const { error } = await supabase.from('liabilities').delete().eq('id', id).in('user_id', household.householdId ? household.memberUserIds : [DEV_USER_ID])
   return { error: error?.message ?? null }
 }
 
@@ -381,11 +423,12 @@ export async function payOffCreditCard({
   if (amount <= 0) return { data: null, error: 'El monto debe ser mayor a 0' }
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
+  const household = await getHouseholdScope(supabase, DEV_USER_ID)
   const { data: lib } = await supabase
     .from('liabilities')
     .select('current_balance')
     .eq('id', liability_id)
-    .eq('user_id', DEV_USER_ID)
+    .in('user_id', household.householdId ? household.memberUserIds : [DEV_USER_ID])
     .single()
   if (!lib) return { data: null, error: 'Tarjeta no encontrada' }
   const newBalance = Math.max(0, Number(lib.current_balance) - amount)

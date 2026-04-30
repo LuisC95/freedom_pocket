@@ -66,23 +66,41 @@ function calcularPrecioRealPorHora(
   const precio_por_hora =
     horas_reales_semana > 0 ? total_ingresos_mes / (horas_reales_semana * 4.33) : 0
 
-return {
-  total_ingresos_mes,
-  horas_reales_semana,
-  desglose_horas: {
-    contratadas: realHours.contracted_hours_per_week,
-    extra: realHours.extra_hours_per_week,
-    desplazamiento,
-    preparacion,
-    carga_mental: realHours.mental_load_hours_per_week,
-  },
-  precio_por_hora,
-  currency,
-  calculado_con_periodo_id: periodId,
-  precio_referencia: null,
-  anio_referencia: null,
-  delta_vs_referencia: null,
+  return {
+    total_ingresos_mes,
+    horas_reales_semana,
+    desglose_horas: {
+      contratadas: realHours.contracted_hours_per_week,
+      extra: realHours.extra_hours_per_week,
+      desplazamiento,
+      preparacion,
+      carga_mental: realHours.mental_load_hours_per_week,
+    },
+    precio_por_hora,
+    currency,
+    calculado_con_periodo_id: periodId,
+    precio_referencia: null,
+    anio_referencia: null,
+    delta_vs_referencia: null,
+  }
 }
+
+async function getProfileNames(
+  supabase: ReturnType<typeof createAdminClient>,
+  userIds: string[]
+): Promise<Record<string, string>> {
+  const ids = Array.from(new Set(userIds.filter(Boolean)))
+  if (ids.length === 0) return {}
+
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, display_name')
+    .in('id', ids)
+
+  return (data ?? []).reduce<Record<string, string>>((acc, profile) => {
+    acc[profile.id] = profile.display_name || 'Miembro'
+    return acc
+  }, {})
 }
 
 // ─── getMiRealidadData ────────────────────────────────────────────────────────
@@ -133,26 +151,36 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
       : { data: [] }
 
   const real_hours: RealHours | null = hoursRaw ?? null
+  const profileNames = await getProfileNames(supabase, [
+    ...ingresos.map(income => income.user_id),
+    ...(entriesRaw ?? []).map(entry => entry.user_id),
+  ])
+
+  const ingresosWithOwners: Income[] = ingresos.map(income => ({
+    ...income,
+    registered_by_name: profileNames[income.user_id],
+  }))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allEntries: IncomeEntry[] = (entriesRaw ?? []).map((e: any) => ({
     ...e,
     amount:     Number(e.amount),
+    registered_by_name: profileNames[e.user_id],
     incomeName: e.incomes?.label ?? 'Sin fuente',
     incomes:    undefined,
   }))
 
   let estado: MiRealidadEstado
-  if (ingresos.length === 0 && !real_hours) estado = 'sin_datos'
-  else if (ingresos.length > 0 && !real_hours) estado = 'solo_ingresos'
-  else if (ingresos.length === 0 && real_hours) estado = 'solo_horas'
+  if (ingresosWithOwners.length === 0 && !real_hours) estado = 'sin_datos'
+  else if (ingresosWithOwners.length > 0 && !real_hours) estado = 'solo_ingresos'
+  else if (ingresosWithOwners.length === 0 && real_hours) estado = 'solo_horas'
   else estado = 'completo'
 
   const precio_real_por_hora =
     estado === 'completo' && real_hours
-      ? calcularPrecioRealPorHora(ingresos, allEntries, real_hours, period.id)
+      ? calcularPrecioRealPorHora(ingresosWithOwners, allEntries, real_hours, period.id)
       : null
 
-  const ingresosConEntries = ingresos.map(i => ({
+  const ingresosConEntries = ingresosWithOwners.map(i => ({
     ...i,
     entries: allEntries.filter(e => e.income_id === i.id),
     total_mes_calculado: calcularIngresoMensual(i, allEntries),
@@ -216,18 +244,27 @@ export async function updateIncome(
 ): Promise<{ data: Income | null; error: string | null }> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
+  const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
 
   const { id, ...fields } = data
 
-  const { data: row, error } = await supabase
+  const query = supabase
     .from('incomes')
     .update(fields)
     .eq('id', id)
-    .eq('user_id', DEV_USER_ID)
+    .in('user_id', scope.visibleIncomeUserIds)
     .select()
-    .single()
+
+  const scopedQuery =
+    scope.visibleIncomePeriodIds.length > 0
+      ? query.in('period_id', scope.visibleIncomePeriodIds)
+      : query.eq('period_id', '__no_visible_period__')
+
+  const { data: rows, error } = await scopedQuery
 
   if (error) return { data: null, error: error.message }
+  const row = rows?.[0]
+  if (!row) return { data: null, error: 'No tienes permiso para editar este ingreso' }
   return { data: { ...row, amount: Number(row.amount) }, error: null }
 }
 
@@ -341,12 +378,13 @@ export async function updateIncomeEntry(
 ): Promise<{ data: IncomeEntry | null; error: string | null }> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
+  const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
 
   const { data: row, error } = await supabase
     .from('income_entries')
     .update(fields)
     .eq('id', id)
-    .eq('user_id', DEV_USER_ID)
+    .in('user_id', scope.visibleIncomeUserIds)
     .select()
     .single()
 
@@ -361,17 +399,24 @@ export async function registerPayment(
 ): Promise<{ data: IncomeEntry[] | null; error: string | null }> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
+  const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
 
-  // Validar que todos los income_ids pertenecen al usuario
+  // Validar que todos los income_ids sean visibles dentro del grupo familiar
   const incomeIds = [...new Set(payload.components.map(c => c.income_id))]
-  const { data: ownedIncomes } = await supabase
+  const incomeQuery = supabase
     .from('incomes')
     .select('id')
-    .eq('user_id', DEV_USER_ID)
+    .in('user_id', scope.visibleIncomeUserIds)
     .in('id', incomeIds)
 
-  const ownedIds = new Set((ownedIncomes ?? []).map(i => i.id))
-  const unauthorized = incomeIds.find(id => !ownedIds.has(id))
+  const scopedIncomeQuery =
+    scope.visibleIncomePeriodIds.length > 0
+      ? incomeQuery.in('period_id', scope.visibleIncomePeriodIds)
+      : incomeQuery.eq('period_id', '__no_visible_period__')
+
+  const { data: visibleIncomes } = await scopedIncomeQuery
+  const visibleIds = new Set((visibleIncomes ?? []).map(i => i.id))
+  const unauthorized = incomeIds.find(id => !visibleIds.has(id))
   if (unauthorized) return { data: null, error: 'Fuente de ingreso no válida' }
 
   const batchId = crypto.randomUUID()

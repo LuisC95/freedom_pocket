@@ -4,6 +4,23 @@ import { useState, useTransition } from 'react'
 import { deleteTransaction, deleteRecurringTemplate, confirmRecurringTemplate, approveRecurringTransaction, upsertBudget } from '../actions'
 import type { Transaction, TransactionGroup, Budget, RecurringTemplate, TransactionCategory } from '../types'
 
+// ─── Glass theme tokens ───────────────────────────────────────────────────────
+const G = {
+  glassBg:      'rgba(255,255,255,0.06)',
+  glassBgLight: 'rgba(255,255,255,0.09)',
+  glassBorder:  'rgba(255,255,255,0.08)',
+  glassBorderFocus: 'rgba(58,158,106,0.45)',
+  sheetBg:      'rgba(8,20,13,0.94)',
+  headerBg:     'rgba(255,255,255,0.03)',
+  textPrimary:  '#EEF5F0',
+  textSec:      'rgba(238,245,240,0.55)',
+  textMuted:    'rgba(238,245,240,0.30)',
+  green:        '#3A9E6A',
+  greenBright:  '#4DC98A',
+  red:          '#E84434',
+  gold:         '#C69B30',
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmt(n: number, currency = 'USD') {
@@ -41,7 +58,6 @@ function dayLabel(dateStr: string): string {
   const today = new Date()
   const yesterday = new Date(today)
   yesterday.setDate(today.getDate() - 1)
-
   if (date.toDateString() === today.toDateString()) return 'HOY'
   if (date.toDateString() === yesterday.toDateString()) return 'AYER'
   return date.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()
@@ -54,60 +70,87 @@ function Sparkline({ values }: { values: number[] }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1.5px', height: '18px', marginRight: '6px' }}>
       {values.map((v, i) => (
-        <div
-          key={i}
-          style={{
-            width: '5px',
-            height: `${Math.max(2, (v / max) * 18)}px`,
-            backgroundColor: '#EAF0EC',
-            borderRadius: '1px 1px 0 0',
-          }}
-        />
+        <div key={i} style={{ width: '5px', height: `${Math.max(2, (v / max) * 18)}px`, backgroundColor: 'rgba(58,158,106,0.35)', borderRadius: '1px 1px 0 0' }} />
       ))}
     </div>
   )
 }
 
-// ─── Transaction Detail Sheet ─────────────────────────────────────────────────
+// ─── Sheet (modal) ────────────────────────────────────────────────────────────
 
-interface TxSheetProps {
-  tx: Transaction
-  onClose: () => void
-  onEdit: (tx: Transaction) => void
-  onDeleted: () => void
+function Sheet({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 40, backgroundColor: 'rgba(0,0,0,0.65)', padding: '0 16px', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+      className="flex items-end justify-center sm:items-center"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        style={{ backgroundColor: G.sheetBg, borderRadius: '20px 20px 20px 20px', padding: '20px', width: '100%', maxWidth: '440px', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 -8px 60px rgba(0,0,0,0.5)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)' }}
+        className="mb-4 sm:mb-0"
+      >
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+          <button onClick={onClose} style={{ color: G.textSec, fontSize: '20px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, cursor: 'pointer', lineHeight: 1, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
 }
 
-function TxSheet({ tx, onClose, onEdit, onDeleted }: TxSheetProps) {
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: G.textSec }}>{label}</span>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: G.textPrimary }}>{value}</span>
+    </div>
+  )
+}
+
+function SheetBtn({ label, onClick, danger, disabled }: { label: string; onClick: () => void; danger?: boolean; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        flex: 1, padding: '10px', borderRadius: '10px',
+        backgroundColor: danger ? 'rgba(232,68,52,0.12)' : 'rgba(58,158,106,0.12)',
+        border: `0.5px solid ${danger ? 'rgba(232,68,52,0.30)' : 'rgba(58,158,106,0.25)'}`,
+        fontFamily: 'var(--font-sans)', fontSize: '13px',
+        color: danger ? G.red : G.greenBright,
+        cursor: 'pointer', opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
+// ─── Transaction Detail Sheet ─────────────────────────────────────────────────
+
+function TxSheet({ tx, onClose, onEdit, onDeleted }: { tx: Transaction; onClose: () => void; onEdit: (tx: Transaction) => void; onDeleted: () => void }) {
   const [pending, startTransition] = useTransition()
 
   function handleDelete() {
     startTransition(async () => {
       const result = await deleteTransaction(tx.id)
-      if (result.error) {
-        alert(result.error)
-        return
-      }
+      if (result.error) { alert(result.error); return }
       onDeleted()
     })
   }
 
-  const hrs = null // autonomía calculada a nivel de lista, no en detalle
-
   return (
     <Sheet onClose={onClose}>
-      <p style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 500, color: '#141F19', marginBottom: '4px' }}>
+      <p style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 500, color: G.textPrimary, marginBottom: '4px' }}>
         {tx.notes || tx.category?.name || 'Transacción'}
       </p>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '26px', fontWeight: 600, color: tx.type === 'expense' ? '#E84434' : '#3A9E6A', marginBottom: '4px' }}>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '26px', fontWeight: 600, color: tx.type === 'expense' ? G.red : G.green, marginBottom: '16px' }}>
         {tx.type === 'expense' ? '−' : '+'}{fmt(tx.amount, tx.currency)}
       </p>
-      {hrs !== null && (
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#C69B30', marginBottom: '12px' }}>
-          {fmtHours(hrs)} de vida
-        </p>
-      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
         <Row label="Categoría" value={tx.category?.name ?? '—'} />
+        <Row label="Registró" value={tx.registered_by_name ?? 'Mi perfil'} />
         <Row label="Fecha" value={new Date(tx.transaction_date + 'T12:00:00').toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })} />
         <Row label="Estado" value={tx.status === 'confirmed' ? 'Confirmado' : 'Pendiente'} />
       </div>
@@ -128,29 +171,25 @@ function BudgetSheet({ budget, onClose, onSaved }: { budget: Budget; onClose: ()
   function handleSave() {
     const n = parseFloat(val)
     if (isNaN(n) || n <= 0) return
-    startTransition(async () => {
-      await upsertBudget(budget.category_id, n)
-      onSaved()
-    })
+    startTransition(async () => { await upsertBudget(budget.category_id, n); onSaved() })
   }
 
   return (
     <Sheet onClose={onClose}>
-      <p style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 500, color: '#141F19', marginBottom: '12px' }}>
+      <p style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 500, color: G.textPrimary, marginBottom: '12px' }}>
         {budget.category?.name} — límite sugerido
       </p>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#7A9A8A', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: G.textSec, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         Monto sugerido / mes
       </p>
       <input
-        type="number"
-        value={val}
+        type="number" value={val}
         onChange={e => setVal(e.target.value)}
         placeholder={budget.avg_amount?.toFixed(0) ?? '0'}
-        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #D0DDD6', fontFamily: 'var(--font-mono)', fontSize: '16px', color: '#141F19', outline: 'none', marginBottom: '12px' }}
+        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${G.glassBorder}`, background: G.glassBg, fontFamily: 'var(--font-mono)', fontSize: '16px', color: G.textPrimary, outline: 'none', marginBottom: '12px' }}
       />
       {budget.avg_amount && (
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#7A9A8A', marginBottom: '12px' }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: G.textSec, marginBottom: '12px' }}>
           Promedio histórico: {fmt(budget.avg_amount)}
         </p>
       )}
@@ -164,94 +203,26 @@ function BudgetSheet({ budget, onClose, onSaved }: { budget: Budget; onClose: ()
 function RecurringSheet({ template, onClose, onChanged }: { template: RecurringTemplate; onClose: () => void; onChanged: () => void }) {
   const [pending, startTransition] = useTransition()
 
-  function handleDelete() {
-    startTransition(async () => {
-      const result = await deleteRecurringTemplate(template.id)
-      if (result.error) {
-        alert(result.error)
-        return
-      }
-      onChanged()
-    })
-  }
-
-  function handleConfirm() {
-    startTransition(async () => {
-      await confirmRecurringTemplate(template.id)
-      onChanged()
-    })
-  }
-
-  function handleApprove() {
-    startTransition(async () => {
-      await approveRecurringTransaction(template.id)
-      onChanged()
-    })
-  }
-
   return (
     <Sheet onClose={onClose}>
-      <p style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 500, color: '#141F19', marginBottom: '4px' }}>{template.name}</p>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 600, color: template.type === 'expense' ? '#E84434' : '#3A9E6A', marginBottom: '12px' }}>
+      <p style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 500, color: G.textPrimary, marginBottom: '4px' }}>{template.name}</p>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 600, color: template.type === 'expense' ? G.red : G.green, marginBottom: '12px' }}>
         {fmt(template.amount, template.currency)}
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
         <Row label="Categoría" value={template.category?.name ?? '—'} />
+        <Row label="Registró" value={template.registered_by_name ?? 'Mi perfil'} />
         <Row label="Frecuencia" value={fmtFrequency(template)} />
         {template.last_confirmed_at && <Row label="Último registro" value={new Date(template.last_confirmed_at).toLocaleDateString('es')} />}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <SheetBtn label={pending ? '…' : '✓ Registrar hoy'} onClick={handleApprove} disabled={pending} />
+        <SheetBtn label={pending ? '…' : '✓ Registrar hoy'} onClick={() => { startTransition(async () => { await approveRecurringTransaction(template.id); onChanged() }) }} disabled={pending} />
         <div style={{ display: 'flex', gap: '8px' }}>
-          <SheetBtn label={pending ? '…' : 'Marcar como activo'} onClick={handleConfirm} disabled={pending} />
-          <SheetBtn label={pending ? '…' : 'Eliminar'} onClick={handleDelete} danger disabled={pending} />
+          <SheetBtn label={pending ? '…' : 'Marcar activo'} onClick={() => { startTransition(async () => { await confirmRecurringTemplate(template.id); onChanged() }) }} disabled={pending} />
+          <SheetBtn label={pending ? '…' : 'Eliminar'} onClick={() => { startTransition(async () => { const r = await deleteRecurringTemplate(template.id); if (r.error) { alert(r.error); return } onChanged() }) }} danger disabled={pending} />
         </div>
       </div>
     </Sheet>
-  )
-}
-
-// ─── Shared primitives ────────────────────────────────────────────────────────
-
-function Sheet({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 40, backgroundColor: 'rgba(0,0,0,0.4)', padding: '0 16px' }} className="flex items-end justify-center sm:items-center">
-      <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '20px', width: '100%', maxWidth: '440px' }} className="mb-4 sm:mb-0">
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
-          <button onClick={onClose} style={{ color: '#7A9A8A', fontSize: '20px', background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1 }}>×</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: '#7A9A8A' }}>{label}</span>
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#141F19' }}>{value}</span>
-    </div>
-  )
-}
-
-function SheetBtn({ label, onClick, danger, disabled }: { label: string; onClick: () => void; danger?: boolean; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        flex: 1, padding: '10px', borderRadius: '10px',
-        backgroundColor: danger ? '#E8443415' : '#EAF0EC',
-        border: `0.5px solid ${danger ? '#E8443430' : '#D0DDD6'}`,
-        fontFamily: 'var(--font-sans)', fontSize: '13px',
-        color: danger ? '#E84434' : '#141F19',
-        cursor: 'pointer', opacity: disabled ? 0.5 : 1,
-      }}
-    >
-      {label}
-    </button>
   )
 }
 
@@ -267,7 +238,7 @@ interface TransactionSliderProps {
   onDataChanged: () => void
 }
 
-type Sheet =
+type SheetState =
   | { type: 'tx'; tx: Transaction }
   | { type: 'budget'; budget: Budget }
   | { type: 'recurring'; template: RecurringTemplate }
@@ -283,24 +254,22 @@ export function TransactionSlider({
   onDataChanged,
 }: TransactionSliderProps) {
   const [tab, setTab] = useState(0)
-  const [sheet, setSheet] = useState<Sheet>(null)
+  const [sheet, setSheet] = useState<SheetState>(null)
 
   const TABS = ['Gastos', 'Presupuestos', 'Habituales']
 
-  // Compute weekly sparklines per category from transaction_groups
+  // Weekly sparklines
   const now = new Date()
   const weekSpend: Record<string, number[]> = {}
   for (let w = 3; w >= 0; w--) {
-    const weekStart = new Date(now)
-    weekStart.setDate(now.getDate() - (w + 1) * 7)
-    const weekEnd = new Date(now)
-    weekEnd.setDate(now.getDate() - w * 7)
+    const weekStart = new Date(now); weekStart.setDate(now.getDate() - (w + 1) * 7)
+    const weekEnd   = new Date(now); weekEnd.setDate(now.getDate() - w * 7)
     for (const group of transaction_groups) {
       const d = new Date(group.date + 'T12:00:00')
       if (d >= weekStart && d < weekEnd) {
         for (const tx of group.transactions) {
           if (tx.type === 'expense') {
-            if (!weekSpend[tx.category_id]) weekSpend[tx.category_id] = [0, 0, 0, 0]
+            if (!weekSpend[tx.category_id]) weekSpend[tx.category_id] = [0,0,0,0]
             weekSpend[tx.category_id][3 - w] += tx.amount
           }
         }
@@ -308,25 +277,34 @@ export function TransactionSlider({
     }
   }
 
+  const listContainerStyle = {
+    background: G.glassBg,
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    borderRadius: '12px',
+    overflow: 'hidden',
+    border: `1px solid ${G.glassBorder}`,
+  }
+
+  const rowStyle = {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '11px 14px',
+    borderTop: 'none', borderLeft: 'none', borderRight: 'none',
+    borderBottom: `0.5px solid ${G.glassBorder}`,
+    background: 'transparent',
+    width: '100%', cursor: 'pointer', textAlign: 'left' as const,
+    transition: 'background 0.1s',
+  }
+
   return (
     <div>
       {/* Tabs */}
-      <div style={{ display: 'flex', backgroundColor: '#EAF0EC', borderRadius: '9999px', padding: '4px', gap: '4px', marginBottom: '16px' }}>
+      <div className="fc-tabs" style={{ marginBottom: '16px' }}>
         {TABS.map((t, i) => (
           <button
             key={t}
             onClick={() => setTab(i)}
-            style={{
-              flex: 1, textAlign: 'center', padding: '7px 4px',
-              fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
-              color: tab === i ? '#141F19' : '#7A9A8A',
-              backgroundColor: tab === i ? '#FFFFFF' : 'transparent',
-              border: 'none',
-              borderRadius: '9999px',
-              boxShadow: tab === i ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
+            className={`fc-tab ${tab === i ? 'active' : ''}`}
           >
             {t}
           </button>
@@ -335,44 +313,45 @@ export function TransactionSlider({
 
       {/* Tab 1 — Gastos */}
       {tab === 0 && (
-        <div style={{ backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden' }}>
+        <div style={listContainerStyle}>
           {transaction_groups.length === 0 ? (
             <div style={{ padding: '24px', textAlign: 'center' }}>
-              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#7A9A8A' }}>Sin transacciones este período</p>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: G.textSec }}>Sin transacciones este período</p>
             </div>
           ) : (
             transaction_groups.map(group => (
               <div key={group.date}>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7A9A8A', padding: '8px 14px 3px', backgroundColor: '#F2F7F4' }}>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: G.textMuted, padding: '8px 14px 3px', background: G.headerBg }}>
                   {dayLabel(group.date)}
                 </p>
                 {group.transactions.map(tx => {
-                  const dias_auto = gasto_diario && gasto_diario > 0
-                    ? tx.amount / gasto_diario
-                    : null
-                  const dotColor = tx.category?.color ?? (tx.type === 'expense' ? '#E84434' : '#3A9E6A')
-
+                  const dias_auto = gasto_diario && gasto_diario > 0 ? tx.amount / gasto_diario : null
+                  const dotColor = tx.category?.color ?? (tx.type === 'expense' ? G.red : G.green)
                   return (
                     <button
                       key={tx.id}
                       onClick={() => setSheet({ type: 'tx', tx })}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: '0.5px solid #EAF0EC', backgroundColor: 'white', width: '100%', cursor: 'pointer', textAlign: 'left' }}
+                      style={rowStyle}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '9px', flex: 1, minWidth: 0 }}>
                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: dotColor, flexShrink: 0 }} />
                         <div style={{ minWidth: 0 }}>
-                          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#141F19', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: G.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {tx.notes || tx.category?.name || '—'}
                           </p>
-                          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: '#7A9A8A' }}>{tx.category?.name}</p>
+                          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: G.textSec }}>
+                            {tx.category?.name}{tx.registered_by_name ? ` · ${tx.registered_by_name}` : ''}
+                          </p>
                         </div>
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 500, color: tx.type === 'expense' ? '#E84434' : '#3A9E6A' }}>
+                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 500, color: tx.type === 'expense' ? G.red : G.green }}>
                           {tx.type === 'expense' ? '−' : '+'}{fmt(tx.amount, tx.currency)}
                         </p>
                         {dias_auto !== null && (
-                          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: '#C69B30', marginTop: '2px' }}>
+                          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: G.gold, marginTop: '2px' }}>
                             −{fmtAutonomy(dias_auto)}
                           </p>
                         )}
@@ -388,46 +367,48 @@ export function TransactionSlider({
 
       {/* Tab 2 — Presupuestos */}
       {tab === 1 && (
-        <div style={{ backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden' }}>
+        <div style={listContainerStyle}>
           {budgets.length === 0 ? (
             <div style={{ padding: '24px', textAlign: 'center' }}>
-              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#7A9A8A' }}>Los presupuestos aparecerán automáticamente al registrar gastos</p>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: G.textSec }}>Los presupuestos aparecerán automáticamente al registrar gastos</p>
             </div>
           ) : (
             budgets.filter(b => b.avg_amount && b.avg_amount > 0).map(budget => {
-              const spent = budget.spent_this_month ?? 0
-              const avg = budget.avg_amount ?? 0
-              const pct = budget.pct_of_avg ?? 0
-              const barColor = pct > 100 ? '#E84434' : pct > 80 ? '#C69B30' : '#3A9E6A'
-              const dotColor = budget.category?.color ?? '#7A9A8A'
-              const sparks = weekSpend[budget.category_id] ?? [0, 0, 0, 0]
+              const spent   = budget.spent_this_month ?? 0
+              const avg     = budget.avg_amount ?? 0
+              const pct     = budget.pct_of_avg ?? 0
+              const barColor = pct > 100 ? G.red : pct > 80 ? G.gold : G.green
+              const dotColor = budget.category?.color ?? G.textSec
+              const sparks   = weekSpend[budget.category_id] ?? [0,0,0,0]
 
               return (
                 <button
                   key={budget.id}
                   onClick={() => setSheet({ type: 'budget', budget })}
-                  style={{ display: 'block', width: '100%', padding: '10px 14px', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: '0.5px solid #EAF0EC', backgroundColor: 'white', cursor: 'pointer', textAlign: 'left' }}
+                  style={{ ...rowStyle, display: 'block' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                       <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: dotColor, flexShrink: 0 }} />
                       <Sparkline values={sparks} />
-                      <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: '#141F19' }}>{budget.category?.name}</p>
+                      <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: G.textPrimary }}>{budget.category?.name}</p>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 500, color: '#141F19' }}>{fmt(spent)}</p>
-                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: '#7A9A8A' }}>/ prom. {fmt(avg)}</p>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 500, color: G.textPrimary }}>{fmt(spent)}</p>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: G.textSec }}>/ prom. {fmt(avg)}</p>
                     </div>
                   </div>
-                  <div style={{ backgroundColor: '#EAF0EC', borderRadius: '3px', height: '5px', overflow: 'hidden', position: 'relative' }}>
+                  <div style={{ background: 'rgba(255,255,255,0.07)', borderRadius: '3px', height: '5px', overflow: 'hidden', position: 'relative' }}>
                     <div style={{ height: '5px', borderRadius: '3px', backgroundColor: barColor, width: `${Math.min(100, pct)}%` }} />
                     {budget.suggested_amount && budget.suggested_amount !== avg && (
-                      <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${Math.min(100, (budget.suggested_amount / avg) * 100)}%`, width: '1px', backgroundColor: '#7A9A8A80' }} />
+                      <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${Math.min(100, (budget.suggested_amount / avg) * 100)}%`, width: '1px', backgroundColor: 'rgba(255,255,255,0.25)' }} />
                     )}
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px' }}>
                     <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: barColor }}>{pct}% del promedio</p>
-                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: '#7A9A8A' }}>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: G.textSec }}>
                       {spent > avg ? `+${fmt(spent - avg)} sobre hist.` : `faltan ${fmt(avg - spent)}`}
                     </p>
                   </div>
@@ -440,34 +421,33 @@ export function TransactionSlider({
 
       {/* Tab 3 — Habituales */}
       {tab === 2 && (
-        <div style={{ backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden' }}>
-
+        <div style={listContainerStyle}>
           {recurring_templates.length === 0 ? (
             <div style={{ padding: '24px', textAlign: 'center' }}>
-              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#7A9A8A' }}>Sin gastos habituales</p>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: G.textSec }}>Sin gastos habituales</p>
             </div>
           ) : (
             recurring_templates.map(template => (
               <button
                 key={template.id}
                 onClick={() => setSheet({ type: 'recurring', template })}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: '0.5px solid #EAF0EC', backgroundColor: 'white', width: '100%', cursor: 'pointer', textAlign: 'left' }}
+                style={rowStyle}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: '#141F19', marginBottom: '1px' }}>{template.name}</p>
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#7A9A8A' }}>
-                    {fmtFrequency(template)} · {template.category?.name}
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: G.textPrimary, marginBottom: '1px' }}>{template.name}</p>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: G.textSec }}>
+                    {fmtFrequency(template)} · {template.category?.name}{template.registered_by_name ? ` · ${template.registered_by_name}` : ''}
                   </p>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 500, color: template.type === 'expense' ? '#E84434' : '#3A9E6A', marginBottom: '4px' }}>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 500, color: template.type === 'expense' ? G.red : G.green, marginBottom: '4px' }}>
                     {fmt(template.amount, template.currency)}
                   </p>
-                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
-                    <span style={{ padding: '2px 7px', borderRadius: '8px', fontFamily: 'var(--font-mono)', fontSize: '9px', ...(template.is_pending_this_period ? { backgroundColor: '#7A9A8A20', color: '#7A9A8A', border: '0.5px solid #7A9A8A40' } : { backgroundColor: '#3A9E6A20', color: '#3A9E6A', border: '0.5px solid #3A9E6A40' }) }}>
-                      {template.is_pending_this_period ? 'pendiente' : 'activo'}
-                    </span>
-                  </div>
+                  <span style={{ padding: '2px 7px', borderRadius: '8px', fontFamily: 'var(--font-mono)', fontSize: '9px', ...(template.is_pending_this_period ? { background: 'rgba(255,255,255,0.06)', color: G.textSec, border: '0.5px solid rgba(255,255,255,0.08)' } : { background: 'rgba(58,158,106,0.15)', color: G.greenBright, border: '0.5px solid rgba(58,158,106,0.25)' }) }}>
+                    {template.is_pending_this_period ? 'pendiente' : 'activo'}
+                  </span>
                 </div>
               </button>
             ))
@@ -476,29 +456,9 @@ export function TransactionSlider({
       )}
 
       {/* Sheets */}
-      {sheet?.type === 'tx' && (
-        <TxSheet
-          tx={sheet.tx}
-          onClose={() => setSheet(null)}
-          onEdit={tx => { onEditTransaction(tx) }}
-          onDeleted={() => { setSheet(null); onDataChanged() }}
-        />
-      )}
-      {sheet?.type === 'budget' && (
-        <BudgetSheet
-          budget={sheet.budget}
-          onClose={() => setSheet(null)}
-          onSaved={() => { setSheet(null); onDataChanged() }}
-        />
-      )}
-      {sheet?.type === 'recurring' && (
-        <RecurringSheet
-          template={sheet.template}
-          onClose={() => setSheet(null)}
-          onChanged={() => { setSheet(null); onDataChanged() }}
-        />
-      )}
-
+      {sheet?.type === 'tx' && <TxSheet tx={sheet.tx} onClose={() => setSheet(null)} onEdit={tx => { onEditTransaction(tx) }} onDeleted={() => { setSheet(null); onDataChanged() }} />}
+      {sheet?.type === 'budget' && <BudgetSheet budget={sheet.budget} onClose={() => setSheet(null)} onSaved={() => { setSheet(null); onDataChanged() }} />}
+      {sheet?.type === 'recurring' && <RecurringSheet template={sheet.template} onClose={() => setSheet(null)} onChanged={() => { setSheet(null); onDataChanged() }} />}
     </div>
   )
 }

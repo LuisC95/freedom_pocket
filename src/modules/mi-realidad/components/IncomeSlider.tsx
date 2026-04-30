@@ -190,6 +190,9 @@ export function IncomeSlider({
                         <span className="font-normal text-[#7A9A8A]"> · {fmtTime(group.registeredAt)}</span>
                       </p>
                       <p className="text-[11px] text-[#7A9A8A] truncate">{group.groupName}</p>
+                      {group.entries[0]?.registered_by_name && (
+                        <p className="text-[10px] text-[#7A9A8A] truncate">Registró {group.entries[0].registered_by_name}</p>
+                      )}
                     </div>
 
                     {/* Summary: earn | div | ded | div | net */}
@@ -354,6 +357,9 @@ export function IncomeSlider({
                       {fmt(income.total_mes_calculado, income.currency)}
                     </span>
                   </p>
+                  {income.registered_by_name && (
+                    <p className="text-[10px] text-[#7A9A8A] mt-0.5">Registró {income.registered_by_name}</p>
+                  )}
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <button

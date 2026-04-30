@@ -684,3 +684,172 @@
   .glow-green { text-shadow: 0 0 20px rgba(77,201,138,0.5); }
   .glow-gold  { text-shadow: 0 0 16px rgba(212,169,58,0.45); }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Global dark-theme overrides for legacy light-mode components
+   These convert hardcoded Tailwind light values to Glass dark theme.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 1. All form controls → dark glass inputs ── */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+select,
+textarea {
+  background: rgba(255,255,255,0.06) !important;
+  border-color: rgba(255,255,255,0.10) !important;
+  color: var(--text-primary) !important;
+  color-scheme: dark;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):focus,
+select:focus,
+textarea:focus {
+  border-color: rgba(58,158,106,0.50) !important;
+  background: rgba(58,158,106,0.07) !important;
+  outline: none !important;
+}
+input::placeholder, textarea::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 1;
+}
+/* Date input calendar icon */
+input[type="date"] { color-scheme: dark; }
+
+/* ── 2. Modal sheets: bg-white + shadow-xl → dark glass ── */
+.bg-white.shadow-xl,
+.bg-white.shadow-xl.rounded-2xl,
+.bg-white.shadow-xl.rounded-xl {
+  background: rgba(8,20,13,0.94) !important;
+  backdrop-filter: blur(40px) !important;
+  -webkit-backdrop-filter: blur(40px) !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  box-shadow: 0 -8px 60px rgba(0,0,0,0.5) !important;
+}
+
+/* ── 3. Cards with border → glass surface ── */
+.bg-white.border {
+  background: rgba(255,255,255,0.06) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-color: rgba(255,255,255,0.09) !important;
+}
+
+/* ── 4. Plain bg-white without border (transaction list containers) ── */
+/* Target via inline style with backgroundColor white — can't override inline styles via CSS.
+   Instead, target Tailwind's bg-white class specifically */
+.bg-white:not(.shadow-xl):not(.border):not([class*="text-white"]) {
+  background: rgba(255,255,255,0.05) !important;
+}
+
+/* ── 5. Light surface backgrounds → dark glass surfaces ── */
+.bg-\[\#EAF0EC\]  { background: rgba(255,255,255,0.06) !important; }
+.bg-\[\#F2F7F4\]  { background: rgba(255,255,255,0.04) !important; }
+.bg-\[\#F5F7F6\]  { background: rgba(255,255,255,0.03) !important; }
+.bg-\[\#FFF0EF\]  { background: rgba(232,68,52,0.12)  !important; }
+
+/* ── 6. Text color overrides: dark text → light text ── */
+.text-\[\#141F19\] { color: var(--text-primary)   !important; }
+.text-\[\#1A2520\] { color: var(--text-primary)   !important; }
+
+/* Secondary text stays readable on dark bg */
+.text-\[\#7A9A8A\] { color: var(--text-secondary) !important; }
+
+/* ── 7. Border color overrides ── */
+.border-\[\#D0DDD6\] { border-color: rgba(255,255,255,0.10) !important; }
+.border-\[\#EAF0EC\] { border-color: rgba(255,255,255,0.08) !important; }
+.border-\[\#e0ebe4\] { border-color: rgba(255,255,255,0.08) !important; }
+
+/* ── 8. Category / toggle buttons (bg-[#EAF0EC] text-[#7A9A8A]) ── */
+.bg-\[\#EAF0EC\].text-\[\#7A9A8A\] {
+  background: rgba(255,255,255,0.05) !important;
+  color: var(--text-secondary) !important;
+  border-color: rgba(255,255,255,0.08) !important;
+}
+
+/* ── 9. Date group headers in transaction list ── */
+[style*="backgroundColor: '#F2F7F4'"],
+[style*="backgroundColor:\"#F2F7F4\""] {
+  background: rgba(255,255,255,0.04) !important;
+}
+
+/* ── 10. Dark hero cards (solid #1A2520 → glass-hero) ── */
+/* Inline style version */
+[style*="backgroundColor: '#1A2520'"],
+[style*="backgroundColor:\"#1A2520\""] {
+  background: linear-gradient(135deg, rgba(30,80,52,0.45) 0%, rgba(10,26,18,0.60) 100%) !important;
+  backdrop-filter: blur(40px) !important;
+  -webkit-backdrop-filter: blur(40px) !important;
+  border: 1px solid rgba(58,158,106,0.30) !important;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+}
+/* Tailwind class version */
+.bg-\[\#1A2520\] {
+  background: linear-gradient(135deg, rgba(30,80,52,0.45) 0%, rgba(10,26,18,0.60) 100%) !important;
+  backdrop-filter: blur(40px) !important;
+  -webkit-backdrop-filter: blur(40px) !important;
+  border: 1px solid rgba(58,158,106,0.30) !important;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+}
+
+/* ── 11. Transaction rows and list backgrounds (white inline) ── */
+/* These use inline backgroundColor: 'white' so CSS can't override them.
+   Fix is in TransactionSlider.tsx directly. */
+
+/* ── 12. IdeasModuleNav active state ── */
+.ideas-module-nav a[style*="color: #2E7D52"],
+.ideas-module-nav a[style*="color:#2E7D52"] {
+  color: var(--green-bright) !important;
+}
+
+/* ── 13. Fix the green active dot in IdeasModuleNav ── */
+.bg-\[\#2E7D52\].h-1.w-1 {
+  background: var(--green-bright) !important;
+}
+
+/* ── 14. Scrollable list containers with bg-white ── */
+.overflow-y-auto.bg-white,
+.max-h-\[90vh\].bg-white {
+  background: rgba(8,20,13,0.94) !important;
+}
+
+/* ── 15. Prevent white flash on hover for dark background buttons ── */
+.hover\:text-\[\#141F19\]:hover { color: var(--text-primary) !important; }
+
+/* ── 16. Inline style overrides: CSS attribute selectors target React-rendered values ── */
+/* Light surface inline backgrounds */
+[style*="background-color: rgb(234, 240, 236)"],
+[style*="background-color:#EAF0EC"],
+[style*="background-color: #EAF0EC"] {
+  background-color: rgba(255,255,255,0.06) !important;
+}
+[style*="background-color: rgb(242, 247, 244)"],
+[style*="background-color: #F2F7F4"] {
+  background-color: rgba(255,255,255,0.04) !important;
+}
+/* White inline backgrounds for containers (not small icons) */
+[style*="background-color: white"] {
+  background-color: rgba(255,255,255,0.06) !important;
+}
+
+/* ── 17. shadcn/ui Button component default variant → readable on dark bg ── */
+.bg-primary { background-color: #2E7D52 !important; }
+.text-primary-foreground { color: #fff !important; }
+
+/* ── 18. Cancel/ghost buttons that use border-[#D0DDD6] ── */
+.border-\[\#D0DDD6\] {
+  border-color: rgba(255,255,255,0.12) !important;
+  color: var(--text-secondary) !important;
+}
+
+/* ── 19. Mi Realidad hero card bg ── */
+.bg-\[\#1A2520\] {
+  background: linear-gradient(135deg, rgba(30,80,52,0.45) 0%, rgba(10,26,18,0.60) 100%) !important;
+  backdrop-filter: blur(40px) !important;
+  -webkit-backdrop-filter: blur(40px) !important;
+  border: 1px solid rgba(58,158,106,0.30) !important;
+}
+
+/* ── 20. Tabs active state inside light surfaces ── */
+.bg-\[\#EAF0EC\] > button.bg-white,
+.bg-\[\#EAF0EC\] > div > button.bg-white {
+  background: rgba(255,255,255,0.14) !important;
+  color: var(--text-primary) !important;
+}

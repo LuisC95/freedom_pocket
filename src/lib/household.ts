@@ -101,12 +101,14 @@ export async function getHouseholdVisibilityScope(
   const ownPeriodIds = ownPeriod ? [ownPeriod.id] : []
   const alignedPeriodIds = alignedPeriods.map(period => period.id)
 
+  const hasHousehold = Boolean(household.householdId)
+
   return {
     activePeriod: referencePeriod,
-    visibleIncomeUserIds: household.sharedIncomes ? household.memberUserIds : [currentUserId],
-    visibleExpenseUserIds: household.sharedExpenses ? household.memberUserIds : [currentUserId],
-    visibleIncomePeriodIds: household.sharedIncomes ? alignedPeriodIds : ownPeriodIds,
-    visibleExpensePeriodIds: household.sharedExpenses ? alignedPeriodIds : ownPeriodIds,
+    visibleIncomeUserIds: hasHousehold ? household.memberUserIds : [currentUserId],
+    visibleExpenseUserIds: hasHousehold ? household.memberUserIds : [currentUserId],
+    visibleIncomePeriodIds: hasHousehold ? alignedPeriodIds : ownPeriodIds,
+    visibleExpensePeriodIds: hasHousehold ? alignedPeriodIds : ownPeriodIds,
     householdId: household.householdId,
     sharedIncomes: household.sharedIncomes,
     sharedExpenses: household.sharedExpenses,

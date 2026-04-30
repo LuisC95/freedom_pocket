@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
+import { getHouseholdVisibilityScope } from '@/lib/household'
 import type { ActionResult } from '@/types/actions'
 import type { MapaData, CaminoMatch } from '@/modules/ideas/types'
 import { CAMINOS } from '@/modules/ideas/constants'
@@ -10,6 +11,7 @@ export async function getMapaData(): Promise<ActionResult<MapaData>> {
   try {
     const userId   = await getDevUserId()
     const supabase = createAdminClient()
+    const scope = await getHouseholdVisibilityScope(supabase, userId)
 
     let hourly_rate     = 15
     let free_hours_week = 20
@@ -35,7 +37,7 @@ export async function getMapaData(): Promise<ActionResult<MapaData>> {
     const { data: incomes } = await supabase
       .from('incomes')
       .select('amount, frequency')
-      .eq('user_id', userId)
+      .in('user_id', scope.visibleIncomeUserIds)
       .eq('is_active', true)
 
     if (realHours) {

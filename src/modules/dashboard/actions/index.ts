@@ -52,10 +52,11 @@ function mapCategory(raw: any): TransactionCategory {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapTransaction(raw: any): Transaction {
+function mapTransaction(raw: any, ownerNames: Record<string, string> = {}): Transaction {
   return {
     id: raw.id,
     user_id: raw.user_id,
+    registered_by_name: ownerNames[raw.user_id],
     period_id: raw.period_id,
     category_id: raw.category_id,
     household_id: raw.household_id,
@@ -124,6 +125,24 @@ async function getPricePerHour(
 
   const horasSemanales = calcHorasReales(hours)
   return horasSemanales > 0 ? totalMes / (horasSemanales * 4.33) : null
+}
+
+async function getProfileNames(
+  supabase: ReturnType<typeof createAdminClient>,
+  userIds: string[]
+): Promise<Record<string, string>> {
+  const ids = Array.from(new Set(userIds.filter(Boolean)))
+  if (ids.length === 0) return {}
+
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, display_name')
+    .in('id', ids)
+
+  return (data ?? []).reduce<Record<string, string>>((acc, profile) => {
+    acc[profile.id] = profile.display_name || 'Miembro'
+    return acc
+  }, {})
 }
 
 // ─── isTemplatePending ────────────────────────────────────────────────────────
@@ -197,10 +216,7 @@ export async function getCreditCardOptions(): Promise<ActionResult<CreditCardOpt
 
   if (error) return { ok: false, error: error.message }
 
-  const visibleCards = (data ?? []).filter(card =>
-    card.user_id === DEV_USER_ID ||
-    (scope.householdId && card.household_id === scope.householdId && card.is_shared)
-  )
+  const visibleCards = data ?? []
 
   const otherUserIds = Array.from(new Set(
     visibleCards
@@ -364,9 +380,13 @@ export async function getDashboardData(): Promise<DashboardData> {
   ])
 
   const pricePerHour = await getPricePerHour(supabase, period.id, DEV_USER_ID)
+  const profileNames = await getProfileNames(supabase, [
+    ...(txRaw ?? []).map(tx => tx.user_id),
+    ...(templatesRaw ?? []).map(template => template.user_id),
+  ])
 
   // ── Transactions → TransactionGroup[] ────────────────────────────────────
-  const transactions: Transaction[] = (txRaw ?? []).map(mapTransaction)
+  const transactions: Transaction[] = (txRaw ?? []).map(tx => mapTransaction(tx, profileNames))
   const groupMap: Map<string, Transaction[]> = new Map()
   for (const tx of transactions) {
     const key = tx.transaction_date
@@ -450,6 +470,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   const recurring_templates: RecurringTemplate[] = (templatesRaw ?? []).map(t => ({
     id: t.id,
     user_id: t.user_id,
+    registered_by_name: profileNames[t.user_id],
     household_id: t.household_id,
     category_id: t.category_id,
     name: t.name,
@@ -674,6 +695,7 @@ export async function updateTransaction(
 ): Promise<{ data: Transaction | null; error: string | null }> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
+  const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
   const paymentFields: Partial<{ payment_source: PaymentSource; liability_id: string | null }> = data.payment_source
     ? normalizePaymentFields(data)
     : {}
@@ -686,7 +708,7 @@ export async function updateTransaction(
     .from('transactions')
     .update({ ...data, ...paymentFields } as any)
     .eq('id', id)
-    .eq('user_id', DEV_USER_ID)
+    .in('user_id', data.type === 'income' ? scope.visibleIncomeUserIds : scope.visibleExpenseUserIds)
     .select('*, transaction_categories(*)')
     .single()
 
