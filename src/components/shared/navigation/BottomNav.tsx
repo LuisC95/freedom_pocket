@@ -59,11 +59,14 @@ export function BottomNav({ isAdmin = false }: BottomNavProps) {
 
   return (
     <nav
-      className="flex-shrink-0 flex md:hidden items-center justify-around h-[64px] mx-4 mb-3"
+      className="flex-shrink-0 flex md:hidden items-center justify-around h-[66px] mx-4 mb-3 px-2 relative z-40"
       style={{
-        backgroundColor: 'var(--fc-dark)',
+        background: 'rgba(8,18,12,0.80)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        border: '1px solid rgba(255,255,255,0.10)',
         borderRadius: '9999px',
-        boxShadow: '8px 8px 20px rgba(10,18,14,0.45), -4px -4px 12px rgba(40,60,48,0.25)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
       }}
     >
       {visibleItems.map((item) => {
@@ -73,10 +76,12 @@ export function BottomNav({ isAdmin = false }: BottomNavProps) {
             key={item.href}
             href={item.href}
             className={cn(
-              'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-full transition-colors',
-              isActive ? 'text-[#3A9E6A]' : 'text-[#6A8A7A] hover:text-[#3A9E6A]'
+              'flex flex-col items-center gap-0.5 px-3.5 py-1.5 rounded-full transition-all duration-150',
+              isActive
+                ? 'text-[#4DC98A]'
+                : 'text-[rgba(238,245,240,0.35)] hover:text-[rgba(238,245,240,0.65)]'
             )}
-            style={isActive ? { backgroundColor: '#2E7D5222' } : undefined}
+            style={isActive ? { background: 'rgba(58,158,106,0.18)' } : undefined}
           >
             {item.icon}
             <span className="text-[9px] font-medium" style={{ fontFamily: 'var(--font-sans)' }}>

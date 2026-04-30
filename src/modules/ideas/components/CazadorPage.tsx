@@ -12,18 +12,6 @@ interface Props {
   streak:       Streak
 }
 
-const TAG_COLORS: Record<string, string> = {
-  trabajo:   '#6366f1',
-  hogar:     '#2E7D52',
-  finanzas:  '#C69B30',
-  salud:     '#E84434',
-  educacion: '#3A9E6A',
-}
-
-function tagColor(tag: string | null): string {
-  return TAG_COLORS[tag ?? ''] ?? '#7A9A8A'
-}
-
 export function CazadorPage({ observations: initialObs, pattern, streak }: Props) {
   const router                          = useRouter()
   const [observations, setObservations] = useState(initialObs)
@@ -69,71 +57,95 @@ export function CazadorPage({ observations: initialObs, pattern, streak }: Props
       {/* Back */}
       <button
         onClick={() => router.push('/ideas')}
-        className="flex items-center gap-1 pb-2 text-[13px] text-[#7A9A8A]"
+        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer', padding: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-sans)' }}
       >
         ← Volver
       </button>
 
       {/* Hero card */}
-      <div className="rounded-2xl bg-[#1A2520] p-5">
-        <div className="mb-3 flex items-start justify-between">
+      <div className="glass-hero p-5">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <div>
-            <div className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-[#7A9A8A]">
-              Cazador de Problemas
-            </div>
-            <h1 className="text-[20px] font-black leading-tight text-white">
+            <div className="fc-label-micro mb-1">Cazador de Problemas</div>
+            <h1 style={{ color: 'var(--text-primary)', fontSize: 20, fontWeight: 800, lineHeight: 1.2, fontFamily: 'var(--font-sans)' }}>
               Observa.<br />Registra. Acumula.
             </h1>
           </div>
-          <div className="text-center">
-            <div className="font-mono text-[30px] font-black text-[#C69B30]">
+          <div style={{ textAlign: 'center' }}>
+            <div className="glow-gold" style={{ fontFamily: 'var(--font-mono)', fontSize: 30, fontWeight: 800, color: 'var(--text-gold)', lineHeight: 1 }}>
               {streak.current_count}
             </div>
-            <div className="text-[10px] font-semibold text-[#7A9A8A]">días seguidos</div>
+            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)' }}>días seguidos</div>
           </div>
         </div>
-        <div className="rounded-xl bg-white/10 px-3 py-2.5">
-          <div className="mb-0.5 text-[12px] font-semibold text-white">👂 Misión de hoy</div>
-          <div className="text-[12px] text-[#7A9A8A]">Registra 1 queja real que escuches en tu entorno</div>
+        <div style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 10, padding: '10px 12px' }}>
+          <div style={{ color: 'var(--text-primary)', fontSize: 12, fontWeight: 600, marginBottom: 2, fontFamily: 'var(--font-sans)' }}>👂 Misión de hoy</div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: 12, fontFamily: 'var(--font-sans)' }}>Registra 1 queja real que escuches en tu entorno</div>
         </div>
       </div>
 
       {/* Input */}
-      <div className="rounded-2xl border border-[#e0ebe4] bg-white px-4 py-3.5">
-        <div className="mb-2.5 text-[13px] font-semibold text-[#141F19]">¿Qué queja escuchaste hoy?</div>
-        <div className="flex gap-2">
+      <div className="glass p-4">
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 10, fontFamily: 'var(--font-sans)' }}>
+          ¿Qué queja escuchaste hoy?
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
           <input
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleAdd()}
             placeholder="Escríbela tal como la escuchaste..."
-            className="flex-1 rounded-xl border border-[#e0ebe4] bg-[#F2F7F4] px-3 py-2.5 text-[12px] text-[#141F19] outline-none placeholder:text-[#7A9A8A]"
+            className="fc-input"
+            style={{ padding: '10px 12px', fontSize: 12 }}
           />
           <button
             onClick={handleAdd}
             disabled={isPending || !input.trim()}
-            className="rounded-xl bg-[#2E7D52] px-4 py-2.5 text-lg font-bold text-white disabled:opacity-50"
+            style={{
+              background: 'linear-gradient(135deg, #2E7D52 0%, #1A5038 100%)',
+              color: '#fff',
+              border: '1px solid rgba(77,201,138,0.25)',
+              borderRadius: 10,
+              padding: '10px 16px',
+              fontSize: 16,
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 4px 16px rgba(46,125,82,0.3)',
+              opacity: isPending || !input.trim() ? 0.5 : 1,
+            }}
           >
             +
           </button>
         </div>
-        {error && <p className="mt-2 text-[11px] text-[#E84434]">{error}</p>}
+        {error && <p style={{ marginTop: 8, fontSize: 11, color: 'var(--text-red)', fontFamily: 'var(--font-sans)' }}>{error}</p>}
       </div>
 
       {/* Patrón detectado */}
       {pattern && (
-        <div className="rounded-2xl border border-[#C69B30]/30 bg-[#C69B30]/08 px-3.5 py-3" style={{ borderLeft: '3px solid #C69B30', background: '#C69B3008' }}>
-          <div className="flex gap-2">
-            <span className="text-sm">✨</span>
+        <div style={{ borderLeft: '3px solid var(--gold)', background: 'var(--gold-dim)', borderRadius: 12, padding: '12px 14px', border: '1px solid var(--fc-gold-border)' }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <span style={{ fontSize: 14 }}>✨</span>
             <div>
-              <div className="mb-1 text-[12px] font-bold text-[#C69B30]">Patrón detectado por AI</div>
-              <p className="text-[12px] leading-relaxed text-[#141F19]">
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-gold)', marginBottom: 3, fontFamily: 'var(--font-sans)' }}>Patrón detectado por AI</div>
+              <p style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.5, fontFamily: 'var(--font-sans)' }}>
                 <strong>{pattern.title}:</strong> {pattern.description}
               </p>
               <button
                 onClick={handlePatternToIdea}
                 disabled={isPending}
-                className="mt-2 rounded-lg border border-[#C69B30] px-2.5 py-1 text-[11px] font-semibold text-[#C69B30] disabled:opacity-50"
+                style={{
+                  marginTop: 8,
+                  background: 'none',
+                  border: '1px solid var(--gold)',
+                  color: 'var(--text-gold)',
+                  borderRadius: 8,
+                  padding: '4px 10px',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-sans)',
+                  opacity: isPending ? 0.5 : 1,
+                }}
               >
                 Ver en mis ideas →
               </button>
@@ -142,50 +154,44 @@ export function CazadorPage({ observations: initialObs, pattern, streak }: Props
         </div>
       )}
 
-      {/* Lista de observaciones */}
+      {/* Lista */}
       {observations.length > 0 && (
         <>
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-[#7A9A8A]">
-            Radar · {observations.length} observaciones
-          </div>
+          <div className="fc-label-micro mt-1">Radar · {observations.length} observaciones</div>
           <div className="flex flex-col gap-2">
             {observations.map(o => (
-              <div key={o.id} className="rounded-2xl border border-[#e0ebe4] bg-white px-3.5 py-3">
-                <div className="flex items-start gap-2.5">
-                  <div className="flex-1">
-                    <p className="mb-1.5 text-[13px] leading-relaxed text-[#141F19]">{o.content}</p>
+              <div key={o.id} className="glass p-3.5">
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.4, marginBottom: 6, fontFamily: 'var(--font-sans)' }}>{o.content}</p>
                     {o.category && (
-                      <span
-                        className="rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-semibold"
-                        style={{
-                          background: tagColor(o.category) + '18',
-                          color: tagColor(o.category),
-                          borderColor: tagColor(o.category) + '30',
-                        }}
-                      >
-                        {o.category}
-                      </span>
+                      <span className="badge badge-accent">{o.category}</span>
                     )}
                   </div>
                   {o.potential_score != null && (
-                    <div className="min-w-[42px] text-center">
-                      <div
-                        className="flex h-[42px] w-[42px] items-center justify-center rounded-full"
-                        style={{
-                          background: `conic-gradient(#2E7D52 ${o.potential_score}%, #e0ebe4 0)`,
-                        }}
-                      >
-                        <div className="flex h-[32px] w-[32px] items-center justify-center rounded-full bg-white font-mono text-[10px] font-black text-[#2E7D52]">
+                    <div style={{ textAlign: 'center', minWidth: 42 }}>
+                      <div style={{
+                        width: 42, height: 42, borderRadius: '50%',
+                        background: `conic-gradient(#3A9E6A ${o.potential_score}%, rgba(255,255,255,0.07) 0)`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <div style={{
+                          width: 32, height: 32, borderRadius: '50%',
+                          background: 'rgba(8,18,12,0.9)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 10, fontWeight: 800,
+                          color: 'var(--green-bright)',
+                          fontFamily: 'var(--font-mono)',
+                        }}>
                           {o.potential_score}
                         </div>
                       </div>
-                      <div className="mt-0.5 text-[9px] text-[#7A9A8A]">potencial</div>
+                      <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'var(--font-sans)' }}>potencial</div>
                     </div>
                   )}
                   <button
                     onClick={() => handleDelete(o.id)}
-                    className="ml-1 text-[#7A9A8A] hover:text-[#E84434]"
-                    title="Eliminar"
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
                   >
                     ×
                   </button>
@@ -197,9 +203,11 @@ export function CazadorPage({ observations: initialObs, pattern, streak }: Props
       )}
 
       {observations.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-[#e0ebe4] px-4 py-8 text-center">
-          <div className="mb-1 text-2xl">👂</div>
-          <p className="text-[13px] text-[#7A9A8A]">Aún no tienes observaciones. Empieza escuchando quejas a tu alrededor.</p>
+        <div className="fc-empty-state">
+          <div style={{ marginBottom: 4, fontSize: 22 }}>👂</div>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)' }}>
+            Aún no tienes observaciones. Empieza escuchando quejas a tu alrededor.
+          </p>
         </div>
       )}
     </div>

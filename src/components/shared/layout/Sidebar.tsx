@@ -59,19 +59,28 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
 
   return (
     <aside
-      className="fixed left-0 top-0 z-40 hidden md:flex flex-col items-center w-[68px] h-screen py-4 gap-2"
-      style={{ backgroundColor: 'var(--fc-dark)' }}
+      className="fixed left-0 top-0 z-40 hidden md:flex flex-col items-center w-[72px] h-screen py-[18px] pb-4 gap-0.5"
+      style={{
+        background: 'rgba(10,20,14,0.70)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        borderRight: '1px solid rgba(255,255,255,0.08)',
+      }}
     >
       {/* Logo */}
       <div
-        className="w-10 h-10 rounded-full flex items-center justify-center mb-3 font-bold text-sm text-white shrink-0"
-        style={{ backgroundColor: 'var(--fc-accent)', fontFamily: 'var(--font-mono)', boxShadow: '0 2px 10px rgba(46,125,82,0.45)' }}
+        className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 font-bold text-sm text-white shrink-0"
+        style={{
+          background: 'linear-gradient(135deg, #2E7D52 0%, #1F6B3E 100%)',
+          fontFamily: 'var(--font-mono)',
+          boxShadow: '0 4px 20px rgba(46,125,82,0.5), inset 0 1px 0 rgba(255,255,255,0.2)',
+        }}
       >
         FC
       </div>
 
       {/* Nav items */}
-      <nav className="flex flex-col items-center gap-1 flex-1">
+      <nav className="flex flex-col items-center gap-0.5 flex-1">
         {visibleItems.map((item) => {
           const isActive = pathname.startsWith(item.href)
           return (
@@ -79,11 +88,19 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex flex-col items-center gap-1 w-14 py-[9px] px-1 rounded-full transition-colors',
-                isActive ? 'text-[#3A9E6A]' : 'text-[#6A8A7A] hover:text-[#3A9E6A]'
+                'relative flex flex-col items-center gap-1 w-[58px] py-2.5 px-1 rounded-xl transition-all duration-150',
+                isActive
+                  ? 'text-[#4DC98A]'
+                  : 'text-[rgba(238,245,240,0.3)] hover:text-[rgba(238,245,240,0.65)] hover:bg-[rgba(255,255,255,0.04)]'
               )}
-              style={isActive ? { backgroundColor: '#2E7D5228' } : undefined}
+              style={isActive ? {
+                background: 'rgba(58,158,106,0.18)',
+                border: '1px solid rgba(58,158,106,0.35)',
+              } : undefined}
             >
+              {isActive && (
+                <span className="absolute left-[-1px] top-1/2 -translate-y-1/2 w-[3px] h-[18px] bg-[#4DC98A] rounded-r-full" />
+              )}
               {item.icon}
               <span className="text-[9px] font-medium leading-tight text-center" style={{ fontFamily: 'var(--font-sans)' }}>
                 {item.label}

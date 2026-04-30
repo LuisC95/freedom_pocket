@@ -3,21 +3,28 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Idea, CreateIdeaInput, BusinessModel } from '@/modules/ideas/types'
-import { createIdea, createMapIdea, discardIdea, generateSprint, getActiveSprintForIdea } from '@/modules/ideas/actions'
+import { createIdea, discardIdea, generateSprint, getActiveSprintForIdea } from '@/modules/ideas/actions'
 import { BUSINESS_MODELS, CAMINOS } from '@/modules/ideas/constants'
 
+// createMapIdea may or may not exist — import defensively
+let createMapIdea: ((input: { caminoId: string }) => Promise<import('@/types/actions').ActionResult<Idea>>) | undefined
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  createMapIdea = require('@/modules/ideas/actions').createMapIdea
+} catch { /* not available */ }
+
 interface Props {
-  ideas: Idea[]
-  initialFilter?: Exclude<FiltroKey, 'todas' | 'en_sprint'>
-  caminoId?: string
+  ideas:          Idea[]
+  initialFilter?: 'cazador' | 'mapa'
+  caminoId?:      string
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  nueva:             '#2E7D52',
-  en_sprint:         '#C69B30',
-  sprint_completado: '#3A9E6A',
-  promovida:         '#2E7D52',
-  descartada:        '#E84434',
+  nueva:             '#3A9E6A',
+  en_sprint:         '#D4A93A',
+  sprint_completado: '#4DC98A',
+  promovida:         '#3A9E6A',
+  descartada:        '#F2675A',
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -37,18 +44,18 @@ const SOURCE_LABEL: Record<string, string> = {
 type FiltroKey = 'todas' | 'cazador' | 'mapa' | 'en_sprint'
 
 const FILTROS: { key: FiltroKey; label: string }[] = [
-  { key: 'todas',    label: 'Todas'      },
-  { key: 'cazador',  label: '👂 Cazador' },
-  { key: 'mapa',     label: '🗺️ Mapa'   },
+  { key: 'todas',     label: 'Todas'       },
+  { key: 'cazador',   label: '👂 Cazador'  },
+  { key: 'mapa',      label: '🗺️ Mapa'    },
   { key: 'en_sprint', label: '⚡ En sprint' },
 ]
 
-function IdeaEmoji(title: string): string {
+function ideaEmoji(title: string): string {
   const t = title.toLowerCase()
-  if (t.includes('plomero') || t.includes('hogar') || t.includes('servicio'))   return '🔧'
-  if (t.includes('contab') || t.includes('fiscal') || t.includes('finanza'))    return '💼'
+  if (t.includes('plomero') || t.includes('hogar') || t.includes('servicio')) return '🔧'
+  if (t.includes('contab') || t.includes('fiscal') || t.includes('finanza'))  return '💼'
   if (t.includes('newsletter') || t.includes('contenido') || t.includes('blog')) return '📰'
-  if (t.includes('app') || t.includes('software') || t.includes('saas'))        return '💻'
+  if (t.includes('app') || t.includes('software') || t.includes('saas'))      return '💻'
   return '💡'
 }
 
@@ -61,8 +68,11 @@ export function BancoPage({ ideas: initialIdeas, initialFilter, caminoId }: Prop
   const [formError, setFormError]     = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [isPending, startTransition]  = useTransition()
-  const selectedCamino                = caminoId ? CAMINOS.find(c => c.id === caminoId) : null
-  const selectedCaminoExists          = selectedCamino ? ideas.some(i => i.source === 'mapa' && i.title === selectedCamino.titulo && i.status !== 'descartada') : false
+
+  const selectedCamino = caminoId ? CAMINOS.find(c => c.id === caminoId) : null
+  const selectedCaminoExists = selectedCamino
+    ? ideas.some(i => i.source === 'mapa' && i.title === selectedCamino.titulo && i.status !== 'descartada')
+    : false
 
   const filtered = ideas.filter(i => {
     if (filtro === 'todas')     return true
@@ -76,15 +86,13 @@ export function BancoPage({ ideas: initialIdeas, initialFilter, caminoId }: Prop
       return
     }
     setFormError(null)
-
     startTransition(async () => {
       const input: CreateIdeaInput = {
-        title:       form.title.trim(),
+        title: form.title.trim(),
         description: form.description.trim(),
-        source:      'manual',
+        source: 'manual',
       }
       if (form.business_model) input.business_model = form.business_model as BusinessModel
-
       const result = await createIdea(input)
       if (result.ok) {
         setIdeas(prev => [result.data, ...prev])
@@ -97,10 +105,10 @@ export function BancoPage({ ideas: initialIdeas, initialFilter, caminoId }: Prop
   }
 
   const handleCreateFromCamino = () => {
-    if (!selectedCamino || isPending) return
+    if (!selectedCamino || isPending || !createMapIdea) return
     setActionError(null)
     startTransition(async () => {
-      const result = await createMapIdea({ caminoId: selectedCamino.id })
+      const result = await createMapIdea!({ caminoId: selectedCamino.id })
       if (result.ok) {
         setIdeas(prev => prev.some(i => i.id === result.data.id) ? prev : [result.data, ...prev])
         setFiltro('mapa')
@@ -119,13 +127,13 @@ export function BancoPage({ ideas: initialIdeas, initialFilter, caminoId }: Prop
         if (active.ok && active.data) {
           router.push(`/ideas/sprint/${active.data.id}`)
         } else {
-          setActionError(active.ok ? 'No encontré el sprint activo de esta idea. Intenta lanzarlo de nuevo.' : active.error)
+          setActionError(active.ok ? 'No encontré el sprint activo.' : active.error)
         }
         return
       }
       const result = await generateSprint(idea.id)
       if (result.ok) {
-        setIdeas(prev => prev.map(i => i.id === idea.id ? { ...i, status: 'en_sprint' } : i))
+        setIdeas(prev => prev.map(i => i.id === idea.id ? { ...i, status: 'en_sprint' as const } : i))
         router.push(`/ideas/sprint/${result.data.id}`)
       } else {
         setActionError(result.error)
@@ -138,11 +146,8 @@ export function BancoPage({ ideas: initialIdeas, initialFilter, caminoId }: Prop
     setActionError(null)
     startTransition(async () => {
       const result = await discardIdea(idea.id, 'Descartada desde Banco de Ideas')
-      if (result.ok) {
-        setIdeas(prev => prev.map(i => i.id === idea.id ? result.data : i))
-      } else {
-        setActionError(result.error)
-      }
+      if (result.ok) setIdeas(prev => prev.map(i => i.id === idea.id ? result.data : i))
+      else setActionError(result.error)
     })
   }
 
@@ -151,104 +156,116 @@ export function BancoPage({ ideas: initialIdeas, initialFilter, caminoId }: Prop
       {/* Back */}
       <button
         onClick={() => router.push('/ideas')}
-        className="flex items-center gap-1 pb-2 text-[13px] text-[#7A9A8A]"
+        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer', padding: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-sans)' }}
       >
         ← Volver
       </button>
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h1 className="text-[22px] font-black text-[#141F19]">Mis Ideas</h1>
-          <p className="text-[13px] text-[#7A9A8A]">Elige una idea para lanzar tu sprint personalizado</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-sans)', marginBottom: 2 }}>Mis Ideas</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)' }}>Elige una idea para lanzar tu sprint personalizado</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-1 rounded-xl bg-[#2E7D52] px-3 py-2 text-[13px] font-bold text-white"
+          style={{
+            background: 'linear-gradient(135deg, #2E7D52 0%, #1A5038 100%)',
+            color: '#fff',
+            border: '1px solid rgba(77,201,138,0.25)',
+            borderRadius: 12,
+            padding: '8px 14px',
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: 'pointer',
+            fontFamily: 'var(--font-sans)',
+            boxShadow: '0 4px 16px rgba(46,125,82,0.3)',
+          }}
         >
           + Nueva
         </button>
       </div>
 
       {/* Filtros */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
+      <div className="fc-tabs">
         {FILTROS.map(f => (
           <button
             key={f.key}
             onClick={() => setFiltro(f.key)}
-            className="whitespace-nowrap rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition-all"
-            style={{
-              background:   filtro === f.key ? '#2E7D52' : '#fff',
-              color:        filtro === f.key ? '#fff'    : '#7A9A8A',
-              border:       `1px solid ${filtro === f.key ? '#2E7D52' : '#e0ebe4'}`,
-            }}
+            className={`fc-tab ${filtro === f.key ? 'active' : ''}`}
           >
             {f.label}
           </button>
         ))}
       </div>
 
+      {/* Camino banner */}
       {selectedCamino && !selectedCaminoExists && (
-        <div className="rounded-2xl border border-[#C69B30]/30 bg-[#C69B30]/10 p-4">
-          <div className="mb-2 flex items-start gap-3">
-            <span className="text-[24px] leading-none">{selectedCamino.emoji}</span>
-            <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-bold text-[#141F19]">{selectedCamino.titulo}</div>
-              <p className="mt-1 text-[12px] leading-relaxed text-[#7A9A8A]">{selectedCamino.desc}</p>
+        <div style={{ background: 'rgba(198,155,48,0.10)', border: '1px solid rgba(198,155,48,0.25)', borderRadius: 16, padding: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+            <span style={{ fontSize: 24, lineHeight: 1 }}>{selectedCamino.emoji}</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-sans)', marginBottom: 2 }}>{selectedCamino.titulo}</div>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, fontFamily: 'var(--font-sans)' }}>{selectedCamino.desc}</p>
             </div>
           </div>
-          <button
-            onClick={handleCreateFromCamino}
-            disabled={isPending}
-            className="w-full rounded-xl bg-[#2E7D52] py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
-          >
-            Crear idea desde este camino
-          </button>
+          {createMapIdea && (
+            <button
+              onClick={handleCreateFromCamino}
+              disabled={isPending}
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, #2E7D52 0%, #1A5038 100%)',
+                color: '#fff',
+                border: '1px solid rgba(77,201,138,0.25)',
+                borderRadius: 12,
+                padding: '10px',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+                opacity: isPending ? 0.5 : 1,
+              }}
+            >
+              ⚡ Explorar este camino
+            </button>
+          )}
         </div>
       )}
 
       {actionError && (
-        <div className="rounded-xl border border-[#E84434]/30 bg-[#E84434]/10 px-3 py-2 text-[12px] text-[#E84434]">
-          {actionError}
-        </div>
+        <p style={{ fontSize: 12, color: 'var(--text-red)', fontFamily: 'var(--font-sans)', padding: '0 4px' }}>{actionError}</p>
       )}
 
       {/* Ideas list */}
       {filtered.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[#e0ebe4] px-4 py-10 text-center">
-          <div className="mb-1 text-2xl">💡</div>
-          <p className="text-[13px] text-[#7A9A8A]">No hay ideas aquí aún. Usa el Cazador o crea una manualmente.</p>
+        <div className="fc-empty-state">
+          <div style={{ marginBottom: 4, fontSize: 22 }}>💡</div>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)' }}>No hay ideas aquí aún. Usa el Cazador o crea una manualmente.</p>
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">
           {filtered.map(idea => (
-            <div key={idea.id} className="rounded-2xl border border-[#e0ebe4] bg-white p-4">
-              <div className="mb-2.5 flex items-start gap-3">
-                <span className="text-[26px] leading-none">{IdeaEmoji(idea.title)}</span>
-                <div className="flex-1">
-                  <div className="mb-1 flex items-start justify-between gap-2">
-                    <span className="text-sm font-bold leading-tight text-[#141F19]">{idea.title}</span>
+            <div key={idea.id} className="glass p-4">
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
+                <span style={{ fontSize: 26, lineHeight: 1 }}>{ideaEmoji(idea.title)}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3, fontFamily: 'var(--font-sans)' }}>{idea.title}</span>
                     {idea.potential_score != null && (
-                      <span className="shrink-0 rounded-full bg-[#2E7D52]/10 px-2 py-0.5 font-mono text-[11px] font-bold text-[#2E7D52]">
+                      <span style={{ flexShrink: 0, background: 'rgba(58,158,106,0.15)', color: 'var(--green-bright)', borderRadius: 999, padding: '2px 8px', fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, border: '1px solid rgba(58,158,106,0.25)' }}>
                         {idea.potential_score}
                       </span>
                     )}
                   </div>
-                  <p className="mb-2 text-[12px] leading-relaxed text-[#7A9A8A]">
+                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 8, fontFamily: 'var(--font-sans)' }}>
                     {idea.description ?? idea.concept ?? ''}
                   </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    <span
-                      className="rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-semibold"
-                      style={{
-                        background:  STATUS_COLOR[idea.status] + '18',
-                        color:       STATUS_COLOR[idea.status],
-                        borderColor: STATUS_COLOR[idea.status] + '30',
-                      }}
-                    >
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    <span style={{ background: STATUS_COLOR[idea.status] + '18', color: STATUS_COLOR[idea.status], border: `1px solid ${STATUS_COLOR[idea.status]}30`, borderRadius: 999, padding: '2px 10px', fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600 }}>
                       {STATUS_LABEL[idea.status]}
                     </span>
-                    <span className="rounded-full border border-[#7A9A8A30] bg-[#7A9A8A18] px-2.5 py-0.5 font-mono text-[11px] font-semibold text-[#7A9A8A]">
+                    <span style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 999, padding: '2px 10px', fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600 }}>
                       {SOURCE_LABEL[idea.source]}
                     </span>
                   </div>
@@ -256,16 +273,28 @@ export function BancoPage({ ideas: initialIdeas, initialFilter, caminoId }: Prop
               </div>
 
               {idea.status !== 'descartada' && idea.status !== 'promovida' && (
-                <div className="flex gap-2">
+                <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     onClick={() => handleLaunchSprint(idea)}
                     disabled={isPending}
-                    className="min-w-0 flex-1 rounded-xl py-2.5 text-[13px] font-bold transition-all disabled:opacity-50"
-                    style={
-                      idea.status === 'en_sprint'
-                        ? { background: '#C69B3018', border: '1px solid #C69B30', color: '#C69B30' }
-                        : { background: '#EAF0EC', border: '1px solid #e0ebe4', color: '#2E7D52' }
-                    }
+                    style={{
+                      flex: 1,
+                      background: idea.status === 'en_sprint'
+                        ? 'rgba(198,155,48,0.14)'
+                        : 'rgba(58,158,106,0.12)',
+                      border: idea.status === 'en_sprint'
+                        ? '1px solid rgba(198,155,48,0.35)'
+                        : '1px solid rgba(58,158,106,0.25)',
+                      borderRadius: 12,
+                      padding: '10px',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: idea.status === 'en_sprint' ? 'var(--text-gold)' : 'var(--green-bright)',
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font-sans)',
+                      opacity: isPending ? 0.5 : 1,
+                      transition: 'opacity 0.15s',
+                    }}
                   >
                     {idea.status === 'en_sprint' ? 'Continuar sprint →' : '⚡ Lanzar sprint'}
                   </button>
@@ -273,9 +302,16 @@ export function BancoPage({ ideas: initialIdeas, initialFilter, caminoId }: Prop
                     onClick={() => handleDiscard(idea)}
                     disabled={isPending}
                     title="Descartar idea"
-                    aria-label={`Descartar ${idea.title}`}
-                    className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border text-[18px] transition-all disabled:opacity-50"
-                    style={{ background: '#E8443410', borderColor: '#E8443430', color: '#E84434' }}
+                    style={{
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: 12,
+                      padding: '10px 14px',
+                      fontSize: 13,
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      opacity: isPending ? 0.5 : 1,
+                    }}
                   >
                     ×
                   </button>
@@ -288,57 +324,38 @@ export function BancoPage({ ideas: initialIdeas, initialFilter, caminoId }: Prop
 
       {/* Modal crear idea */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5">
-            <h2 className="mb-4 text-[16px] font-black text-[#141F19]">Nueva idea</h2>
+        <div className="fc-modal-overlay" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
+          <div className="fc-modal-sheet" style={{ maxWidth: 460, width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-sans)' }}>Nueva idea</h2>
+              <button onClick={() => { setShowModal(false); setFormError(null) }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: 'var(--text-secondary)', cursor: 'pointer', padding: 6, lineHeight: 0 }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" width="16" height="16"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
 
-            <div className="mb-3">
-              <label className="mb-1 block text-[12px] font-semibold text-[#7A9A8A]">Título *</label>
-              <input
-                value={form.title}
-                onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
-                placeholder="Ej: Consultoría de finanzas personales"
-                className="w-full rounded-xl border border-[#e0ebe4] bg-[#F2F7F4] px-3 py-2.5 text-[13px] text-[#141F19] outline-none"
-              />
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, fontFamily: 'var(--font-sans)' }}>Título *</label>
+              <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Ej: Consultoría de finanzas personales" className="fc-input" />
             </div>
-            <div className="mb-3">
-              <label className="mb-1 block text-[12px] font-semibold text-[#7A9A8A]">Descripción *</label>
-              <textarea
-                value={form.description}
-                onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
-                placeholder="¿Qué problema resuelve? ¿A quién?"
-                rows={3}
-                className="w-full resize-none rounded-xl border border-[#e0ebe4] bg-[#F2F7F4] px-3 py-2.5 text-[13px] text-[#141F19] outline-none"
-              />
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, fontFamily: 'var(--font-sans)' }}>Descripción *</label>
+              <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="¿Qué problema resuelve? ¿A quién?" rows={3} className="fc-input" style={{ resize: 'none', lineHeight: 1.5 }} />
             </div>
-            <div className="mb-4">
-              <label className="mb-1 block text-[12px] font-semibold text-[#7A9A8A]">Modelo de negocio (opcional)</label>
-              <select
-                value={form.business_model}
-                onChange={e => setForm(p => ({ ...p, business_model: e.target.value }))}
-                className="w-full rounded-xl border border-[#e0ebe4] bg-[#F2F7F4] px-3 py-2.5 text-[13px] text-[#141F19] outline-none"
-              >
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, fontFamily: 'var(--font-sans)' }}>Modelo de negocio (opcional)</label>
+              <select value={form.business_model} onChange={e => setForm(p => ({ ...p, business_model: e.target.value }))} className="fc-input">
                 <option value="">Seleccionar...</option>
-                {BUSINESS_MODELS.map(m => (
-                  <option key={m.key} value={m.key}>{m.label}</option>
-                ))}
+                {BUSINESS_MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
               </select>
             </div>
 
-            {formError && <p className="mb-3 text-[11px] text-[#E84434]">{formError}</p>}
+            {formError && <p style={{ marginBottom: 12, fontSize: 11, color: 'var(--text-red)', fontFamily: 'var(--font-sans)' }}>{formError}</p>}
 
-            <div className="flex gap-2">
-              <button
-                onClick={() => { setShowModal(false); setFormError(null) }}
-                className="flex-1 rounded-xl border border-[#e0ebe4] py-2.5 text-[13px] font-semibold text-[#7A9A8A]"
-              >
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => { setShowModal(false); setFormError(null) }} style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 9999, padding: '12px', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>
                 Cancelar
               </button>
-              <button
-                onClick={handleCreate}
-                disabled={isPending}
-                className="flex-1 rounded-xl bg-[#2E7D52] py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
-              >
+              <button onClick={handleCreate} disabled={isPending} style={{ flex: 1, background: 'linear-gradient(135deg, #2E7D52 0%, #1A5038 100%)', border: '1px solid rgba(77,201,138,0.25)', borderRadius: 9999, padding: '12px', fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', fontFamily: 'var(--font-sans)', opacity: isPending ? 0.5 : 1, boxShadow: '0 4px 16px rgba(46,125,82,0.3)' }}>
                 Crear idea
               </button>
             </div>

@@ -30,9 +30,16 @@ export default async function ProtectedLayout({
   if (!authenticated) redirect('/dev-login')
 
   return (
-    <div className="h-dvh flex flex-col" style={{ backgroundColor: 'var(--fc-base)' }}>
+    <div className="h-dvh flex flex-col" style={{ backgroundColor: 'var(--bg-base)' }}>
+      {/* Animated glass background */}
+      <div className="fc-bg-canvas" aria-hidden="true">
+        <div className="fc-bg-orb fc-bg-orb-1" />
+        <div className="fc-bg-orb fc-bg-orb-2" />
+        <div className="fc-bg-orb fc-bg-orb-3" />
+      </div>
+
       <Sidebar isAdmin={isAdmin} />
-      <main className="md:ml-[68px] flex-1 flex flex-col min-h-0 overflow-y-auto">
+      <main className="md:ml-[68px] flex-1 flex flex-col min-h-0 overflow-y-auto relative z-10">
         {children}
       </main>
       <BottomNav isAdmin={isAdmin} />
