@@ -75,7 +75,7 @@ export function MapaPage({ data }: Props) {
         {caminosWithMatch.map(c => (
           <button
             key={c.id}
-            onClick={() => router.push('/ideas/banco')}
+            onClick={() => router.push(`/ideas/banco?source=mapa&camino=${c.id}`)}
             className="w-full rounded-2xl border-2 border-[#e0ebe4] bg-white p-4 text-left transition-all hover:shadow-md"
             style={{ borderColor: '#e0ebe4' }}
           >

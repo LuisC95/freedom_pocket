@@ -125,6 +125,10 @@ export interface CreateIdeaInput {
   business_model?: BusinessModel
 }
 
+export interface CreateMapIdeaInput {
+  caminoId: string
+}
+
 export interface CreateObservationInput {
   content: string
 }

@@ -49,7 +49,7 @@ export async function getMapaData(): Promise<ActionResult<MapaData>> {
         preparacion +
         realHours.mental_load_hours_per_week
 
-      free_hours_week = Math.max(0, Math.round((168 - horas_reales_semana * 7) / 7))
+      free_hours_week = Math.max(0, Math.round(168 - horas_reales_semana))
 
       const monthly_income = (incomes ?? []).reduce((sum, inc) => {
         switch (inc.frequency) {

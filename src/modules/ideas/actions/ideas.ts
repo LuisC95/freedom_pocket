@@ -3,8 +3,9 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
 import type { ActionResult } from '@/types/actions'
-import type { Idea, CreateIdeaInput, IdeaSource, IdeaStatus } from '@/modules/ideas/types'
+import type { Idea, CreateIdeaInput, CreateMapIdeaInput, IdeaSource, IdeaStatus } from '@/modules/ideas/types'
 import { mapIdea } from '@/modules/ideas/mappers'
+import { CAMINOS } from '@/modules/ideas/constants'
 
 export async function createIdea(
   input: CreateIdeaInput
@@ -59,6 +60,48 @@ export async function listIdeas(
   } catch (e) {
     console.error('[listIdeas]', e)
     return { ok: false, error: 'Error al listar ideas' }
+  }
+}
+
+export async function createMapIdea(
+  input: CreateMapIdeaInput
+): Promise<ActionResult<Idea>> {
+  try {
+    const userId = await getDevUserId()
+    const camino = CAMINOS.find(c => c.id === input.caminoId)
+    if (!camino) return { ok: false, error: 'Camino no encontrado' }
+
+    const supabase = createAdminClient()
+
+    const { data: existing } = await supabase
+      .from('ideas')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('source', 'mapa')
+      .eq('title', camino.titulo)
+      .neq('status', 'descartada')
+      .maybeSingle()
+
+    if (existing) return { ok: true, data: mapIdea(existing) }
+
+    const { data, error } = await supabase
+      .from('ideas')
+      .insert({
+        user_id: userId,
+        title: camino.titulo,
+        concept: `${camino.sub}. ${camino.desc}`,
+        source: 'mapa',
+        status: 'nueva',
+        potential_score: null,
+      })
+      .select()
+      .single()
+
+    if (error) return { ok: false, error: error.message }
+    return { ok: true, data: mapIdea(data) }
+  } catch (e) {
+    console.error('[createMapIdea]', e)
+    return { ok: false, error: 'Error al crear la idea desde el mapa' }
   }
 }
 

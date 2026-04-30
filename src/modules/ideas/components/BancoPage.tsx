@@ -3,11 +3,13 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Idea, CreateIdeaInput, BusinessModel } from '@/modules/ideas/types'
-import { createIdea, generateSprint } from '@/modules/ideas/actions'
-import { BUSINESS_MODELS } from '@/modules/ideas/constants'
+import { createIdea, createMapIdea, discardIdea, generateSprint, getActiveSprintForIdea } from '@/modules/ideas/actions'
+import { BUSINESS_MODELS, CAMINOS } from '@/modules/ideas/constants'
 
 interface Props {
   ideas: Idea[]
+  initialFilter?: Exclude<FiltroKey, 'todas' | 'en_sprint'>
+  caminoId?: string
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -50,14 +52,17 @@ function IdeaEmoji(title: string): string {
   return '💡'
 }
 
-export function BancoPage({ ideas: initialIdeas }: Props) {
+export function BancoPage({ ideas: initialIdeas, initialFilter, caminoId }: Props) {
   const router                        = useRouter()
   const [ideas, setIdeas]             = useState(initialIdeas)
-  const [filtro, setFiltro]           = useState<FiltroKey>('todas')
+  const [filtro, setFiltro]           = useState<FiltroKey>(initialFilter ?? 'todas')
   const [showModal, setShowModal]     = useState(false)
   const [form, setForm]               = useState({ title: '', description: '', business_model: '' })
   const [formError, setFormError]     = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [isPending, startTransition]  = useTransition()
+  const selectedCamino                = caminoId ? CAMINOS.find(c => c.id === caminoId) : null
+  const selectedCaminoExists          = selectedCamino ? ideas.some(i => i.source === 'mapa' && i.title === selectedCamino.titulo && i.status !== 'descartada') : false
 
   const filtered = ideas.filter(i => {
     if (filtro === 'todas')     return true
@@ -91,17 +96,52 @@ export function BancoPage({ ideas: initialIdeas }: Props) {
     })
   }
 
+  const handleCreateFromCamino = () => {
+    if (!selectedCamino || isPending) return
+    setActionError(null)
+    startTransition(async () => {
+      const result = await createMapIdea({ caminoId: selectedCamino.id })
+      if (result.ok) {
+        setIdeas(prev => prev.some(i => i.id === result.data.id) ? prev : [result.data, ...prev])
+        setFiltro('mapa')
+        router.replace('/ideas/banco?source=mapa')
+      } else {
+        setActionError(result.error)
+      }
+    })
+  }
+
   const handleLaunchSprint = (idea: Idea) => {
+    setActionError(null)
     startTransition(async () => {
       if (idea.status === 'en_sprint') {
-        // Navegar al sprint existente (lo buscamos)
-        router.push(`/ideas/banco/${idea.id}/sprint`)
+        const active = await getActiveSprintForIdea(idea.id)
+        if (active.ok && active.data) {
+          router.push(`/ideas/sprint/${active.data.id}`)
+        } else {
+          setActionError(active.ok ? 'No encontré el sprint activo de esta idea. Intenta lanzarlo de nuevo.' : active.error)
+        }
         return
       }
       const result = await generateSprint(idea.id)
       if (result.ok) {
         setIdeas(prev => prev.map(i => i.id === idea.id ? { ...i, status: 'en_sprint' } : i))
         router.push(`/ideas/sprint/${result.data.id}`)
+      } else {
+        setActionError(result.error)
+      }
+    })
+  }
+
+  const handleDiscard = (idea: Idea) => {
+    if (isPending) return
+    setActionError(null)
+    startTransition(async () => {
+      const result = await discardIdea(idea.id, 'Descartada desde Banco de Ideas')
+      if (result.ok) {
+        setIdeas(prev => prev.map(i => i.id === idea.id ? result.data : i))
+      } else {
+        setActionError(result.error)
       }
     })
   }
@@ -148,6 +188,31 @@ export function BancoPage({ ideas: initialIdeas }: Props) {
         ))}
       </div>
 
+      {selectedCamino && !selectedCaminoExists && (
+        <div className="rounded-2xl border border-[#C69B30]/30 bg-[#C69B30]/10 p-4">
+          <div className="mb-2 flex items-start gap-3">
+            <span className="text-[24px] leading-none">{selectedCamino.emoji}</span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-bold text-[#141F19]">{selectedCamino.titulo}</div>
+              <p className="mt-1 text-[12px] leading-relaxed text-[#7A9A8A]">{selectedCamino.desc}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleCreateFromCamino}
+            disabled={isPending}
+            className="w-full rounded-xl bg-[#2E7D52] py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
+          >
+            Crear idea desde este camino
+          </button>
+        </div>
+      )}
+
+      {actionError && (
+        <div className="rounded-xl border border-[#E84434]/30 bg-[#E84434]/10 px-3 py-2 text-[12px] text-[#E84434]">
+          {actionError}
+        </div>
+      )}
+
       {/* Ideas list */}
       {filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[#e0ebe4] px-4 py-10 text-center">
@@ -191,18 +256,30 @@ export function BancoPage({ ideas: initialIdeas }: Props) {
               </div>
 
               {idea.status !== 'descartada' && idea.status !== 'promovida' && (
-                <button
-                  onClick={() => handleLaunchSprint(idea)}
-                  disabled={isPending}
-                  className="w-full rounded-xl py-2.5 text-[13px] font-bold transition-all disabled:opacity-50"
-                  style={
-                    idea.status === 'en_sprint'
-                      ? { background: '#C69B3018', border: '1px solid #C69B30', color: '#C69B30' }
-                      : { background: '#EAF0EC', border: '1px solid #e0ebe4', color: '#2E7D52' }
-                  }
-                >
-                  {idea.status === 'en_sprint' ? 'Continuar sprint →' : '⚡ Lanzar sprint para esta idea'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleLaunchSprint(idea)}
+                    disabled={isPending}
+                    className="min-w-0 flex-1 rounded-xl py-2.5 text-[13px] font-bold transition-all disabled:opacity-50"
+                    style={
+                      idea.status === 'en_sprint'
+                        ? { background: '#C69B3018', border: '1px solid #C69B30', color: '#C69B30' }
+                        : { background: '#EAF0EC', border: '1px solid #e0ebe4', color: '#2E7D52' }
+                    }
+                  >
+                    {idea.status === 'en_sprint' ? 'Continuar sprint →' : '⚡ Lanzar sprint'}
+                  </button>
+                  <button
+                    onClick={() => handleDiscard(idea)}
+                    disabled={isPending}
+                    title="Descartar idea"
+                    aria-label={`Descartar ${idea.title}`}
+                    className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border text-[18px] transition-all disabled:opacity-50"
+                    style={{ background: '#E8443410', borderColor: '#E8443430', color: '#E84434' }}
+                  >
+                    ×
+                  </button>
+                </div>
               )}
             </div>
           ))}

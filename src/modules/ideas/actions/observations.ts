@@ -88,8 +88,7 @@ export async function addObservation(
       .eq('user_id', userId)
 
     if ((count ?? 0) >= 3) {
-      // Fire-and-forget — no bloqueamos la respuesta
-      detectPatterns().catch(console.error)
+      await detectPatterns()
     }
 
     return { ok: true, data: mapObservation(data) }

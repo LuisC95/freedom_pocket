@@ -51,7 +51,7 @@ async function getUserContext(
         ((realHours.preparation_minutes_per_day * realHours.working_days_per_week) / 60) +
         realHours.mental_load_hours_per_week
 
-      free_hours_week = Math.max(0, Math.round(168 / 7 * 5 - totalHours))
+      free_hours_week = Math.max(0, Math.round(168 - totalHours))
 
       if (incomes && incomes.length > 0) {
         const monthly = incomes.reduce((sum, inc) => {
@@ -107,6 +107,9 @@ export async function generateSprint(
       .single()
 
     if (!idea) return { ok: false, error: 'Idea no encontrada' }
+
+    const active = await getActiveSprintForIdea(ideaId)
+    if (active.ok && active.data) return { ok: true, data: active.data }
 
     const ctx     = await getUserContext(userId, supabase)
     const provider = getProvider()
@@ -251,6 +254,35 @@ export async function getActiveSprintForIdea(
     return { ok: true, data: mapSprint(sprint, (progress ?? []).map(mapDayProgress)) }
   } catch (e) {
     console.error('[getActiveSprintForIdea]', e)
+    return { ok: false, error: 'Error al obtener sprint activo' }
+  }
+}
+
+export async function getActiveSprint(): Promise<ActionResult<Sprint | null>> {
+  try {
+    const userId   = await getDevUserId()
+    const supabase = createAdminClient()
+
+    const { data: sprint } = await supabase
+      .from('sprints')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!sprint) return { ok: true, data: null }
+
+    const { data: progress } = await supabase
+      .from('sprint_day_progress')
+      .select('*')
+      .eq('sprint_id', sprint.id)
+      .order('day_number', { ascending: true })
+
+    return { ok: true, data: mapSprint(sprint, (progress ?? []).map(mapDayProgress)) }
+  } catch (e) {
+    console.error('[getActiveSprint]', e)
     return { ok: false, error: 'Error al obtener sprint activo' }
   }
 }

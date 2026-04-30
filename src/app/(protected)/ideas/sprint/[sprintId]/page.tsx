@@ -4,6 +4,7 @@ import { getSprint } from '@/modules/ideas/actions/sprints'
 import { listIdeas } from '@/modules/ideas/actions/ideas'
 import { SprintPage } from '@/modules/ideas/components/SprintPage'
 import { MiniChat } from '@/modules/ideas/components/MiniChat'
+import { IdeasModuleNav } from '@/modules/ideas/components/IdeasModuleNav'
 
 interface Props {
   params: Promise<{ sprintId: string }>
@@ -24,6 +25,7 @@ export default async function SprintPageRoute({ params }: Props) {
   return (
     <>
       <div className="ideas-v2-page">
+        <IdeasModuleNav activeSprintId={sprint.id} />
         <SprintPage sprint={sprint} idea={idea} />
       </div>
       <MiniChat context={{ screen: 'sprint', ideaId: idea.id, sprintId: sprint.id }} />
