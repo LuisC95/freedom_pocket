@@ -539,13 +539,13 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
   return (
     <>
       {/* ── Hero Card ── */}
-      <div className="bg-[#1A2520] rounded-xl px-[18px] py-[16px] mb-4">
+      <div className="bg-[#1A2520] rounded-xl px-4 py-4 mb-4 sm:px-[18px]">
 
         {/* Fila 1 */}
-        <div className="flex border-b border-white/[8%] pb-3 mb-3">
+        <div className="grid grid-cols-1 gap-3 border-b border-white/[8%] pb-3 mb-3 sm:grid-cols-[minmax(150px,0.9fr)_minmax(0,2fr)]">
 
           {/* Columna izquierda — Valor real de tu tiempo (Módulo 2) */}
-          <div className="flex-[1.2] border-r border-white/10 pr-[14px]">
+          <div className="min-w-0 border-b border-white/10 pb-3 sm:border-b-0 sm:border-r sm:pb-0 sm:pr-[14px]">
             <p className="text-[10px] uppercase tracking-widest text-[#5DCAA5] mb-1.5">
               Valor real de tu tiempo
             </p>
@@ -560,14 +560,14 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
           </div>
 
           {/* Columna derecha — 2 métricas */}
-          <div className="flex-[2] pl-[14px] flex">
+          <div className="min-w-0 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_1fr] sm:pl-[14px]">
 
             {/* Costo real de trabajar */}
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0">
               <p className="text-[9px] uppercase tracking-widest text-[#5DCAA5]/70 mb-1.5">
                 Costo real de trabajar
               </p>
-              <p className="font-mono text-[20px] leading-none text-white mb-1">
+              <p className="font-mono text-[clamp(18px,5vw,20px)] leading-none text-white mb-1 break-words">
                 {costoRealDeTrabajar !== null
                   ? fmtMetric(costoRealDeTrabajar, heroCurrency)
                   : '- -'}
@@ -576,14 +576,14 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
             </div>
 
             {/* Separador */}
-            <div className="w-px bg-white/10 mx-[14px] self-stretch" />
+            <div className="hidden w-px bg-white/10 mx-[14px] self-stretch sm:block" />
 
             {/* Rendimiento de tu tiempo */}
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0">
               <p className="text-[9px] uppercase tracking-widest text-[#5DCAA5]/70 mb-1.5">
                 Rendimiento de tu tiempo
               </p>
-              <p className="font-mono text-[20px] leading-none text-white mb-1">
+              <p className="font-mono text-[clamp(18px,5vw,20px)] leading-none text-white mb-1 break-words">
                 {rendimientoDeTuTiempo !== null
                   ? fmtMetric(rendimientoDeTuTiempo, heroCurrency)
                   : '- -'}
@@ -595,7 +595,7 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
         </div>
 
         {/* Fila 2 — Pills de horas */}
-        <div className="flex gap-[5px]">
+        <div className="grid grid-cols-2 gap-[5px] min-[430px]:grid-cols-3 sm:grid-cols-5">
           {([
             { label: 'Contratadas', val: desgloseHoras?.contratadas    ?? 0 },
             { label: 'Extra',       val: desgloseHoras?.extra           ?? 0 },
@@ -603,8 +603,8 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
             { label: 'Preparación', val: desgloseHoras?.preparacion     ?? 0 },
             { label: 'Carga mental',val: desgloseHoras?.carga_mental    ?? 0 },
           ] as { label: string; val: number }[]).map(item => (
-            <div key={item.label} className="flex-1 bg-white/[6%] rounded-md px-2 py-[6px] text-center">
-              <p className="font-mono text-[13px] font-medium text-white">{fmtHours(item.val)}</p>
+            <div key={item.label} className="min-w-0 bg-white/[6%] rounded-md px-2 py-[6px] text-center">
+              <p className="font-mono text-[13px] font-medium text-white break-words">{fmtHours(item.val)}</p>
               <p className="text-[9px] text-white/[35%]">{item.label}</p>
             </div>
           ))}
@@ -643,7 +643,7 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
 
         {real_hours ? (
           <div className="bg-white border border-[#EAF0EC] rounded-xl p-4">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {[
                 { label: 'Contratadas', val: `${real_hours.contracted_hours_per_week}h/sem` },
                 { label: 'Extra', val: `${real_hours.extra_hours_per_week}h/sem` },
@@ -652,8 +652,8 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
                 { label: 'Carga mental', val: `${real_hours.mental_load_hours_per_week}h/sem` },
                 { label: 'Días laborales', val: `${real_hours.working_days_per_week} días` },
               ].map(item => (
-                <div key={item.label} className="bg-[#EAF0EC] rounded-lg p-2.5">
-                  <p className="font-mono text-[13px] font-semibold text-[#141F19]">{item.val}</p>
+                <div key={item.label} className="min-w-0 bg-[#EAF0EC] rounded-lg p-2.5">
+                  <p className="font-mono text-[13px] font-semibold text-[#141F19] break-words">{item.val}</p>
                   <p className="text-[10px] text-[#7A9A8A] mt-0.5">{item.label}</p>
                 </div>
               ))}

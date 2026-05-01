@@ -87,13 +87,17 @@ interface RegisterPaymentModalProps {
 export function RegisterPaymentModal({ incomes, liquidityAccounts, periodId, onClose, onSaved, onIncomeCreated }: RegisterPaymentModalProps) {
   const today = new Date().toISOString().split('T')[0]
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const depositAccounts = [...liquidityAccounts].sort((a, b) => {
+    if (a.liquidity_kind !== b.liquidity_kind) return a.liquidity_kind === 'cash' ? -1 : 1
+    return a.name.localeCompare(b.name)
+  })
 
   const [pending, startTransition] = useTransition()
   const [isScanning, setIsScanning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [entryDate, setEntryDate] = useState(today)
   const [availableIncomes, setAvailableIncomes] = useState<Income[]>(incomes)
-  const [liquidityAssetId, setLiquidityAssetId] = useState(liquidityAccounts[0]?.id ?? '')
+  const [liquidityAssetId, setLiquidityAssetId] = useState(depositAccounts[0]?.id ?? '')
 
   const [earnings, setEarnings] = useState<EarningRow[]>([
     { income_id: incomes[0]?.id ?? '', amount: '', hours_worked: '' },
@@ -321,7 +325,7 @@ export function RegisterPaymentModal({ incomes, liquidityAccounts, periodId, onC
               onChange={e => setLiquidityAssetId(e.target.value)}
               style={selectStyle}
             >
-              {liquidityAccounts.map(account => (
+              {depositAccounts.map(account => (
                 <option key={account.id} value={account.id} style={{ background: '#1A2520', color: '#fff' }}>
                   {account.name} · {account.liquidity_kind === 'cash' ? 'Cash' : account.institution} ({fmt(account.current_value)})
                 </option>

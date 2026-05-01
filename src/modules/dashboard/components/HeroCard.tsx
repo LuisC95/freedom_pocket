@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { getMonthlyHistory } from '../actions'
-import type { DashboardMetrics, MonthlySnapshot } from '../types'
+import type { DashboardMetrics, DashboardNetWorth, MonthlySnapshot } from '../types'
 
 const FRAMES = [3, 6, 12] as const
 type Frame = typeof FRAMES[number]
@@ -31,13 +31,22 @@ function fmtDays(d: number) {
 
 interface HeroCardProps {
   metrics: DashboardMetrics
+  net_worth: DashboardNetWorth
   monthly_history: MonthlySnapshot[]
   periodo_label?: string
   onExpand?: () => void
 }
 
-export function HeroCard({ metrics, monthly_history, periodo_label, onExpand }: HeroCardProps) {
-  const { net_period, total_income_period, total_expense_period, retention_rate, dias_autonomia, gasto_diario, price_per_hour } = metrics
+export function HeroCard({ metrics, net_worth, monthly_history, periodo_label, onExpand }: HeroCardProps) {
+  const {
+    net_period,
+    total_income_period,
+    total_expense_period,
+    retention_rate,
+    dias_autonomia,
+    gasto_diario,
+    price_per_hour,
+  } = metrics
   const isPositive = net_period >= 0
   const netColor = isPositive ? '#3A9E6A' : '#E84434'
   const retPct = Math.max(0, Math.min(100, retention_rate))
@@ -45,6 +54,29 @@ export function HeroCard({ metrics, monthly_history, periodo_label, onExpand }: 
   const [frame, setFrame] = useState<Frame>(6)
   const [chartData, setChartData] = useState<MonthlySnapshot[]>(monthly_history)
   const [isPending, startTransition] = useTransition()
+
+  const frameTotals = chartData.reduce(
+    (acc, month) => ({
+      income: acc.income + month.total_income,
+      cashExpense: acc.cashExpense + month.total_cash_expense,
+      creditExpense: acc.creditExpense + month.total_credit_expense,
+    }),
+    { income: 0, cashExpense: 0, creditExpense: 0 }
+  )
+  const frameExpense = frameTotals.cashExpense + frameTotals.creditExpense
+  const frameNet = frameTotals.income - frameExpense
+  const spendPct = frameTotals.income > 0 ? Math.round((frameExpense / frameTotals.income) * 100) : 0
+  const barPct = Math.max(0, Math.min(100, spendPct))
+  const cashSpendPct = frameExpense > 0 ? barPct * (frameTotals.cashExpense / frameExpense) : 0
+  const creditSpendPct = frameExpense > 0 ? barPct * (frameTotals.creditExpense / frameExpense) : 0
+  const netWorthPositive = net_worth.net_worth_usd >= 0
+  const balanceBase = net_worth.total_assets_usd + net_worth.total_liabilities_usd
+  const assetsBalancePct = balanceBase > 0
+    ? Math.round((net_worth.total_assets_usd / balanceBase) * 100)
+    : 0
+  const liabilitiesBalancePct = balanceBase > 0
+    ? 100 - assetsBalancePct
+    : 0
 
   useEffect(() => {
     startTransition(async () => {
@@ -63,7 +95,7 @@ export function HeroCard({ metrics, monthly_history, periodo_label, onExpand }: 
       )}
 
       {/* Neto — protagonista */}
-      <div className="mb-1 flex flex-wrap items-end justify-between gap-3">
+      <div className="mb-1 flex flex-col items-start gap-3 min-[430px]:flex-row min-[430px]:items-end min-[430px]:justify-between">
         <div style={{ minWidth: 0 }}>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.09em', color: '#3A9E6A' }} className="mb-1">
             retenido este mes
@@ -89,46 +121,69 @@ export function HeroCard({ metrics, monthly_history, periodo_label, onExpand }: 
       </div>
 
       {/* Fila secundaria */}
-      <div style={{ backgroundColor: '#2E7D5215', borderRadius: '8px', padding: '9px 12px' }} className="flex items-center my-3">
-        <div className="flex-1">
+      <div style={{ backgroundColor: '#2E7D5215', borderRadius: '8px', padding: '9px 12px' }} className="my-3 grid grid-cols-1 gap-3 min-[430px]:grid-cols-[1fr_auto_1fr] min-[430px]:items-center min-[430px]:gap-0">
+        <div className="min-w-0">
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7A9A8A' }} className="mb-0.5">
             ingresos
           </p>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '19px', fontWeight: 500, color: '#3A9E6A' }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(17px, 5vw, 19px)', fontWeight: 500, color: '#3A9E6A', overflowWrap: 'anywhere' }}>
             {fmt(total_income_period)}
           </p>
         </div>
-        <div style={{ width: '0.5px', backgroundColor: '#2E7D5240', height: '36px', margin: '0 8px' }} />
-        <div className="flex-1 text-right">
+        <div className="hidden min-[430px]:block" style={{ width: '0.5px', backgroundColor: '#2E7D5240', height: '36px', margin: '0 8px' }} />
+        <div className="min-w-0 min-[430px]:text-right">
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7A9A8A' }} className="mb-0.5">
-            gastos
+            salidas cash
           </p>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '19px', fontWeight: 500, color: '#E84434' }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(17px, 5vw, 19px)', fontWeight: 500, color: '#E84434', overflowWrap: 'anywhere' }}>
             {fmt(total_expense_period)}
           </p>
         </div>
       </div>
 
-      {/* Medidor de liquidez */}
+      {/* Medidor ingreso vs gasto completo */}
       <div className="mt-3">
-        <div className="flex items-center justify-between mb-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7A9A8A' }}>
-            liquidez del período
+            gasto vs ingreso · {frame}m
           </p>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: retPct >= 50 ? '#3A9E6A' : retPct >= 20 ? '#C69B30' : '#E84434' }}>
-            {retPct}% libre · {100 - retPct}% gastado
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: frameNet >= 0 ? '#3A9E6A' : '#E84434' }}>
+            {spendPct}% gastado · {fmt(frameExpense)}
           </p>
         </div>
-        <div style={{ backgroundColor: '#E8443425', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
-          <div style={{ width: `${retPct}%`, height: '6px', backgroundColor: retPct >= 50 ? '#3A9E6A' : retPct >= 20 ? '#C69B30' : '#E84434', borderRadius: '4px', transition: 'width 0.4s' }} />
+        <div style={{ backgroundColor: '#2E7D5220', borderRadius: '4px', height: '7px', overflow: 'hidden', display: 'flex' }}>
+          <div style={{ width: `${cashSpendPct}%`, height: '7px', backgroundColor: '#E84434', transition: 'width 0.4s' }} />
+          <div style={{ width: `${creditSpendPct}%`, height: '7px', backgroundColor: '#C69B30', transition: 'width 0.4s' }} />
         </div>
         <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: '#7A9A8A', marginTop: '5px', lineHeight: 1.4 }}>
-          {retPct >= 50
-            ? 'Excelente — más de la mitad de tus ingresos siguen disponibles.'
-            : retPct >= 20
-            ? 'Margen ajustado — considerá reducir gastos variables.'
-            : 'Liquidez crítica — los gastos consumen casi todos tus ingresos.'}
+          Retenido por liquidez: <span style={{ color: netColor, fontFamily: 'var(--font-mono)' }}>{retPct}% libre</span>.
+          {' '}Gasto total {frame}m: <span style={{ color: '#F2F7F4', fontFamily: 'var(--font-mono)' }}>{fmt(frameExpense)}</span>,
+          {' '}incluye <span style={{ color: '#C69B30', fontFamily: 'var(--font-mono)' }}>{fmt(frameTotals.creditExpense)}</span> en tarjeta.
         </p>
+      </div>
+
+      {/* Patrimonio actual */}
+      <div style={{ backgroundColor: '#2E7D520D', border: '0.5px solid #2E7D5225', borderRadius: '8px', padding: '9px 12px', marginTop: '10px' }}>
+        <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7A9A8A' }}>
+            activos vs pasivos
+          </p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: netWorthPositive ? '#3A9E6A' : '#E84434' }}>
+            {netWorthPositive ? '+' : '−'}{fmt(net_worth.net_worth_usd)}
+          </p>
+        </div>
+        <div style={{ backgroundColor: '#E8443425', borderRadius: '4px', height: '6px', overflow: 'hidden', display: 'flex' }}>
+          <div style={{ width: `${assetsBalancePct}%`, height: '6px', backgroundColor: '#3A9E6A', transition: 'width 0.4s' }} />
+          <div style={{ width: `${liabilitiesBalancePct}%`, height: '6px', backgroundColor: '#E84434', transition: 'width 0.4s' }} />
+        </div>
+        <div className="flex flex-col gap-1.5 mt-1.5 min-[430px]:flex-row min-[430px]:items-center min-[430px]:justify-between min-[430px]:gap-3">
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: '#3A9E6A', overflowWrap: 'anywhere' }}>
+            {fmt(net_worth.total_assets_usd)} activos
+          </p>
+          <p className="min-[430px]:text-right" style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: '#E84434', overflowWrap: 'anywhere' }}>
+            {fmt(net_worth.total_liabilities_usd)} pasivos
+          </p>
+        </div>
       </div>
 
       {/* Explicación autonomía económica */}
@@ -156,7 +211,7 @@ export function HeroCard({ metrics, monthly_history, periodo_label, onExpand }: 
       {/* Gráfica historial */}
       {chartData.length > 0 && (
         <>
-          <div className="flex items-center justify-between mt-3.5 mb-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 mt-3.5 mb-1.5">
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7A9A8A' }}>
               historial {frame}m
             </p>
@@ -197,8 +252,9 @@ export function HeroCard({ metrics, monthly_history, periodo_label, onExpand }: 
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 formatter={(value: any) => [fmt(Number(value)), '']}
               />
-              <Bar dataKey="total_income" fill="#3A9E6A" radius={[2, 2, 0, 0]} />
-              <Bar dataKey="total_expense" fill="#E84434" radius={[2, 2, 0, 0]} />
+              <Bar dataKey="total_income" fill="#3A9E6A" radius={[2, 2, 0, 0]} name="Ingresos" />
+              <Bar dataKey="total_cash_expense" stackId="expense" fill="#E84434" radius={[0, 0, 2, 2]} name="Gasto cash" />
+              <Bar dataKey="total_credit_expense" stackId="expense" fill="#C69B30" radius={[2, 2, 0, 0]} name="Gasto tarjeta" />
               <Line
                 type="monotone"
                 dataKey="net"

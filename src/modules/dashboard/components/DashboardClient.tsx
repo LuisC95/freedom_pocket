@@ -166,6 +166,7 @@ export function DashboardClient({ data }: DashboardClientProps) {
   const {
     periodo_activo,
     metrics,
+    net_worth,
     transaction_groups,
     monthly_history,
     budgets,
@@ -191,6 +192,7 @@ export function DashboardClient({ data }: DashboardClientProps) {
       {/* Hero */}
       <HeroCard
         metrics={metrics}
+        net_worth={net_worth}
         monthly_history={monthly_history}
         periodo_label={periodoLabel}
         onExpand={() => setModal({ type: 'chart' })}

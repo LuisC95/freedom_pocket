@@ -56,6 +56,65 @@ export async function getLiquidityAccounts(
   }))
 }
 
+export async function ensureCashLiquidityAccount(
+  supabase: AdminClient,
+  currentUserId: string
+): Promise<LiquidityAccount | null> {
+  const scope = await getHouseholdScope(supabase, currentUserId)
+
+  const { data: existing } = await supabase
+    .from('assets')
+    .select('id,user_id,household_id,name,institution,liquidity_kind,account_ownership,household_manage_access,current_value,currency')
+    .eq('user_id', currentUserId)
+    .eq('is_active', true)
+    .eq('is_liquid', true)
+    .eq('liquidity_kind', 'cash')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  const row = existing ?? (await supabase
+    .from('assets')
+    .insert({
+      user_id: currentUserId,
+      household_id: scope.householdId,
+      name: 'Cash',
+      institution: 'Cash',
+      asset_type: 'liquid',
+      current_value: 0,
+      currency: 'USD',
+      value_in_usd: 0,
+      monthly_yield: null,
+      annual_rate_pct: null,
+      ticker_symbol: null,
+      quantity: null,
+      is_liquid: true,
+      liquidity_kind: 'cash',
+      account_ownership: 'regular',
+      household_manage_access: false,
+      is_shared: false,
+      is_active: true,
+      notes: 'Cuenta cash creada automáticamente para depósitos de ingresos',
+    })
+    .select('id,user_id,household_id,name,institution,liquidity_kind,account_ownership,household_manage_access,current_value,currency')
+    .single()).data
+
+  if (!row) return null
+
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    household_id: row.household_id ?? null,
+    name: row.name,
+    institution: row.institution ?? 'Cash',
+    liquidity_kind: row.liquidity_kind as LiquidityKind,
+    account_ownership: row.account_ownership ?? 'regular',
+    household_manage_access: Boolean(row.household_manage_access),
+    current_value: Number(row.current_value),
+    currency: row.currency ?? 'USD',
+  }
+}
+
 export async function adjustLiquidityBalance(
   supabase: AdminClient,
   input: {

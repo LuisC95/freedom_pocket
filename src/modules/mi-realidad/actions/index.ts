@@ -3,7 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
 import { getHouseholdVisibilityScope } from '@/lib/household'
-import { adjustLiquidityBalance, getLiquidityAccounts } from '@/lib/liquidity'
+import { adjustLiquidityBalance, ensureCashLiquidityAccount, getLiquidityAccounts } from '@/lib/liquidity'
 import type {
   Income,
   IncomeInsert,
@@ -140,6 +140,7 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
       .eq('period_id', period.id)
       .single(),
   ])
+  await ensureCashLiquidityAccount(supabase, DEV_USER_ID)
   const liquidity_accounts = await getLiquidityAccounts(supabase, DEV_USER_ID, true)
 
   const ingresos: Income[] = (incomesRaw ?? []).map(i => ({ ...i, amount: Number(i.amount) }))

@@ -18,6 +18,7 @@ import type {
   TransactionGroup,
   MonthlySnapshot,
   DashboardMetrics,
+  DashboardNetWorth,
   DashboardData,
 } from '../types'
 
@@ -97,6 +98,28 @@ function normalizePaymentFields(input: {
     payment_source: 'cash_debit',
     liability_id: null,
   }
+}
+
+function countsAsLiquidityExpense(tx: {
+  type: string
+  payment_source?: PaymentSource | null
+  liability_id?: string | null
+  exclude_from_metrics?: boolean | null
+}): boolean {
+  if (tx.type !== 'expense') return false
+  if ((tx.payment_source ?? 'cash_debit') !== 'cash_debit') return false
+
+  const isCreditCardPayment = Boolean(tx.liability_id)
+  return !tx.exclude_from_metrics || isCreditCardPayment
+}
+
+function getCompleteExpenseBucket(tx: {
+  type: string
+  payment_source?: PaymentSource | null
+  exclude_from_metrics?: boolean | null
+}): 'cash' | 'credit' | null {
+  if (tx.type !== 'expense' || tx.exclude_from_metrics) return null
+  return (tx.payment_source ?? 'cash_debit') === 'credit_card' ? 'credit' : 'cash'
 }
 
 async function getPricePerHour(
@@ -288,17 +311,28 @@ export async function getDashboardData(): Promise<DashboardData> {
   const emptyMetrics: DashboardMetrics = {
     total_income_period: 0,
     total_expense_period: 0,
+    total_complete_expense_period: 0,
+    total_credit_expense_period: 0,
+    complete_net_period: 0,
+    complete_spend_rate: 0,
     net_period: 0,
     retention_rate: 0,
     dias_autonomia: null,
     gasto_diario: null,
     price_per_hour: null,
   }
+  const emptyNetWorth: DashboardNetWorth = {
+    total_assets_usd: 0,
+    total_liabilities_usd: 0,
+    net_worth_usd: 0,
+    currency: 'USD',
+  }
 
   if (!period) {
     return {
       periodo_activo: null,
       metrics: emptyMetrics,
+      net_worth: emptyNetWorth,
       transaction_groups: [],
       monthly_history: [],
       budgets: [],
@@ -336,6 +370,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     { data: settingsRaw },
     { data: incomesRaw },
     { data: incomeEntriesRaw },
+    { data: assetsRaw },
+    { data: liabilitiesRaw },
   ] = await Promise.all([
     supabase
       .from('transactions')
@@ -346,7 +382,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       .order('transaction_date', { ascending: false }),
     supabase
       .from('transactions')
-      .select('type, amount, transaction_date, exclude_from_metrics')
+      .select('type, amount, transaction_date, payment_source, liability_id, exclude_from_metrics')
       .in('user_id', scope.visibleExpenseUserIds)
       .gte('transaction_date', seisAtrasStr)
       .lte('transaction_date', todayStr),
@@ -381,6 +417,16 @@ export async function getDashboardData(): Promise<DashboardData> {
       .in('user_id', scope.visibleIncomeUserIds)
       .gte('entry_date', seisAtrasStr)
       .lte('entry_date', todayStr),
+    supabase
+      .from('assets')
+      .select('current_value, value_in_usd')
+      .in('user_id', scope.visibleExpenseUserIds)
+      .eq('is_active', true),
+    supabase
+      .from('liabilities')
+      .select('current_balance, balance_in_usd')
+      .in('user_id', scope.visibleExpenseUserIds)
+      .eq('is_active', true),
   ])
 
   const pricePerHour = await getPricePerHour(supabase, period.id, DEV_USER_ID)
@@ -406,18 +452,22 @@ export async function getDashboardData(): Promise<DashboardData> {
   }))
 
   // ── Monthly history ───────────────────────────────────────────────────────
-  const monthlyMap: Map<string, { income: number; expense: number }> = new Map()
+  const monthlyMap: Map<string, { income: number; cashExpense: number; creditExpense: number }> = new Map()
   for (let i = 5; i >= 0; i--) {
     const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1)
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    monthlyMap.set(key, { income: 0, expense: 0 })
+    monthlyMap.set(key, { income: 0, cashExpense: 0, creditExpense: 0 })
   }
-  for (const tx of (txHistoryRaw ?? []).filter(tx => !tx.exclude_from_metrics)) {
+  for (const tx of txHistoryRaw ?? []) {
     const key = tx.transaction_date.slice(0, 7)
     if (monthlyMap.has(key)) {
       const entry = monthlyMap.get(key)!
-      if (tx.type === 'income') entry.income += Number(tx.amount)
-      else entry.expense += Number(tx.amount)
+      if (tx.type === 'income' && !tx.exclude_from_metrics) entry.income += Number(tx.amount)
+      else {
+        const bucket = getCompleteExpenseBucket(tx)
+        if (bucket === 'credit') entry.creditExpense += Number(tx.amount)
+        else if (bucket === 'cash') entry.cashExpense += Number(tx.amount)
+      }
     }
   }
   for (const entry of incomeEntriesRaw ?? []) {
@@ -431,12 +481,15 @@ export async function getDashboardData(): Promise<DashboardData> {
   }
   const monthly_history: MonthlySnapshot[] = Array.from(monthlyMap.entries()).map(([month, v]) => {
     const [year, mon] = month.split('-').map(Number)
+    const totalExpense = v.cashExpense + v.creditExpense
     return {
       month,
       month_label: MONTH_LABELS[mon - 1],
       total_income: v.income,
-      total_expense: v.expense,
-      net: v.income - v.expense,
+      total_cash_expense: v.cashExpense,
+      total_credit_expense: v.creditExpense,
+      total_expense: totalExpense,
+      net: v.income - totalExpense,
     }
   })
 
@@ -528,6 +581,17 @@ export async function getDashboardData(): Promise<DashboardData> {
       : null,
   }
 
+  const total_assets_usd = (assetsRaw ?? [])
+    .reduce((s, asset) => s + Number(asset.value_in_usd ?? asset.current_value), 0)
+  const total_liabilities_usd = (liabilitiesRaw ?? [])
+    .reduce((s, liability) => s + Number(liability.balance_in_usd ?? liability.current_balance), 0)
+  const net_worth: DashboardNetWorth = {
+    total_assets_usd,
+    total_liabilities_usd,
+    net_worth_usd: total_assets_usd - total_liabilities_usd,
+    currency: 'USD',
+  }
+
   // ── Métricas ──────────────────────────────────────────────────────────────
   // Ingresos: entradas reales en la ventana rodante; fallback a proyección mensual
   const entries = (incomeEntriesRaw ?? []).filter(e => e.entry_date >= ventanaStr)
@@ -543,10 +607,20 @@ export async function getDashboardData(): Promise<DashboardData> {
         return s + amt
       }, 0)
 
-  // Gastos: solo los que caen dentro de la ventana rodante
-  const total_expense_period = metricTransactions
-    .filter(t => t.transaction_date >= ventanaStr)
+  // Gastos de liquidez: cash/debit y pagos de tarjeta, no compras hechas con tarjeta.
+  const total_expense_period = transactions
+    .filter(t => t.transaction_date >= ventanaStr && countsAsLiquidityExpense(t))
     .reduce((s, t) => s + t.amount, 0)
+  const completeExpenseTransactions = transactions
+    .filter(t => t.transaction_date >= ventanaStr && getCompleteExpenseBucket(t))
+  const total_complete_expense_period = completeExpenseTransactions.reduce((s, t) => s + t.amount, 0)
+  const total_credit_expense_period = completeExpenseTransactions
+    .filter(t => getCompleteExpenseBucket(t) === 'credit')
+    .reduce((s, t) => s + t.amount, 0)
+  const complete_net_period = total_income_period - total_complete_expense_period
+  const complete_spend_rate = total_income_period > 0
+    ? Math.round((total_complete_expense_period / total_income_period) * 100)
+    : 0
   const net_period = total_income_period - total_expense_period
   const retention_rate = total_income_period > 0 ? Math.round((net_period / total_income_period) * 100) : 0
   const dias_en_ventana = diasDelMes - 1
@@ -559,7 +633,20 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   return {
     periodo_activo: period,
-    metrics: { total_income_period, total_expense_period, net_period, retention_rate, dias_autonomia, gasto_diario, price_per_hour: pricePerHour },
+    metrics: {
+      total_income_period,
+      total_expense_period,
+      total_complete_expense_period,
+      total_credit_expense_period,
+      complete_net_period,
+      complete_spend_rate,
+      net_period,
+      retention_rate,
+      dias_autonomia,
+      gasto_diario,
+      price_per_hour: pricePerHour,
+    },
+    net_worth,
     transaction_groups,
     monthly_history,
     budgets,
@@ -586,7 +673,7 @@ export async function getMonthlyHistory(months: number): Promise<MonthlySnapshot
   const [{ data: txRaw }, { data: entriesRaw }] = await Promise.all([
     supabase
       .from('transactions')
-      .select('type, amount, transaction_date, exclude_from_metrics')
+      .select('type, amount, transaction_date, payment_source, liability_id, exclude_from_metrics')
       .in('user_id', scope.visibleExpenseUserIds)
       .gte('transaction_date', nAtrasStr)
       .lte('transaction_date', todayStr),
@@ -598,19 +685,23 @@ export async function getMonthlyHistory(months: number): Promise<MonthlySnapshot
       .lte('entry_date', todayStr),
   ])
 
-  const monthlyMap = new Map<string, { income: number; expense: number }>()
+  const monthlyMap = new Map<string, { income: number; cashExpense: number; creditExpense: number }>()
   for (let i = months - 1; i >= 0; i--) {
     const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1)
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    monthlyMap.set(key, { income: 0, expense: 0 })
+    monthlyMap.set(key, { income: 0, cashExpense: 0, creditExpense: 0 })
   }
 
-  for (const tx of (txRaw ?? []).filter(tx => !tx.exclude_from_metrics)) {
+  for (const tx of txRaw ?? []) {
     const key = tx.transaction_date.slice(0, 7)
     if (monthlyMap.has(key)) {
       const m = monthlyMap.get(key)!
-      if (tx.type === 'income') m.income += Number(tx.amount)
-      else m.expense += Number(tx.amount)
+      if (tx.type === 'income' && !tx.exclude_from_metrics) m.income += Number(tx.amount)
+      else {
+        const bucket = getCompleteExpenseBucket(tx)
+        if (bucket === 'credit') m.creditExpense += Number(tx.amount)
+        else if (bucket === 'cash') m.cashExpense += Number(tx.amount)
+      }
     }
   }
 
@@ -626,12 +717,15 @@ export async function getMonthlyHistory(months: number): Promise<MonthlySnapshot
 
   return Array.from(monthlyMap.entries()).map(([month, v]) => {
     const [, mon] = month.split('-').map(Number)
+    const totalExpense = v.cashExpense + v.creditExpense
     return {
       month,
       month_label: MONTH_LABELS[mon - 1],
       total_income: v.income,
-      total_expense: v.expense,
-      net: v.income - v.expense,
+      total_cash_expense: v.cashExpense,
+      total_credit_expense: v.creditExpense,
+      total_expense: totalExpense,
+      net: v.income - totalExpense,
     }
   })
 }

@@ -58,9 +58,9 @@ function ScoreRing({ score, level_label, level_percentage }: { score: number; le
 
 function DimPill({ label, score, description }: { label: string; score: number; description: string }) {
   return (
-    <div className="bg-white/[6%] rounded-xl px-3 py-2.5">
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[10px] uppercase tracking-widest text-[#5DCAA5]/70">{label}</span>
+    <div className="min-w-0 bg-white/[6%] rounded-xl px-3 py-2.5">
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <span className="min-w-0 text-[10px] uppercase tracking-widest text-[#5DCAA5]/70">{label}</span>
         <span className="font-mono text-[13px] text-white">{score.toFixed(0)}</span>
       </div>
       <div className="h-1 bg-white/10 rounded-full overflow-hidden">
@@ -461,43 +461,45 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
   return (
     <>
       {/* ── Hero Card ── */}
-      <div className="bg-[#1A2520] rounded-xl px-[18px] py-[16px] mb-4">
+      <div className="bg-[#1A2520] rounded-xl px-4 py-4 mb-4 sm:px-[18px]">
 
         {/* Fila 1 — Score + métricas */}
-        <div className="flex gap-4 border-b border-white/[8%] pb-4 mb-4">
+        <div className="flex flex-col gap-4 border-b border-white/[8%] pb-4 mb-4 min-[460px]:flex-row">
 
           {/* Score ring */}
-          <div className="flex flex-col items-center gap-2 shrink-0">
+          <div className="flex shrink-0 items-center gap-3 min-[460px]:flex-col min-[460px]:gap-2">
             <ScoreRing
               score={score.total_score}
               level_label={score.level_label}
               level_percentage={score.level_percentage}
             />
-            <div className="h-1 w-[84px] bg-white/10 rounded-full overflow-hidden">
-              <div className="h-full bg-[#5DCAA5] rounded-full transition-all" style={{ width: `${score.level_percentage}%` }} />
+            <div className="min-w-0 flex-1 min-[460px]:w-[84px] min-[460px]:flex-none">
+              <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                <div className="h-full bg-[#5DCAA5] rounded-full transition-all" style={{ width: `${score.level_percentage}%` }} />
+              </div>
+              <p className="mt-1.5 text-[8px] text-white/30 uppercase tracking-wider">{PROGRESS_LEVEL_LABELS[score.level]}</p>
             </div>
-            <p className="text-[8px] text-white/30 uppercase tracking-wider">{PROGRESS_LEVEL_LABELS[score.level]}</p>
           </div>
 
           {/* Métricas derechas */}
-          <div className="flex-1 flex flex-col gap-2.5 justify-center">
+          <div className="min-w-0 flex-1 flex flex-col gap-2.5 justify-center">
 
             {/* Días de libertad */}
-            <div className="flex items-baseline justify-between">
+            <div className="flex items-baseline justify-between gap-3">
               <p className="text-[10px] uppercase tracking-widest text-[#5DCAA5]/70">Días de libertad</p>
-              <p className="font-mono text-[22px] text-white leading-none">{fmtDias(diasLibertad)}</p>
+              <p className="font-mono text-[22px] text-white leading-none shrink-0">{fmtDias(diasLibertad)}</p>
             </div>
 
             {/* Ingreso pasivo */}
-            <div className="flex items-baseline justify-between">
+            <div className="flex items-baseline justify-between gap-3">
               <p className="text-[10px] text-white/30">Ingreso pasivo/mes</p>
-              <p className="font-mono text-[16px] text-white/70">{fmt(ingresoPasivo)}</p>
+              <p className="font-mono text-[16px] text-white/70 text-right break-words">{fmt(ingresoPasivo)}</p>
             </div>
 
             {/* Net worth */}
-            <div className="flex items-baseline justify-between">
+            <div className="flex items-baseline justify-between gap-3">
               <p className="text-[10px] text-white/30">Patrimonio neto</p>
-              <p className={`font-mono text-[16px] leading-none ${netWorth >= 0 ? 'text-[#5DCAA5]' : 'text-[#E84434]'}`}>
+              <p className={`font-mono text-[16px] leading-none text-right break-words ${netWorth >= 0 ? 'text-[#5DCAA5]' : 'text-[#E84434]'}`}>
                 {fmt(Math.abs(netWorth))}{netWorth < 0 ? ' neg.' : ''}
               </p>
             </div>
@@ -506,7 +508,7 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
         </div>
 
         {/* Fila 2 — 4 dimensiones */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 lg:grid-cols-4">
           <DimPill label="D1 · Tiempo" score={score.d1_time_decoupling}
             description={precio_real_hora != null ? `$${precio_real_hora.toFixed(0)}/hr real` : 'sin datos de horas'} />
           <DimPill label="D2 · Patrimonio" score={score.d2_asset_health}
@@ -520,15 +522,15 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
       </div>
 
       {/* ── Fastlane Summary Pills ── */}
-      <div className="grid grid-cols-3 gap-2 mb-4">
+      <div className="grid grid-cols-1 gap-2 mb-4 min-[430px]:grid-cols-3">
         {[
           { label: 'Activos',   val: fmt(totalAssets),   sub: `${assets.length} vehículos` },
           { label: 'Pasivos',   val: fmt(totalLiabilities), sub: `${liabilities.length} deudas`, red: true },
           { label: 'Valoración', val: fmt(fastlane.asset_value_estimado), sub: 'activos + negocios' },
         ].map(item => (
-          <div key={item.label} className="bg-white border border-[#EAF0EC] rounded-xl p-3 text-center">
+          <div key={item.label} className="min-w-0 bg-white border border-[#EAF0EC] rounded-xl p-3 text-center">
             <p className="text-[9px] uppercase tracking-widest text-[#7A9A8A] mb-1">{item.label}</p>
-            <p className={`font-mono text-[16px] font-semibold leading-tight ${item.red ? 'text-[#E84434]' : 'text-[#141F19]'}`}>{item.val}</p>
+            <p className={`font-mono text-[clamp(14px,4vw,16px)] font-semibold leading-tight break-words ${item.red ? 'text-[#E84434]' : 'text-[#141F19]'}`}>{item.val}</p>
             <p className="text-[9px] text-[#7A9A8A] mt-0.5">{item.sub}</p>
           </div>
         ))}

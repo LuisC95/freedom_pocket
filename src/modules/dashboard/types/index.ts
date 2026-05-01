@@ -157,6 +157,8 @@ export interface MonthlySnapshot {
   month: string
   month_label: string
   total_income: number
+  total_cash_expense: number
+  total_credit_expense: number
   total_expense: number
   net: number
 }
@@ -164,6 +166,10 @@ export interface MonthlySnapshot {
 export interface DashboardMetrics {
   total_income_period: number
   total_expense_period: number
+  total_complete_expense_period: number
+  total_credit_expense_period: number
+  complete_net_period: number
+  complete_spend_rate: number
   net_period: number
   retention_rate: number
   dias_autonomia: number | null
@@ -171,9 +177,17 @@ export interface DashboardMetrics {
   price_per_hour: number | null
 }
 
+export interface DashboardNetWorth {
+  total_assets_usd: number
+  total_liabilities_usd: number
+  net_worth_usd: number
+  currency: string
+}
+
 export interface DashboardData {
   periodo_activo: { id: string; start_date: string; end_date: string | null } | null
   metrics: DashboardMetrics
+  net_worth: DashboardNetWorth
   transaction_groups: TransactionGroup[]
   monthly_history: MonthlySnapshot[]
   budgets: Budget[]

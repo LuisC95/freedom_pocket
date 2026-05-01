@@ -97,14 +97,18 @@ export function ChartModal({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Leyenda */}
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px 16px', marginBottom: '16px' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#7A9A8A' }}>
           <span style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: '#3A9E6A', display: 'inline-block' }} />
           Ingresos
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#7A9A8A' }}>
           <span style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: '#E84434', display: 'inline-block' }} />
-          Gastos
+          Gasto cash
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#7A9A8A' }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: '#C69B30', display: 'inline-block' }} />
+          Gasto tarjeta
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#7A9A8A' }}>
           <span style={{ width: 20, height: 1, backgroundColor: '#7A9A8A', display: 'inline-block', borderTop: '1px dashed #7A9A8A' }} />
@@ -141,7 +145,8 @@ export function ChartModal({ onClose }: { onClose: () => void }) {
               formatter={(value: any) => [fmt(Number(value)), '']}
             />
             <Bar dataKey="total_income" fill="#3A9E6A" radius={[2, 2, 0, 0]} name="Ingresos" />
-            <Bar dataKey="total_expense" fill="#E84434" radius={[2, 2, 0, 0]} name="Gastos" />
+            <Bar dataKey="total_cash_expense" stackId="expense" fill="#E84434" radius={[0, 0, 2, 2]} name="Gasto cash" />
+            <Bar dataKey="total_credit_expense" stackId="expense" fill="#C69B30" radius={[2, 2, 0, 0]} name="Gasto tarjeta" />
             <Line
               type="monotone"
               dataKey="net"
