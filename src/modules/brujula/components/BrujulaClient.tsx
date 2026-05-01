@@ -476,9 +476,13 @@ function CreditCardHistoryModal({ liability, onClose }: {
     return () => { mounted = false }
   }, [liability.id])
 
-  const expenseTotal = items.reduce((sum, item) => sum + item.amount, 0)
-  const combinedDebt = liability.current_balance + expenseTotal
-  const usage = creditUsage(combinedDebt, liability.credit_limit)
+  const expenseTotal = items
+    .filter(item => item.kind === 'expense')
+    .reduce((sum, item) => sum + item.amount, 0)
+  const paymentTotal = items
+    .filter(item => item.kind === 'payment')
+    .reduce((sum, item) => sum + item.amount, 0)
+  const usage = creditUsage(liability.current_balance, liability.credit_limit)
 
   return (
     <div className="brujula-modal-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
@@ -493,21 +497,21 @@ function CreditCardHistoryModal({ liability, onClose }: {
 
         <div className="grid grid-cols-1 gap-2 mb-4 min-[380px]:grid-cols-3">
           <div className="rounded-xl p-3" style={{ background: 'rgba(232,68,52,0.15)', border: '1px solid rgba(232,68,52,0.20)' }}>
-            <p className="text-[10px] uppercase tracking-widest text-[#E84434] mb-0.5">Esta tarjeta</p>
+            <p className="text-[10px] uppercase tracking-widest text-[#E84434] mb-0.5">Deuda actual</p>
             <p className="font-mono text-[18px] font-semibold leading-tight" style={{ color: 'var(--text-red)' }}>
               {fmtFull(liability.current_balance, liability.currency)}
             </p>
           </div>
           <div className="rounded-xl p-3" style={{ background: 'rgba(232,68,52,0.15)', border: '1px solid rgba(232,68,52,0.20)' }}>
-            <p className="text-[10px] uppercase tracking-widest text-[#E84434] mb-0.5">Deuda total actual</p>
+            <p className="text-[10px] uppercase tracking-widest text-[#E84434] mb-0.5">Gastos con tarjeta</p>
             <p className="font-mono text-[18px] font-semibold leading-tight" style={{ color: 'var(--text-red)' }}>
-              {fmtFull(combinedDebt, liability.currency)}
+              {fmtFull(expenseTotal, liability.currency)}
             </p>
           </div>
           <div className="rounded-xl p-3" style={{ background: 'rgba(46,125,82,0.15)', border: '1px solid rgba(46,125,82,0.25)' }}>
-            <p className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: 'var(--green-bright)' }}>Gastos listados</p>
+            <p className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: 'var(--green-bright)' }}>Pagos realizados</p>
             <p className="font-mono text-[18px] font-semibold leading-tight text-white">
-              {fmtFull(expenseTotal, liability.currency)}
+              {fmtFull(paymentTotal, liability.currency)}
             </p>
           </div>
         </div>
@@ -554,24 +558,38 @@ function CreditCardHistoryModal({ liability, onClose }: {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span
-                          className="h-2 w-2 rounded-full shrink-0"
-                          style={{ background: item.category_color ?? '#7A9A8A' }}
-                        />
+                        {item.kind === 'expense' ? (
+                          <span
+                            className="h-2 w-2 rounded-full shrink-0"
+                            style={{ background: item.category_color ?? '#7A9A8A' }}
+                          />
+                        ) : (
+                          <span className="h-2 w-2 rounded-full shrink-0" style={{ background: '#3A9E6A' }} />
+                        )}
                         <p className="text-[13px] font-medium text-white truncate">
-                          {item.category_name ?? 'Sin categoría'}
+                          {item.kind === 'expense'
+                            ? (item.category_name ?? 'Sin categoría')
+                            : 'Pago realizado'}
                         </p>
+                        {item.kind === 'payment' && (
+                          <span className="shrink-0 text-[10px] rounded-md px-1.5 py-0.5"
+                            style={{ background: 'rgba(46,125,82,0.25)', color: '#3A9E6A' }}>
+                            Pago
+                          </span>
+                        )}
                       </div>
                       <p className="text-[11px] text-[#7A9A8A]">
                         {fmtDate(item.transaction_date)}
                         {item.registered_by_name ? ` · ${item.registered_by_name}` : ''}
+                        {item.kind === 'payment' && item.source_account_name && ` · desde ${item.source_account_name}`}
                       </p>
                       {item.notes && (
                         <p className="text-[11px] text-[#7A9A8A] mt-1 truncate">{item.notes}</p>
                       )}
                     </div>
-                    <p className="font-mono text-[14px] font-semibold shrink-0" style={{ color: 'var(--text-red)' }}>
-                      {fmtFull(item.amount, item.currency)}
+                    <p className={`font-mono text-[14px] font-semibold shrink-0 ${item.kind === 'payment' ? 'text-[#3A9E6A]' : ''}`}
+                      style={item.kind === 'expense' ? { color: 'var(--text-red)' } : undefined}>
+                      {item.kind === 'payment' ? `-${fmtFull(item.amount, item.currency)}` : fmtFull(item.amount, item.currency)}
                     </p>
                   </div>
                 </div>

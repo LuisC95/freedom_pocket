@@ -493,6 +493,21 @@ type CreditCardExpenseRow = {
     | null
 }
 
+type MovementRow = {
+  id: string
+  user_id: string
+  amount: number | string
+  currency: string
+  created_at: string
+  notes: string | null
+  asset_id: string
+}
+
+type MovementAssetRow = {
+  id: string
+  name: string
+}
+
 export async function getCreditCardExpenseHistory(
   liability_id: string
 ): Promise<{ data: CreditCardExpenseHistoryItem[]; error: string | null }> {
@@ -511,6 +526,7 @@ export async function getCreditCardExpenseHistory(
   if (liabilityError) return { data: [], error: liabilityError.message }
   if (!liability) return { data: [], error: 'Tarjeta no encontrada' }
 
+  // ── Gastos (transactions) ────────────────────────────────────────────────
   const { data: rows, error } = await supabase
     .from('transactions')
     .select('id,user_id,amount,currency,transaction_date,notes,transaction_categories(name,color)')
@@ -524,26 +540,74 @@ export async function getCreditCardExpenseHistory(
 
   if (error) return { data: [], error: error.message }
 
+  // ── Pagos (liquidity_movements) ──────────────────────────────────────────
+  const { data: paymentMovements } = await supabase
+    .from('liquidity_movements')
+    .select('id, user_id, amount, currency, created_at, notes, asset_id')
+    .eq('related_liability_id', liability_id)
+    .eq('movement_type', 'credit_card_payment')
+    .order('created_at', { ascending: false })
+    .limit(100)
+
+  // Resolver nombres de las cuentas bancarias origen
+  const assetIds = Array.from(new Set((paymentMovements ?? []).map(m => m.asset_id)))
+  let assetNames: Record<string, string> = {}
+  if (assetIds.length > 0) {
+    const { data: assetRows } = await supabase
+      .from('assets')
+      .select('id, name')
+      .in('id', assetIds)
+    assetNames = (assetRows ?? []).reduce<Record<string, string>>((acc, a) => {
+      acc[a.id] = a.name
+      return acc
+    }, {})
+  }
+
+  const paymentProfileUserIds = (paymentMovements ?? []).map(m => m.user_id)
+  const profileNames = await getProfileNames(supabase, [
+    ...(rows ?? []).map((row: CreditCardExpenseRow) => row.user_id),
+    ...paymentProfileUserIds,
+  ])
+
+  // ── Merge y ordenar ──────────────────────────────────────────────────────
   const txRows = (rows ?? []) as CreditCardExpenseRow[]
-  const profileNames = await getProfileNames(supabase, txRows.map(row => row.user_id))
+  const expenses: CreditCardExpenseHistoryItem[] = txRows.map(row => {
+    const category = Array.isArray(row.transaction_categories)
+      ? row.transaction_categories[0]
+      : row.transaction_categories
+
+    return {
+      id: 'exp_' + row.id,
+      kind: 'expense',
+      amount: Number(row.amount),
+      currency: row.currency,
+      transaction_date: row.transaction_date,
+      notes: row.notes,
+      category_name: category?.name ?? null,
+      category_color: category?.color ?? null,
+      registered_by_name: profileNames[row.user_id],
+    }
+  })
+
+  const payments: CreditCardExpenseHistoryItem[] = (paymentMovements ?? []).map(m => ({
+    id: 'pay_' + m.id,
+    kind: 'payment',
+    amount: Math.abs(Number(m.amount)),
+    currency: m.currency,
+    transaction_date: m.created_at.slice(0, 10),
+    notes: m.notes,
+    category_name: null,
+    category_color: null,
+    registered_by_name: profileNames[m.user_id],
+    source_account_name: assetNames[m.asset_id] ?? null,
+  }))
+
+  const merged = [...expenses, ...payments].sort((a, b) =>
+    b.transaction_date.localeCompare(a.transaction_date)
+  )
 
   return {
-    data: txRows.map(row => {
-      const category = Array.isArray(row.transaction_categories)
-        ? row.transaction_categories[0]
-        : row.transaction_categories
-
-      return {
-        id: row.id,
-        amount: Number(row.amount),
-        currency: row.currency,
-        transaction_date: row.transaction_date,
-        notes: row.notes,
-        category_name: category?.name ?? null,
-        category_color: category?.color ?? null,
-        registered_by_name: profileNames[row.user_id],
-      }
-    }),
+    data: merged,
     error: null,
   }
 }
