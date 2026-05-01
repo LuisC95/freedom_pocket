@@ -486,62 +486,66 @@ function CreditCardHistoryModal({ liability, onClose }: {
 
   return (
     <div className="brujula-modal-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-      <div className="brujula-modal-card w-full max-w-md bg-[#1A2520] rounded-2xl p-6 shadow-xl border border-white/10">
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div className="min-w-0">
-            <h2 className="text-[15px] font-semibold text-white">Historial de gastos</h2>
-            <p className="text-[11px] text-[#7A9A8A] mt-0.5 truncate">{liability.name}</p>
+      <div className="brujula-modal-card w-full max-w-md bg-[#1A2520] rounded-2xl shadow-xl border border-white/10 max-h-[90vh] flex flex-col">
+        {/* ── Header fijo ── */}
+        <div className="shrink-0 p-6 pb-0">
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div className="min-w-0">
+              <h2 className="text-[15px] font-semibold text-white">Historial de gastos</h2>
+              <p className="text-[11px] text-[#7A9A8A] mt-0.5 truncate">{liability.name}</p>
+            </div>
+            <button onClick={onClose} className="text-[#7A9A8A] hover:text-white transition-colors text-xl leading-none">×</button>
           </div>
-          <button onClick={onClose} className="text-[#7A9A8A] hover:text-white transition-colors text-xl leading-none">×</button>
-        </div>
 
-        <div className="grid grid-cols-1 gap-2 mb-4 min-[380px]:grid-cols-3">
-          <div className="rounded-xl p-3" style={{ background: 'rgba(232,68,52,0.15)', border: '1px solid rgba(232,68,52,0.20)' }}>
-            <p className="text-[10px] uppercase tracking-widest text-[#E84434] mb-0.5">Deuda actual</p>
-            <p className="font-mono text-[18px] font-semibold leading-tight" style={{ color: 'var(--text-red)' }}>
-              {fmtFull(liability.current_balance, liability.currency)}
-            </p>
+          <div className="grid grid-cols-1 gap-2 mb-3 min-[380px]:grid-cols-3">
+            <div className="rounded-xl p-3" style={{ background: 'rgba(232,68,52,0.15)', border: '1px solid rgba(232,68,52,0.20)' }}>
+              <p className="text-[10px] uppercase tracking-widest text-[#E84434] mb-0.5">Deuda actual</p>
+              <p className="font-mono text-[18px] font-semibold leading-tight" style={{ color: 'var(--text-red)' }}>
+                {fmtFull(liability.current_balance, liability.currency)}
+              </p>
+            </div>
+            <div className="rounded-xl p-3" style={{ background: 'rgba(232,68,52,0.15)', border: '1px solid rgba(232,68,52,0.20)' }}>
+              <p className="text-[10px] uppercase tracking-widest text-[#E84434] mb-0.5">Gastos con tarjeta</p>
+              <p className="font-mono text-[18px] font-semibold leading-tight" style={{ color: 'var(--text-red)' }}>
+                {fmtFull(expenseTotal, liability.currency)}
+              </p>
+            </div>
+            <div className="rounded-xl p-3" style={{ background: 'rgba(46,125,82,0.15)', border: '1px solid rgba(46,125,82,0.25)' }}>
+              <p className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: 'var(--green-bright)' }}>Pagos realizados</p>
+              <p className="font-mono text-[18px] font-semibold leading-tight text-white">
+                {fmtFull(paymentTotal, liability.currency)}
+              </p>
+            </div>
           </div>
-          <div className="rounded-xl p-3" style={{ background: 'rgba(232,68,52,0.15)', border: '1px solid rgba(232,68,52,0.20)' }}>
-            <p className="text-[10px] uppercase tracking-widest text-[#E84434] mb-0.5">Gastos con tarjeta</p>
-            <p className="font-mono text-[18px] font-semibold leading-tight" style={{ color: 'var(--text-red)' }}>
-              {fmtFull(expenseTotal, liability.currency)}
-            </p>
-          </div>
-          <div className="rounded-xl p-3" style={{ background: 'rgba(46,125,82,0.15)', border: '1px solid rgba(46,125,82,0.25)' }}>
-            <p className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: 'var(--green-bright)' }}>Pagos realizados</p>
-            <p className="font-mono text-[18px] font-semibold leading-tight text-white">
-              {fmtFull(paymentTotal, liability.currency)}
-            </p>
-          </div>
-        </div>
 
-        {usage && (
-          <div className="rounded-xl border border-white/10 bg-white/[4%] p-3 mb-4">
-            <div className="flex items-center justify-between gap-3 mb-1.5">
+          {usage && (
+            <div className="rounded-xl border border-white/10 bg-white/[4%] p-3 mb-3">
+              <div className="flex items-center justify-between gap-3 mb-1.5">
+                <p className="text-[10px] uppercase tracking-widest text-[#7A9A8A]">Uso del límite</p>
+                <p className="font-mono text-[13px] font-semibold text-[#E84434]">{usage.pct.toFixed(0)}%</p>
+              </div>
+              <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-[#E84434] transition-all"
+                  style={{ width: `${Math.min(usage.pct, 100)}%` }}
+                />
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-[#7A9A8A]">
+                <span>Límite {fmtFull(liability.credit_limit ?? 0, liability.currency)}</span>
+                <span>Disponible {fmtFull(usage.available, liability.currency)}</span>
+              </div>
+            </div>
+          )}
+          {!usage && (
+            <div className="rounded-xl border border-white/10 bg-white/[4%] p-3 mb-3">
               <p className="text-[10px] uppercase tracking-widest text-[#7A9A8A]">Uso del límite</p>
-              <p className="font-mono text-[13px] font-semibold text-[#E84434]">{usage.pct.toFixed(0)}%</p>
+              <p className="text-[12px] text-white/60 mt-1">Límite no registrado para esta tarjeta.</p>
             </div>
-            <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-[#E84434] transition-all"
-                style={{ width: `${Math.min(usage.pct, 100)}%` }}
-              />
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-[#7A9A8A]">
-              <span>Límite {fmtFull(liability.credit_limit ?? 0, liability.currency)}</span>
-              <span>Disponible {fmtFull(usage.available, liability.currency)}</span>
-            </div>
-          </div>
-        )}
-        {!usage && (
-          <div className="rounded-xl border border-white/10 bg-white/[4%] p-3 mb-4">
-            <p className="text-[10px] uppercase tracking-widest text-[#7A9A8A]">Uso del límite</p>
-            <p className="text-[12px] text-white/60 mt-1">Límite no registrado para esta tarjeta.</p>
-          </div>
-        )}
+          )}
+        </div>
 
-        <div className="max-h-[52vh] overflow-y-auto pr-1">
+        {/* ── Lista scrolleable ── */}
+        <div className="flex-1 overflow-y-auto px-6 pb-4 min-h-0">
           {loading && (
             <p className="text-[13px] text-[#7A9A8A] py-6 text-center">Cargando historial…</p>
           )}
@@ -598,9 +602,10 @@ function CreditCardHistoryModal({ liability, onClose }: {
           )}
         </div>
 
-        <div className="brujula-modal-actions flex gap-3 mt-5">
+        {/* ── Botón ── */}
+        <div className="shrink-0 px-6 pb-6">
           <button type="button" onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl bg-[#2E7D52] text-white text-[13px] font-medium hover:bg-[#3A9E6A] transition-colors">
+            className="w-full py-2.5 rounded-xl bg-[#2E7D52] text-white text-[13px] font-medium hover:bg-[#3A9E6A] transition-colors">
             Cerrar
           </button>
         </div>
