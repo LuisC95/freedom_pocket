@@ -5,7 +5,7 @@ export default async function MiRealidadPage() {
   const data = await getMiRealidadData()
 
   return (
-    <div className="p-4 pb-6 max-w-2xl mx-auto">
+    <div className="mi-realidad-page">
       {/* Header */}
       <div className="mb-5">
         <h1 className="text-[22px] font-bold text-[#141F19] leading-tight">Mi Realidad</h1>

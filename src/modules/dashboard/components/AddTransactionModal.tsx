@@ -315,18 +315,17 @@ export function AddTransactionModal({
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 16px' }}
-      className="sm:items-center">
-      <div style={{ backgroundColor: '#1A2520', borderRadius: '16px', padding: '20px', width: '100%', maxWidth: '360px', marginBottom: '16px' }}>
+    <div className="add-transaction-backdrop">
+      <div className="add-transaction-card">
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+        <div className="add-transaction-header">
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 500, color: '#F2F7F4' }}>
             {isEdit ? 'Editar transacción' : 'Nueva transacción'}
           </p>
           <button onClick={onClose} style={{ fontFamily: 'var(--font-mono)', fontSize: '18px', color: '#7A9A8A', cursor: 'pointer', background: 'none', border: 'none', lineHeight: 1 }}>×</button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="add-transaction-form">
 
           {/* Monto */}
           <div style={{ marginBottom: '14px' }}>
@@ -363,7 +362,7 @@ export function AddTransactionModal({
           {/* Categoría */}
           <div style={{ marginBottom: '14px' }}>
             <label style={LABEL_STYLE}>Categoría</label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+            <div className="add-transaction-category-grid">
               {filteredCategories.map(cat => (
                 <div key={cat.id} style={{ position: 'relative' }}>
                   <button
@@ -447,7 +446,7 @@ export function AddTransactionModal({
                 <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: '#F2F7F4', marginBottom: '8px' }}>
                   <strong style={{ color: '#C69B30' }}>"{catToDelete.name}"</strong> tiene transacciones. Elige una categoría de reemplazo:
                 </p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '5px', marginBottom: '10px' }}>
+                <div className="add-transaction-replacement-grid">
                   {filteredCategories.filter(c => c.id !== catToDelete.id).map(cat => (
                     <button key={cat.id} type="button" onClick={() => setReplacementCatId(cat.id)}
                       style={{
@@ -762,7 +761,7 @@ export function AddTransactionModal({
               </label>
 
               {isRecurring && (
-                <div style={{ marginTop: '10px', paddingLeft: '44px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div className="add-transaction-recurring-fields">
                   {/* Frecuencia */}
                   <div>
                     <label style={LABEL_STYLE}>Frecuencia</label>
@@ -855,7 +854,7 @@ export function AddTransactionModal({
           )}
 
           {/* Botones */}
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div className="add-transaction-actions">
             <button
               type="button"
               onClick={onClose}

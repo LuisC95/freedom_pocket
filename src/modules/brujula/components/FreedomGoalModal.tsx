@@ -58,8 +58,8 @@ export function FreedomGoalModal({ goal, onClose, onSaved }: FreedomGoalModalPro
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl">
+    <div className="brujula-modal-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-4">
+      <div className="brujula-modal-card w-full max-w-md bg-white rounded-2xl p-6 shadow-xl">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-[15px] font-semibold text-[#141F19]">
             {goal ? 'Editar meta' : 'Nueva meta de libertad'}
@@ -78,7 +78,7 @@ export function FreedomGoalModal({ goal, onClose, onSaved }: FreedomGoalModalPro
           {/* Presets */}
           <div>
             <label className={LABEL_CLASS}>Presets rápidos</label>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="brujula-option-grid grid grid-cols-3 gap-1.5">
               {PRESETS.map(p => (
                 <button key={p.days} type="button"
                   onClick={() => { set('target_days', p.days.toString()); set('label', form.label || p.label) }}
@@ -105,7 +105,7 @@ export function FreedomGoalModal({ goal, onClose, onSaved }: FreedomGoalModalPro
 
           {error && <p className="text-[#E84434] text-[12px]">{error}</p>}
 
-          <div className="flex gap-3 pt-1">
+          <div className="brujula-modal-actions flex gap-3 pt-1">
             <button type="button" onClick={onClose} disabled={pending}
               className="flex-1 py-2.5 rounded-xl border border-[#D0DDD6] text-[13px] font-medium text-[#7A9A8A] hover:text-[#141F19] transition-colors">
               Cancelar

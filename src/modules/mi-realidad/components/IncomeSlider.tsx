@@ -150,7 +150,7 @@ export function IncomeSlider({
   // ── Panel 0: Grouped payment entries ──────────────────────────────────────
 
   const entriesPanel = (
-    <div className="shrink-0 w-full">
+    <div className="shrink-0 w-full min-w-0">
       {groups.length === 0 ? (
         <div className="bg-[#EAF0EC] rounded-xl p-4 text-center">
           <p className="text-[13px] text-[#7A9A8A]">Sin registros de pago aún</p>
@@ -169,15 +169,15 @@ export function IncomeSlider({
           {groups.map(group => {
             const isExpanded = !!expandedGroups[group.key]
             return (
-              <div key={group.key} className="border-[0.5px] border-[#D0DDD6] rounded-xl mb-2 overflow-hidden bg-white">
+              <div key={group.key} className="mi-realidad-payment-card border-[0.5px] border-[#D0DDD6] rounded-xl mb-2 overflow-hidden bg-white">
 
                 {/* Header — área de toggle + botón eliminar separado */}
-                <div className="flex items-center pr-[10px] hover:bg-[#FAFCFB] transition-colors">
+                <div className="mi-realidad-payment-header flex items-center pr-[10px] hover:bg-[#FAFCFB] transition-colors">
 
                   {/* Área clickeable para expandir */}
                   <button
                     type="button"
-                    className="flex-1 flex items-center px-[14px] py-[11px] gap-[10px] text-left min-w-0"
+                    className="mi-realidad-payment-toggle flex-1 flex items-center px-[14px] py-[11px] gap-[10px] text-left min-w-0"
                     onClick={() => {
                       toggleGroup(group.key)
                       if (confirmingDelete === group.key) setConfirmingDelete(null)
@@ -196,7 +196,7 @@ export function IncomeSlider({
                     </div>
 
                     {/* Summary: earn | div | ded | div | net */}
-                    <div className="flex items-center gap-[10px] ml-auto shrink-0">
+                    <div className="mi-realidad-payment-summary flex items-center gap-[10px] ml-auto shrink-0">
                       <span className="font-mono text-[12px] text-[#2E7D52]">
                         +{fmtMoney(group.totalEarnings, group.currency)}
                       </span>
@@ -230,7 +230,7 @@ export function IncomeSlider({
                         setConfirmingDelete(group.key)
                       }
                     }}
-                    className={`shrink-0 text-[11px] px-2 py-1 rounded-md transition-colors ml-1 ${
+                    className={`mi-realidad-payment-delete shrink-0 text-[11px] px-2 py-1 rounded-md transition-colors ml-1 ${
                       confirmingDelete === group.key
                         ? 'bg-[#FCEBEB] text-[#A32D2D] font-medium'
                         : 'text-[#7A9A8A] hover:text-[#E84434]'
@@ -247,7 +247,7 @@ export function IncomeSlider({
                       toggleGroup(group.key)
                       if (confirmingDelete === group.key) setConfirmingDelete(null)
                     }}
-                    className="shrink-0 ml-1 p-1"
+                    className="mi-realidad-payment-chevron shrink-0 ml-1 p-1"
                   >
                     <span
                       className="text-[11px] text-[#7A9A8A] transition-transform duration-200"
@@ -265,7 +265,7 @@ export function IncomeSlider({
                     {group.entries.map((entry, idx) => (
                       <div
                         key={entry.id}
-                        className={`flex items-center px-[14px] pl-6 py-2 gap-2 ${
+                        className={`mi-realidad-entry-row flex items-center px-[14px] pl-6 py-2 gap-2 ${
                           idx < group.entries.length - 1 ? 'border-b-[0.5px] border-[#D0DDD6]' : ''
                         }`}
                       >
@@ -325,7 +325,7 @@ export function IncomeSlider({
   // ── Panel 1: Income sources ────────────────────────────────────────────────
 
   const incomesPanel = (
-    <div className="shrink-0 w-full">
+    <div className="shrink-0 w-full min-w-0">
       {ingresos.length === 0 ? (
         <div className="bg-[#EAF0EC] rounded-xl p-4 text-center">
           <p className="text-[13px] text-[#7A9A8A]">Sin fuentes de ingreso — crea una para comenzar</p>
@@ -342,8 +342,8 @@ export function IncomeSlider({
       ) : (
         <div className="space-y-2">
           {ingresos.map(income => (
-            <div key={income.id} className="bg-white border border-[#EAF0EC] rounded-xl px-4 py-3">
-              <div className="flex items-center justify-between">
+            <div key={income.id} className="mi-realidad-income-card bg-white border border-[#EAF0EC] rounded-xl px-4 py-3">
+              <div className="mi-realidad-income-card-inner flex items-center justify-between">
                 <div className="min-w-0 mr-3">
                   <div className="flex items-center gap-2">
                     <p className="text-[14px] font-medium text-[#141F19] truncate">{income.label}</p>
@@ -361,7 +361,7 @@ export function IncomeSlider({
                     <p className="text-[10px] text-[#7A9A8A] mt-0.5">Registró {income.registered_by_name}</p>
                   )}
                 </div>
-                <div className="flex gap-1 shrink-0">
+                <div className="mi-realidad-income-actions flex gap-1 shrink-0">
                   <button
                     type="button"
                     onClick={() => onEditIncome(income)}
@@ -389,9 +389,9 @@ export function IncomeSlider({
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <section className="mb-4">
+    <section className="mb-4 min-w-0">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="mi-realidad-slider-header flex items-center justify-between mb-3">
         <h2 className="text-[13px] font-semibold text-[#141F19]">
           {activePanel === 0 ? 'Registros de pago' : 'Fuentes de ingreso'}
         </h2>
@@ -423,7 +423,7 @@ export function IncomeSlider({
         onTouchEnd={handleTouchEnd}
       >
         <div
-          className="flex transition-transform duration-300 ease-out"
+          className="flex transition-transform duration-300 ease-out min-w-0"
           style={{ transform: `translateX(-${activePanel * 100}%)` }}
         >
           {entriesPanel}

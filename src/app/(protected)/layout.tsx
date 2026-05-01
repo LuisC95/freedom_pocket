@@ -39,7 +39,7 @@ export default async function ProtectedLayout({
       </div>
 
       <Sidebar isAdmin={isAdmin} />
-      <main className="md:ml-[68px] flex-1 flex flex-col min-h-0 overflow-y-auto relative z-10">
+      <main className="md:ml-[68px] flex-1 flex flex-col min-h-0 overflow-y-auto relative">
         {children}
       </main>
       <BottomNav isAdmin={isAdmin} />

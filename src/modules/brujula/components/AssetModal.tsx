@@ -127,8 +127,8 @@ export function AssetModal({ asset, onClose, onSaved }: AssetModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto border border-white/10 bg-[#1A2520]">
+    <div className="brujula-modal-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+      <div className="brujula-modal-card w-full max-w-md rounded-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto border border-white/10 bg-[#1A2520]">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-[15px] font-semibold text-white">
             {asset ? 'Editar activo' : 'Nuevo activo'}
@@ -140,7 +140,7 @@ export function AssetModal({ asset, onClose, onSaved }: AssetModalProps) {
           {/* Tipo de registro */}
           <div>
             <label className={LABEL_CLASS}>Registrar como</label>
-            <div className="grid grid-cols-3 gap-1.5 rounded-xl border border-white/10 bg-white/[4%] p-1.5">
+            <div className="brujula-option-grid grid grid-cols-3 gap-1.5 rounded-xl border border-white/10 bg-white/[4%] p-1.5">
               {([
                 { value: 'bank', label: 'Cuenta de banco', hint: 'saldo líquido' },
                 { value: 'cash', label: 'Cash', hint: 'efectivo' },
@@ -179,7 +179,7 @@ export function AssetModal({ asset, onClose, onSaved }: AssetModalProps) {
           {form.entry_mode === 'other' && (
           <div>
             <label className={LABEL_CLASS}>Tipo de activo</label>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="brujula-option-grid grid grid-cols-3 gap-1.5">
               {(Object.entries(ASSET_TYPE_LABELS) as [AssetType, string][]).map(([val, label]) => (
                 <button key={val} type="button" onClick={() => set('asset_type', val)}
                   className={`py-2 rounded-lg text-[11px] font-medium border transition-colors ${form.asset_type === val ? 'bg-[#2E7D52] text-white border-[#2E7D52]' : 'bg-white/[6%] text-[#7A9A8A] border-white/10 hover:border-[#2E7D52]'}`}>
@@ -258,7 +258,7 @@ export function AssetModal({ asset, onClose, onSaved }: AssetModalProps) {
                   Activo líquido
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="brujula-form-grid grid grid-cols-2 gap-3">
               <div>
                 <label className={LABEL_CLASS}>Institución</label>
                 <input type="text" value={form.institution} onChange={e => set('institution', e.target.value)}
@@ -308,7 +308,7 @@ export function AssetModal({ asset, onClose, onSaved }: AssetModalProps) {
           )}
 
           {/* Rendimiento mensual */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="brujula-form-grid grid grid-cols-2 gap-3">
             <div>
               <label className={LABEL_CLASS}>Yield mensual ($)</label>
               <input type="number" value={form.monthly_yield} onChange={e => set('monthly_yield', e.target.value)}
@@ -330,7 +330,7 @@ export function AssetModal({ asset, onClose, onSaved }: AssetModalProps) {
 
           {error && <p className="text-[#E84434] text-[12px]">{error}</p>}
 
-          <div className="flex gap-3 pt-1">
+          <div className="brujula-modal-actions flex gap-3 pt-1">
             <button type="button" onClick={onClose} disabled={pending}
               className="flex-1 py-2.5 rounded-xl border border-white/10 text-[13px] font-medium text-[#7A9A8A] hover:text-white transition-colors">
               Cancelar

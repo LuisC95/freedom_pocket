@@ -462,12 +462,9 @@ export async function getDashboardData(): Promise<DashboardData> {
     const key = tx.transaction_date.slice(0, 7)
     if (monthlyMap.has(key)) {
       const entry = monthlyMap.get(key)!
-      if (tx.type === 'income' && !tx.exclude_from_metrics) entry.income += Number(tx.amount)
-      else {
-        const bucket = getCompleteExpenseBucket(tx)
-        if (bucket === 'credit') entry.creditExpense += Number(tx.amount)
-        else if (bucket === 'cash') entry.cashExpense += Number(tx.amount)
-      }
+      const bucket = getCompleteExpenseBucket(tx)
+      if (bucket === 'credit') entry.creditExpense += Number(tx.amount)
+      else if (bucket === 'cash') entry.cashExpense += Number(tx.amount)
     }
   }
   for (const entry of incomeEntriesRaw ?? []) {
@@ -696,12 +693,9 @@ export async function getMonthlyHistory(months: number): Promise<MonthlySnapshot
     const key = tx.transaction_date.slice(0, 7)
     if (monthlyMap.has(key)) {
       const m = monthlyMap.get(key)!
-      if (tx.type === 'income' && !tx.exclude_from_metrics) m.income += Number(tx.amount)
-      else {
-        const bucket = getCompleteExpenseBucket(tx)
-        if (bucket === 'credit') m.creditExpense += Number(tx.amount)
-        else if (bucket === 'cash') m.cashExpense += Number(tx.amount)
-      }
+      const bucket = getCompleteExpenseBucket(tx)
+      if (bucket === 'credit') m.creditExpense += Number(tx.amount)
+      else if (bucket === 'cash') m.cashExpense += Number(tx.amount)
     }
   }
 

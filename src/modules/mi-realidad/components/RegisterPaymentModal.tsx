@@ -262,31 +262,11 @@ export function RegisterPaymentModal({ incomes, liquidityAccounts, periodId, onC
 
   // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      background: 'rgba(0,0,0,0.6)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 50, padding: '24px',
-    }}>
-      <div style={{
-        background: '#1A2520',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '480px',
-        maxHeight: '90vh',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        fontFamily: "'IBM Plex Sans', sans-serif",
-      }}>
+    <div className="register-payment-backdrop">
+      <div className="register-payment-card">
 
         {/* ── HEADER ──────────────────────────────────────────────────────── */}
-        <div style={{
-          padding: '20px 24px 16px',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          flexShrink: 0,
-        }}>
+        <div className="register-payment-header">
           <h2 style={{ color: '#fff', fontSize: '16px', fontWeight: 500, margin: 0 }}>
             Registrar pago
           </h2>
@@ -298,7 +278,7 @@ export function RegisterPaymentModal({ incomes, liquidityAccounts, periodId, onC
         </div>
 
         {/* ── BODY ────────────────────────────────────────────────────────── */}
-        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }}>
+        <div className="register-payment-body">
 
           {availableIncomes.length === 0 ? (
             <p style={{ fontSize: '13px', color: '#7A9A8A', textAlign: 'center', margin: '8px 0' }}>
@@ -377,14 +357,14 @@ export function RegisterPaymentModal({ incomes, liquidityAccounts, periodId, onC
           {/* ── GANANCIAS ─────────────────────────────────────────────────── */}
           <div>
             <SectionTitle>Ganancias</SectionTitle>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 70px 24px', gap: '6px', marginBottom: '4px' }}>
+            <div className="register-payment-earning-grid register-payment-grid-header">
               <ColHeader>Fuente</ColHeader>
               <ColHeader align="right">Monto</ColHeader>
               <ColHeader align="center">Horas</ColHeader>
               <span />
             </div>
             {earnings.map((row, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 70px 24px', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
+              <div key={i} className="register-payment-earning-grid register-payment-row">
                 <select
                   value={row.income_id}
                   onChange={e => updateEarning(i, 'income_id', e.target.value)}
@@ -436,14 +416,14 @@ export function RegisterPaymentModal({ incomes, liquidityAccounts, periodId, onC
           {/* ── DEDUCCIONES ───────────────────────────────────────────────── */}
           <div>
             <SectionTitle>Deducciones</SectionTitle>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px 24px', gap: '6px', marginBottom: '4px' }}>
+            <div className="register-payment-deduction-grid register-payment-grid-header">
               <ColHeader>Fuente</ColHeader>
               <ColHeader>Categoría</ColHeader>
               <ColHeader align="right">Monto</ColHeader>
               <span />
             </div>
             {deductions.map((row, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px 24px', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
+              <div key={i} className="register-payment-deduction-grid register-payment-row">
                 <select
                   value={row.income_id}
                   onChange={e => updateDeduction(i, 'income_id', e.target.value)}
@@ -487,15 +467,7 @@ export function RegisterPaymentModal({ incomes, liquidityAccounts, periodId, onC
           </div>
 
           {/* ── TOTALES ───────────────────────────────────────────────────── */}
-          <div style={{
-            background: 'rgba(255,255,255,0.04)',
-            borderRadius: '10px',
-            padding: '14px 16px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            border: '1px solid rgba(255,255,255,0.06)',
-          }}>
+          <div className="register-payment-totals">
             <TotalItem label="Bruto"       value={fmt(gross)}                    color="#fff" />
             <Divider />
             <TotalItem label="Deducciones" value={`− ${fmt(totalDeduct)}`}       color="#E84434" />
@@ -511,14 +483,7 @@ export function RegisterPaymentModal({ incomes, liquidityAccounts, periodId, onC
         </div>
 
         {/* ── FOOTER ──────────────────────────────────────────────────────── */}
-        <div style={{
-          padding: '16px 24px 20px',
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '10px',
-          borderTop: '1px solid rgba(255,255,255,0.08)',
-          flexShrink: 0,
-        }}>
+        <div className="register-payment-footer">
           <button
             type="button"
             onClick={onClose}

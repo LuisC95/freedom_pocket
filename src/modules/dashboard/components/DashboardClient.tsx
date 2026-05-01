@@ -47,6 +47,9 @@ function PayCCModal({ cards, liquidityAccounts, periodId, onClose, onSaved }: {
   const selectedCard = cards.find(c => c.id === cardId)
   const selectedAccount = bankAccounts.find(account => account.id === liquidityAssetId)
   const parsedAmount = parseFloat(amount)
+  const remainingDebt = selectedCard && !isNaN(parsedAmount) && parsedAmount > 0
+    ? Math.max(0, selectedCard.current_balance - parsedAmount)
+    : selectedCard?.current_balance ?? 0
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -72,14 +75,19 @@ function PayCCModal({ cards, liquidityAccounts, periodId, onClose, onSaved }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-xl">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[15px] font-semibold text-[#141F19]">Pagar tarjeta de crédito</h2>
-          <button onClick={onClose} className="text-[#7A9A8A] hover:text-[#141F19] text-xl leading-none">×</button>
+    <div className="dashboard-paycc-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-4">
+      <div className="dashboard-paycc-card w-full max-w-sm bg-white rounded-2xl p-6 shadow-xl">
+        <div className="dashboard-paycc-header flex items-start justify-between gap-4 mb-4">
+          <div className="min-w-0">
+            <h2 className="text-[15px] font-semibold text-[#141F19]">Pagar tarjeta de crédito</h2>
+            <p className="text-[11px] text-[#7A9A8A] mt-0.5">
+              Registra un pago desde una cuenta bancaria.
+            </p>
+          </div>
+          <button onClick={onClose} className="shrink-0 text-[#7A9A8A] hover:text-[#141F19] text-xl leading-none">×</button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="dashboard-paycc-form space-y-4">
           {/* Selector de tarjeta */}
           <div>
             <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-1">Tarjeta</label>
@@ -92,23 +100,42 @@ function PayCCModal({ cards, liquidityAccounts, periodId, onClose, onSaved }: {
               ))}
             </select>
             {selectedCard && (
-              <p className="text-[10px] text-[#E84434] mt-1.5 font-mono">
-                Deuda actual: {fmt(selectedCard.current_balance, selectedCard.currency)}
-              </p>
+              <div className="dashboard-paycc-summary mt-2 rounded-xl border border-[#E8443430] bg-[#FFF0EF] px-3 py-2">
+                <p className="text-[10px] uppercase tracking-widest text-[#E84434] mb-0.5">Deuda actual</p>
+                <p className="font-mono text-[20px] font-semibold leading-tight text-[#E84434]">
+                  {fmt(selectedCard.current_balance, selectedCard.currency)}
+                </p>
+              </div>
             )}
           </div>
 
-          {/* Monto */}
+          {/* Cuenta */}
           <div>
             <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-1">Pagar desde</label>
-            <select value={liquidityAssetId} onChange={e => { setLiquidityAssetId(e.target.value); setError(null) }}
-              className="w-full px-3 py-2.5 rounded-lg border border-[#D0DDD6] text-[14px] text-[#141F19] focus:outline-none focus:border-[#2E7D52] bg-white">
-              {bankAccounts.map(account => (
-                <option key={account.id} value={account.id}>
-                  {account.name} · {account.institution} ({fmt(account.current_value, account.currency)})
-                </option>
-              ))}
-            </select>
+            {bankAccounts.length > 0 ? (
+              <>
+                <select value={liquidityAssetId} onChange={e => { setLiquidityAssetId(e.target.value); setError(null) }}
+                  className="w-full px-3 py-2.5 rounded-lg border border-[#D0DDD6] text-[14px] text-[#141F19] focus:outline-none focus:border-[#2E7D52] bg-white">
+                  {bankAccounts.map(account => (
+                    <option key={account.id} value={account.id}>
+                      {account.name} · {account.institution} ({fmt(account.current_value, account.currency)})
+                    </option>
+                  ))}
+                </select>
+                {selectedAccount && (
+                  <p className="text-[10px] text-[#7A9A8A] mt-1.5 font-mono">
+                    Disponible: {fmt(selectedAccount.current_value, selectedAccount.currency)}
+                  </p>
+                )}
+              </>
+            ) : (
+              <div className="rounded-xl border border-[#C69B3040] bg-[#C69B3014] px-3 py-2.5">
+                <p className="text-[12px] font-medium text-[#C69B30]">No hay cuentas bancarias disponibles</p>
+                <p className="text-[10px] text-[#7A9A8A] mt-1">
+                  Crea un activo líquido tipo banco en Brújula para pagar tarjetas.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Monto */}
@@ -119,9 +146,24 @@ function PayCCModal({ cards, liquidityAccounts, periodId, onClose, onSaved }: {
             <input type="number" value={amount} onChange={e => { setAmount(e.target.value); setError(null) }}
               placeholder="0.00" step="0.01" min="0.01" autoFocus
               className="w-full px-3 py-2.5 rounded-lg border border-[#D0DDD6] text-[16px] font-mono text-[#141F19] focus:outline-none focus:border-[#2E7D52] bg-white" />
+            {selectedCard && (
+              <div className="dashboard-paycc-quick-actions">
+                <button type="button" onClick={() => { setAmount((selectedCard.current_balance / 2).toFixed(2)); setError(null) }}>
+                  50%
+                </button>
+                <button type="button" onClick={() => { setAmount(selectedCard.current_balance.toFixed(2)); setError(null) }}>
+                  Total
+                </button>
+                {selectedAccount && (
+                  <button type="button" onClick={() => { setAmount(Math.min(selectedCard.current_balance, selectedAccount.current_value).toFixed(2)); setError(null) }}>
+                    Máx. disponible
+                  </button>
+                )}
+              </div>
+            )}
             {selectedCard && !isNaN(parsedAmount) && parsedAmount > 0 && (
               <p className="text-[10px] text-[#7A9A8A] mt-1.5 font-mono">
-                Deuda restante: {fmt(Math.max(0, selectedCard.current_balance - parsedAmount), selectedCard.currency)}
+                Deuda restante: {fmt(remainingDebt, selectedCard.currency)}
               </p>
             )}
           </div>
@@ -143,12 +185,12 @@ function PayCCModal({ cards, liquidityAccounts, periodId, onClose, onSaved }: {
 
           {error && <p className="text-[#E84434] text-[12px]">{error}</p>}
 
-          <div className="flex gap-3 pt-1">
+          <div className="dashboard-paycc-actions flex gap-3 pt-1">
             <button type="button" onClick={onClose} disabled={pending}
               className="flex-1 py-2.5 rounded-xl border border-[#D0DDD6] text-[13px] font-medium text-[#7A9A8A]">
               Cancelar
             </button>
-            <button type="submit" disabled={pending || !amount}
+            <button type="submit" disabled={pending || !amount || bankAccounts.length === 0}
               className="flex-1 py-2.5 rounded-xl bg-[#2E7D52] text-white text-[13px] font-medium hover:bg-[#3A9E6A] transition-colors disabled:opacity-60">
               {pending ? 'Registrando…' : 'Registrar pago'}
             </button>

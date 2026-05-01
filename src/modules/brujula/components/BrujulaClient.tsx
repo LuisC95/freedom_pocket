@@ -100,9 +100,9 @@ function AssetCard({ asset, onEdit, onDelete, pending }: {
   pending: boolean
 }) {
   return (
-    <div className="glass rounded-xl p-3.5 flex gap-3 items-start">
+    <div className="brujula-list-card glass rounded-xl p-3.5 flex gap-3 items-start">
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
+        <div className="brujula-card-badges flex items-center gap-2 mb-1">
           <span className="text-[13px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{asset.name}</span>
           <span className="shrink-0 text-[10px] rounded-md px-1.5 py-0.5" style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)' }}>
             {ASSET_TYPE_LABELS[asset.asset_type]}
@@ -131,7 +131,7 @@ function AssetCard({ asset, onEdit, onDelete, pending }: {
         {asset.notes && <p className="text-[10px] mt-1 truncate" style={{ color: 'var(--text-secondary)' }}>{asset.notes}</p>}
         {asset.registered_by_name && <p className="text-[10px] mt-1 truncate" style={{ color: 'var(--text-secondary)' }}>Registró {asset.registered_by_name}</p>}
       </div>
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="brujula-card-actions flex items-center gap-1 shrink-0">
         <button onClick={onEdit} className="text-[12px] transition-colors px-1" style={{ color: 'var(--text-secondary)' }}>
           Editar
         </button>
@@ -151,9 +151,9 @@ function BusinessCard({ business, onEdit, onDelete, pending }: {
 }) {
   const statusColor = business.status === 'active' ? 'text-[#2E7D52] bg-[#EAF0EC]' : 'text-[#7A9A8A] bg-[#F5F7F6]'
   return (
-    <div className="bg-white border border-[#EAF0EC] rounded-xl p-3.5 flex gap-3 items-start">
+    <div className="brujula-list-card bg-white border border-[#EAF0EC] rounded-xl p-3.5 flex gap-3 items-start">
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
+        <div className="brujula-card-badges flex items-center gap-2 mb-1 flex-wrap">
           <span className="text-[13px] font-medium text-[#141F19] truncate">{business.name}</span>
           <span className="shrink-0 text-[10px] bg-[#EAF0EC] text-[#7A9A8A] rounded-md px-1.5 py-0.5">
             {BUSINESS_MODEL_LABELS[business.business_model]}
@@ -173,7 +173,7 @@ function BusinessCard({ business, onEdit, onDelete, pending }: {
           {business.started_at && ` · desde ${business.started_at.slice(0, 7)}`}
         </p>
       </div>
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="brujula-card-actions flex items-center gap-1 shrink-0">
         <button onClick={onEdit} className="text-[12px] text-[#7A9A8A] hover:text-[#2E7D52] transition-colors px-1">
           Editar
         </button>
@@ -193,9 +193,9 @@ function LiabilityCard({ liability, onEdit, onDelete, onPayCC, pending }: {
   pending: boolean
 }) {
   return (
-    <div className="bg-white border border-[#EAF0EC] rounded-xl p-3.5 flex gap-3 items-start">
+    <div className="brujula-list-card bg-white border border-[#EAF0EC] rounded-xl p-3.5 flex gap-3 items-start">
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
+        <div className="brujula-card-badges flex items-center gap-2 mb-1">
           <span className="text-[13px] font-medium text-[#141F19] truncate">{liability.name}</span>
           <span className="shrink-0 text-[10px] bg-[#FFF0EF] text-[#E84434] rounded-md px-1.5 py-0.5">
             {LIABILITY_TYPE_LABELS[liability.liability_type]}
@@ -211,7 +211,7 @@ function LiabilityCard({ liability, onEdit, onDelete, onPayCC, pending }: {
         {liability.notes && <p className="text-[10px] text-[#7A9A8A] mt-1 truncate">{liability.notes}</p>}
         {liability.registered_by_name && <p className="text-[10px] text-[#7A9A8A] mt-1 truncate">Registró {liability.registered_by_name}</p>}
       </div>
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="brujula-card-actions flex items-center gap-1.5 shrink-0">
         {liability.liability_type === 'credit_card' && (
           <button onClick={onPayCC}
             className="text-[11px] font-medium text-white bg-[#2E7D52] hover:bg-[#3A9E6A] rounded-lg px-2.5 py-1 transition-colors">
@@ -246,7 +246,7 @@ function FreedomGoalRow({ goal, diasActuales, onEdit, onDelete, onToggle, pendin
       className="glass rounded-xl p-3.5 transition-colors"
       style={goal.is_completed ? { borderColor: 'rgba(46,125,82,0.30)', background: 'rgba(46,125,82,0.08)' } : undefined}
     >
-      <div className="flex items-start gap-3">
+      <div className="brujula-goal-row flex items-start gap-3">
         {/* Checkbox */}
         <button onClick={onToggle} disabled={pending}
           className="mt-0.5 w-5 h-5 rounded-full shrink-0 flex items-center justify-center transition-colors"
@@ -262,7 +262,7 @@ function FreedomGoalRow({ goal, diasActuales, onEdit, onDelete, onToggle, pendin
         </button>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="brujula-card-badges flex items-center gap-2 mb-1">
             <span className={`text-[13px] font-medium truncate ${goal.is_completed ? 'text-[#7A9A8A] line-through' : 'text-[#141F19]'}`}>
               {goal.label}
             </span>
@@ -287,7 +287,7 @@ function FreedomGoalRow({ goal, diasActuales, onEdit, onDelete, onToggle, pendin
           )}
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="brujula-card-actions flex items-center gap-1 shrink-0">
           <button onClick={onEdit} className="text-[12px] text-[#7A9A8A] hover:text-[#2E7D52] transition-colors px-1">
             Editar
           </button>
@@ -329,8 +329,8 @@ function PayCCModal({ liability, liquidityAccounts, onClose, onSaved }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-xl">
+    <div className="brujula-modal-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-4">
+      <div className="brujula-modal-card w-full max-w-sm bg-white rounded-2xl p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-[15px] font-semibold text-[#141F19]">Pagar tarjeta</h2>
@@ -385,7 +385,7 @@ function PayCCModal({ liability, liquidityAccounts, onClose, onSaved }: {
             )}
           </div>
           {error && <p className="text-[#E84434] text-[12px]">{error}</p>}
-          <div className="flex gap-3">
+          <div className="brujula-modal-actions flex gap-3">
             <button type="button" onClick={onClose} disabled={pending}
               className="flex-1 py-2.5 rounded-xl border border-[#D0DDD6] text-[13px] font-medium text-[#7A9A8A]">
               Cancelar
@@ -464,7 +464,7 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
       <div className="bg-[#1A2520] rounded-xl px-4 py-4 mb-4 sm:px-[18px]">
 
         {/* Fila 1 — Score + métricas */}
-        <div className="flex flex-col gap-4 border-b border-white/[8%] pb-4 mb-4 min-[460px]:flex-row">
+        <div className="brujula-hero-top flex flex-col gap-4 border-b border-white/[8%] pb-4 mb-4 min-[460px]:flex-row">
 
           {/* Score ring */}
           <div className="flex shrink-0 items-center gap-3 min-[460px]:flex-col min-[460px]:gap-2">
@@ -485,19 +485,19 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
           <div className="min-w-0 flex-1 flex flex-col gap-2.5 justify-center">
 
             {/* Días de libertad */}
-            <div className="flex items-baseline justify-between gap-3">
+            <div className="brujula-metric-row flex items-baseline justify-between gap-3">
               <p className="text-[10px] uppercase tracking-widest text-[#5DCAA5]/70">Días de libertad</p>
               <p className="font-mono text-[22px] text-white leading-none shrink-0">{fmtDias(diasLibertad)}</p>
             </div>
 
             {/* Ingreso pasivo */}
-            <div className="flex items-baseline justify-between gap-3">
+            <div className="brujula-metric-row flex items-baseline justify-between gap-3">
               <p className="text-[10px] text-white/30">Ingreso pasivo/mes</p>
               <p className="font-mono text-[16px] text-white/70 text-right break-words">{fmt(ingresoPasivo)}</p>
             </div>
 
             {/* Net worth */}
-            <div className="flex items-baseline justify-between gap-3">
+            <div className="brujula-metric-row flex items-baseline justify-between gap-3">
               <p className="text-[10px] text-white/30">Patrimonio neto</p>
               <p className={`font-mono text-[16px] leading-none text-right break-words ${netWorth >= 0 ? 'text-[#5DCAA5]' : 'text-[#E84434]'}`}>
                 {fmt(Math.abs(netWorth))}{netWorth < 0 ? ' neg.' : ''}
@@ -538,7 +538,7 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
 
       {/* ── Vehículos (Activos / Negocios) ── */}
       <section className="mb-4">
-        <div className="flex items-center justify-between mb-3">
+        <div className="brujula-section-header flex items-center justify-between mb-3">
           <h2 className="text-[13px] font-semibold text-[#141F19]">Vehículos de riqueza</h2>
           <button
             onClick={() => setModal(vehicleTab === 'activos' ? { type: 'asset_new' } : { type: 'business_new' })}
@@ -602,7 +602,7 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
 
       {/* ── Pasivos ── */}
       <section className="mb-4">
-        <div className="flex items-center justify-between mb-3">
+        <div className="brujula-section-header flex items-center justify-between mb-3">
           <h2 className="text-[13px] font-semibold text-[#141F19]">Pasivos</h2>
           <button onClick={() => setModal({ type: 'liability_new' })}
             className="text-[12px] font-medium text-[#2E7D52] hover:text-[#3A9E6A] transition-colors">
@@ -629,7 +629,7 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
 
       {/* ── Metas de Libertad ── */}
       <section className="mb-4">
-        <div className="flex items-center justify-between mb-3">
+        <div className="brujula-section-header flex items-center justify-between mb-3">
           <h2 className="text-[13px] font-semibold text-[#141F19]">Metas de libertad</h2>
           <button onClick={() => setModal({ type: 'goal_new' })}
             className="text-[12px] font-medium text-[#2E7D52] hover:text-[#3A9E6A] transition-colors">
@@ -639,7 +639,7 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
 
         {/* Días actuales resumen */}
         {diasLibertad > 0 && (
-          <div className="bg-[#EAF0EC] rounded-xl p-3 mb-3 flex items-center gap-3">
+          <div className="brujula-freedom-summary bg-[#EAF0EC] rounded-xl p-3 mb-3 flex items-center gap-3">
             <div className="text-center shrink-0">
               <p className="font-mono text-[24px] font-bold text-[#2E7D52] leading-none">{fmtDias(diasLibertad)}</p>
               <p className="text-[9px] text-[#7A9A8A] mt-0.5">días actuales</p>

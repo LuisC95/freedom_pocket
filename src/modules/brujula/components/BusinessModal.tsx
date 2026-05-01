@@ -66,8 +66,8 @@ export function BusinessModal({ business, onClose, onSaved }: BusinessModalProps
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+    <div className="brujula-modal-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-4">
+      <div className="brujula-modal-card w-full max-w-md bg-white rounded-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-[15px] font-semibold text-[#141F19]">
             {business ? 'Editar negocio' : 'Nuevo negocio'}
@@ -86,7 +86,7 @@ export function BusinessModal({ business, onClose, onSaved }: BusinessModalProps
           {/* Modelo */}
           <div>
             <label className={LABEL_CLASS}>Modelo de negocio</label>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="brujula-option-grid grid grid-cols-3 gap-1.5">
               {(Object.entries(BUSINESS_MODEL_LABELS) as [BusinessModel, string][]).map(([val, label]) => (
                 <button key={val} type="button" onClick={() => set('business_model', val)}
                   className={`py-2 rounded-lg text-[11px] font-medium border transition-colors ${form.business_model === val ? 'bg-[#2E7D52] text-white border-[#2E7D52]' : 'bg-[#EAF0EC] text-[#7A9A8A] border-transparent hover:border-[#2E7D52]'}`}>
@@ -123,7 +123,7 @@ export function BusinessModal({ business, onClose, onSaved }: BusinessModalProps
           </div>
 
           {/* Reinversión + Multiplicador */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="brujula-form-grid grid grid-cols-2 gap-3">
             <div>
               <label className={LABEL_CLASS}>Reinversión (%)</label>
               <input type="number" value={form.reinvestment_pct} onChange={e => set('reinvestment_pct', e.target.value)}
@@ -171,7 +171,7 @@ export function BusinessModal({ business, onClose, onSaved }: BusinessModalProps
 
           {error && <p className="text-[#E84434] text-[12px]">{error}</p>}
 
-          <div className="flex gap-3 pt-1">
+          <div className="brujula-modal-actions flex gap-3 pt-1">
             <button type="button" onClick={onClose} disabled={pending}
               className="flex-1 py-2.5 rounded-xl border border-[#D0DDD6] text-[13px] font-medium text-[#7A9A8A] hover:text-[#141F19] transition-colors">
               Cancelar
