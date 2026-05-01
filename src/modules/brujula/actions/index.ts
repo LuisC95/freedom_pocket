@@ -12,10 +12,23 @@ import type {
   ProgressScore, ProgressLevel,
   DiasDeLibertad, FastlaneFormula, ScoreDeProgreso,
   BrujulaData,
+  CreditCardExpenseHistoryItem,
 } from '../types'
 import { PROGRESS_LEVEL_LABELS } from '../types'
 
 // ─── Helpers internos M1 (replicados para evitar circular imports) ─────────────
+
+function usdAmount(row: {
+  currency?: string | null
+  current_value?: number | null
+  value_in_usd?: number | null
+  current_balance?: number | null
+  balance_in_usd?: number | null
+}): number {
+  const current = Number(row.current_value ?? row.current_balance ?? 0)
+  if ((row.currency ?? 'USD') === 'USD') return current
+  return Number(row.value_in_usd ?? row.balance_in_usd ?? current)
+}
 
 async function getProfileNames(
   supabase: ReturnType<typeof createAdminClient>,
@@ -102,11 +115,11 @@ function calcularFastlane(
 ): FastlaneFormula {
   const total_assets_usd = assets
     .filter(a => a.is_active)
-    .reduce((s, a) => s + (a.value_in_usd ?? a.current_value), 0)
+    .reduce((s, a) => s + usdAmount(a), 0)
 
   const total_liabilities_usd = liabilities
     .filter(l => l.is_active)
-    .reduce((s, l) => s + (l.balance_in_usd ?? l.current_balance), 0)
+    .reduce((s, l) => s + usdAmount(l), 0)
 
   const net_worth_usd = total_assets_usd - total_liabilities_usd
 
@@ -220,7 +233,7 @@ export async function getBrujulaData(): Promise<BrujulaData> {
     ...(liabsRaw ?? []).map(liability => liability.user_id),
   ])
   const assets: Asset[]       = (assetsRaw ?? []).map(a => ({ ...a, registered_by_name: profileNames[a.user_id], current_value: Number(a.current_value), monthly_yield: a.monthly_yield != null ? Number(a.monthly_yield) : null, value_in_usd: a.value_in_usd != null ? Number(a.value_in_usd) : null, annual_rate_pct: a.annual_rate_pct != null ? Number(a.annual_rate_pct) : null, quantity: a.quantity != null ? Number(a.quantity) : null }))
-  const liabilities: Liability[] = (liabsRaw ?? []).map(l => ({ ...l, registered_by_name: profileNames[l.user_id], current_balance: Number(l.current_balance), balance_in_usd: l.balance_in_usd != null ? Number(l.balance_in_usd) : null, interest_rate_pct: l.interest_rate_pct != null ? Number(l.interest_rate_pct) : null, monthly_payment: l.monthly_payment != null ? Number(l.monthly_payment) : null }))
+  const liabilities: Liability[] = (liabsRaw ?? []).map(l => ({ ...l, registered_by_name: profileNames[l.user_id], current_balance: Number(l.current_balance), balance_in_usd: l.balance_in_usd != null ? Number(l.balance_in_usd) : null, credit_limit: l.credit_limit != null ? Number(l.credit_limit) : null, interest_rate_pct: l.interest_rate_pct != null ? Number(l.interest_rate_pct) : null, monthly_payment: l.monthly_payment != null ? Number(l.monthly_payment) : null }))
   const businesses: Business[] = (bizsRaw ?? []).map(b => ({ ...b, monthly_net_profit: Number(b.monthly_net_profit), reinvestment_percentage: Number(b.reinvestment_percentage), sector_multiplier: Number(b.sector_multiplier) }))
   const freedom_goals: FreedomGoal[] = (goalsRaw ?? [])
   const latest_score: ProgressScore | null = latestScoreRaw ? { ...latestScoreRaw, d1_time_decoupling: Number(latestScoreRaw.d1_time_decoupling), d2_asset_health: Number(latestScoreRaw.d2_asset_health), d3_financial_freedom: Number(latestScoreRaw.d3_financial_freedom), d4_momentum: Number(latestScoreRaw.d4_momentum), total_score: latestScoreRaw.total_score != null ? Number(latestScoreRaw.total_score) : null, level_percentage: Number(latestScoreRaw.level_percentage) } : null
@@ -401,7 +414,7 @@ export async function createLiability(data: LiabilityInsert): Promise<{ data: Li
     .select()
     .single()
   if (error) return { data: null, error: error.message }
-  return { data: { ...row, current_balance: Number(row.current_balance), balance_in_usd: row.balance_in_usd != null ? Number(row.balance_in_usd) : null, interest_rate_pct: row.interest_rate_pct != null ? Number(row.interest_rate_pct) : null, monthly_payment: row.monthly_payment != null ? Number(row.monthly_payment) : null }, error: null }
+  return { data: { ...row, current_balance: Number(row.current_balance), balance_in_usd: row.balance_in_usd != null ? Number(row.balance_in_usd) : null, credit_limit: row.credit_limit != null ? Number(row.credit_limit) : null, interest_rate_pct: row.interest_rate_pct != null ? Number(row.interest_rate_pct) : null, monthly_payment: row.monthly_payment != null ? Number(row.monthly_payment) : null }, error: null }
 }
 
 export async function updateLiability(data: LiabilityUpdate): Promise<{ data: Liability | null; error: string | null }> {
@@ -417,7 +430,7 @@ export async function updateLiability(data: LiabilityUpdate): Promise<{ data: Li
     .select()
     .single()
   if (error) return { data: null, error: error.message }
-  return { data: { ...row, current_balance: Number(row.current_balance), balance_in_usd: row.balance_in_usd != null ? Number(row.balance_in_usd) : null, interest_rate_pct: row.interest_rate_pct != null ? Number(row.interest_rate_pct) : null, monthly_payment: row.monthly_payment != null ? Number(row.monthly_payment) : null }, error: null }
+  return { data: { ...row, current_balance: Number(row.current_balance), balance_in_usd: row.balance_in_usd != null ? Number(row.balance_in_usd) : null, credit_limit: row.credit_limit != null ? Number(row.credit_limit) : null, interest_rate_pct: row.interest_rate_pct != null ? Number(row.interest_rate_pct) : null, monthly_payment: row.monthly_payment != null ? Number(row.monthly_payment) : null }, error: null }
 }
 
 export async function deleteLiability(id: string): Promise<{ error: string | null }> {
@@ -444,7 +457,7 @@ export async function payOffCreditCard({
   const household = await getHouseholdScope(supabase, DEV_USER_ID)
   const { data: lib } = await supabase
     .from('liabilities')
-    .select('current_balance')
+    .select('current_balance, currency')
     .eq('id', liability_id)
     .in('user_id', household.householdId ? household.memberUserIds : [DEV_USER_ID])
     .single()
@@ -460,7 +473,79 @@ export async function payOffCreditCard({
   })
   if (liquidityResult.error) return { data: null, error: liquidityResult.error }
   const newBalance = Math.max(0, Number(lib.current_balance) - amount)
-  return updateLiability({ id: liability_id, current_balance: newBalance })
+  return updateLiability({
+    id: liability_id,
+    current_balance: newBalance,
+    balance_in_usd: lib.currency === 'USD' ? newBalance : null,
+  })
+}
+
+type CreditCardExpenseRow = {
+  id: string
+  user_id: string
+  amount: number | string
+  currency: string
+  transaction_date: string
+  notes: string | null
+  transaction_categories:
+    | { name: string | null; color: string | null }
+    | { name: string | null; color: string | null }[]
+    | null
+}
+
+export async function getCreditCardExpenseHistory(
+  liability_id: string
+): Promise<{ data: CreditCardExpenseHistoryItem[]; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
+  const supabase = createAdminClient()
+  const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
+
+  const { data: liability, error: liabilityError } = await supabase
+    .from('liabilities')
+    .select('id')
+    .eq('id', liability_id)
+    .eq('liability_type', 'credit_card')
+    .in('user_id', scope.visibleExpenseUserIds)
+    .maybeSingle()
+
+  if (liabilityError) return { data: [], error: liabilityError.message }
+  if (!liability) return { data: [], error: 'Tarjeta no encontrada' }
+
+  const { data: rows, error } = await supabase
+    .from('transactions')
+    .select('id,user_id,amount,currency,transaction_date,notes,transaction_categories(name,color)')
+    .eq('liability_id', liability_id)
+    .eq('type', 'expense')
+    .eq('payment_source', 'credit_card')
+    .eq('exclude_from_metrics', false)
+    .in('user_id', scope.visibleExpenseUserIds)
+    .order('transaction_date', { ascending: false })
+    .limit(100)
+
+  if (error) return { data: [], error: error.message }
+
+  const txRows = (rows ?? []) as CreditCardExpenseRow[]
+  const profileNames = await getProfileNames(supabase, txRows.map(row => row.user_id))
+
+  return {
+    data: txRows.map(row => {
+      const category = Array.isArray(row.transaction_categories)
+        ? row.transaction_categories[0]
+        : row.transaction_categories
+
+      return {
+        id: row.id,
+        amount: Number(row.amount),
+        currency: row.currency,
+        transaction_date: row.transaction_date,
+        notes: row.notes,
+        category_name: category?.name ?? null,
+        category_color: category?.color ?? null,
+        registered_by_name: profileNames[row.user_id],
+      }
+    }),
+    error: null,
+  }
 }
 
 // ─── Businesses CRUD ──────────────────────────────────────────────────────────

@@ -67,6 +67,7 @@ export interface CreditCardOption {
   id: string
   name: string
   current_balance: number
+  credit_limit: number | null
   currency: string
   is_shared: boolean
   owner_name?: string

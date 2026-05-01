@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import type { BrujulaData, Asset, Liability, Business, FreedomGoal } from '../types'
+import type { BrujulaData, Asset, Liability, Business, FreedomGoal, CreditCardExpenseHistoryItem } from '../types'
 import type { LiquidityAccount } from '@/types/liquidity'
 import { ASSET_TYPE_LABELS, BUSINESS_MODEL_LABELS, BUSINESS_STATUS_LABELS, LIABILITY_TYPE_LABELS, PROGRESS_LEVEL_LABELS } from '../types'
-import { deleteAsset, deleteLiability, deleteBusiness, deleteFreedomGoal, updateFreedomGoal, payOffCreditCard } from '../actions'
+import { deleteAsset, deleteLiability, deleteBusiness, deleteFreedomGoal, updateFreedomGoal, payOffCreditCard, getCreditCardExpenseHistory } from '../actions'
 import { AssetModal } from './AssetModal'
 import { LiabilityModal } from './LiabilityModal'
 import { BusinessModal } from './BusinessModal'
@@ -31,6 +31,18 @@ function fmtDias(d: number) {
   if (d >= 365) return `${(d / 365).toFixed(1)}a`
   if (d >= 30)  return `${(d / 30).toFixed(1)}m`
   return `${d.toFixed(0)}d`
+}
+
+function fmtDate(date: string) {
+  return new Intl.DateTimeFormat('es-US', { month: 'short', day: 'numeric' }).format(new Date(`${date}T00:00:00`))
+}
+
+function creditUsage(balance: number, limit: number | null) {
+  if (!limit || limit <= 0) return null
+  return {
+    pct: Math.min((balance / limit) * 100, 999),
+    available: Math.max(limit - balance, 0),
+  }
 }
 
 // ─── Score Ring ───────────────────────────────────────────────────────────────
@@ -185,40 +197,82 @@ function BusinessCard({ business, onEdit, onDelete, pending }: {
 
 // ─── Liability Card ───────────────────────────────────────────────────────────
 
-function LiabilityCard({ liability, onEdit, onDelete, onPayCC, pending }: {
+function LiabilityCard({ liability, onEdit, onDelete, onPayCC, onHistory, pending }: {
   liability: Liability
   onEdit: () => void
   onDelete: () => void
   onPayCC: () => void
+  onHistory: () => void
   pending: boolean
 }) {
+  const usage = liability.liability_type === 'credit_card'
+    ? creditUsage(liability.current_balance, liability.credit_limit)
+    : null
+
   return (
-    <div className="brujula-list-card bg-white border border-[#EAF0EC] rounded-xl p-3.5 flex gap-3 items-start">
+    <div className="brujula-list-card glass rounded-xl p-3.5 flex gap-3 items-start">
       <div className="flex-1 min-w-0">
         <div className="brujula-card-badges flex items-center gap-2 mb-1">
-          <span className="text-[13px] font-medium text-[#141F19] truncate">{liability.name}</span>
-          <span className="shrink-0 text-[10px] bg-[#FFF0EF] text-[#E84434] rounded-md px-1.5 py-0.5">
+          <span className="text-[13px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{liability.name}</span>
+          <span className="shrink-0 text-[10px] rounded-md px-1.5 py-0.5" style={{ background: 'rgba(232,68,52,0.15)', color: 'var(--text-red)' }}>
             {LIABILITY_TYPE_LABELS[liability.liability_type]}
           </span>
         </div>
-        <p className="font-mono text-[20px] font-semibold text-[#E84434] leading-tight">
+        <p className="font-mono text-[20px] font-semibold leading-tight" style={{ color: 'var(--text-red)' }}>
           {fmtFull(liability.current_balance, liability.currency)}
         </p>
-        <p className="text-[11px] text-[#7A9A8A] mt-0.5">
+        <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
           {liability.interest_rate_pct != null && `${liability.interest_rate_pct}% interés`}
           {liability.monthly_payment != null && ` · ${fmtFull(liability.monthly_payment, liability.currency)}/mes`}
         </p>
-        {liability.notes && <p className="text-[10px] text-[#7A9A8A] mt-1 truncate">{liability.notes}</p>}
-        {liability.registered_by_name && <p className="text-[10px] text-[#7A9A8A] mt-1 truncate">Registró {liability.registered_by_name}</p>}
+        {liability.notes && <p className="text-[10px] mt-1 truncate" style={{ color: 'var(--text-secondary)' }}>{liability.notes}</p>}
+        {liability.registered_by_name && <p className="text-[10px] mt-1 truncate" style={{ color: 'var(--text-secondary)' }}>Registró {liability.registered_by_name}</p>}
+        {usage && (
+          <div className="mt-3">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+                Uso {fmtFull(liability.current_balance, liability.currency)} de {fmtFull(liability.credit_limit ?? 0, liability.currency)}
+              </span>
+              <span className="font-mono text-[11px] font-semibold" style={{ color: 'var(--text-red)' }}>{usage.pct.toFixed(0)}%</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-[#E84434] transition-all"
+                style={{ width: `${Math.min(usage.pct, 100)}%` }}
+              />
+            </div>
+            <p className="text-[10px] mt-1" style={{ color: 'var(--text-secondary)' }}>Disponible: {fmtFull(usage.available, liability.currency)}</p>
+          </div>
+        )}
+        {liability.liability_type === 'credit_card' && !usage && (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="mt-3 w-full rounded-lg px-3 py-2 text-left transition-colors"
+            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}
+          >
+            <span className="block text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Límite no registrado</span>
+            <span className="block text-[11px] font-medium mt-0.5" style={{ color: 'var(--green-bright)' }}>Agregar límite para ver porcentaje de uso</span>
+          </button>
+        )}
       </div>
       <div className="brujula-card-actions flex items-center gap-1.5 shrink-0">
         {liability.liability_type === 'credit_card' && (
-          <button onClick={onPayCC}
-            className="text-[11px] font-medium text-white bg-[#2E7D52] hover:bg-[#3A9E6A] rounded-lg px-2.5 py-1 transition-colors">
-            Pagar
-          </button>
+          <>
+            <button onClick={onHistory}
+              className="text-[11px] font-medium rounded-lg px-2.5 py-1 transition-colors"
+              style={{ color: 'var(--green-bright)', background: 'rgba(255,255,255,0.08)' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.13)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}>
+              Historial
+            </button>
+            <button onClick={onPayCC}
+              className="text-[11px] font-medium text-white bg-[#2E7D52] hover:bg-[#3A9E6A] rounded-lg px-2.5 py-1 transition-colors">
+              Pagar
+            </button>
+          </>
         )}
-        <button onClick={onEdit} className="text-[12px] text-[#7A9A8A] hover:text-[#2E7D52] transition-colors px-1">
+        <button onClick={onEdit} className="text-[12px] transition-colors px-1" style={{ color: 'var(--text-secondary)' }}>
           Editar
         </button>
         <DeleteBtn onConfirm={onDelete} pending={pending} />
@@ -329,19 +383,19 @@ function PayCCModal({ liability, liquidityAccounts, onClose, onSaved }: {
   }
 
   return (
-    <div className="brujula-modal-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-4">
-      <div className="brujula-modal-card w-full max-w-sm bg-white rounded-2xl p-6 shadow-xl">
+    <div className="brujula-modal-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+      <div className="brujula-modal-card w-full max-w-sm bg-[#1A2520] rounded-2xl p-6 shadow-xl border border-white/10">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-[15px] font-semibold text-[#141F19]">Pagar tarjeta</h2>
+            <h2 className="text-[15px] font-semibold text-white">Pagar tarjeta</h2>
             <p className="text-[11px] text-[#7A9A8A] mt-0.5">{liability.name}</p>
           </div>
-          <button onClick={onClose} className="text-[#7A9A8A] hover:text-[#141F19] text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-[#7A9A8A] hover:text-white transition-colors text-xl leading-none">×</button>
         </div>
 
-        <div className="bg-[#FFF0EF] rounded-xl p-3 mb-4">
+        <div className="rounded-xl p-3 mb-4" style={{ background: 'rgba(232,68,52,0.15)', border: '1px solid rgba(232,68,52,0.25)' }}>
           <p className="text-[10px] uppercase tracking-widest text-[#E84434] mb-0.5">Deuda actual</p>
-          <p className="font-mono text-[22px] font-semibold text-[#E84434]">
+          <p className="font-mono text-[22px] font-semibold" style={{ color: 'var(--text-red)' }}>
             {fmtFull(liability.current_balance, liability.currency)}
           </p>
         </div>
@@ -354,10 +408,10 @@ function PayCCModal({ liability, liquidityAccounts, onClose, onSaved }: {
             <select
               value={liquidityAssetId}
               onChange={e => { setLiquidityAssetId(e.target.value); setError(null) }}
-              className="w-full px-3 py-2.5 rounded-lg border border-[#D0DDD6] text-[14px] text-[#141F19] focus:outline-none focus:border-[#2E7D52] bg-white"
+              className="w-full px-3 py-2.5 rounded-lg border border-white/10 text-[14px] text-white focus:outline-none focus:border-[#3A9E6A] bg-white/[6%]"
             >
               {bankAccounts.map(account => (
-                <option key={account.id} value={account.id}>
+                <option key={account.id} value={account.id} className="bg-[#1A2520]">
                   {account.name} · {account.institution} ({fmtFull(account.current_value, account.currency)})
                 </option>
               ))}
@@ -376,7 +430,7 @@ function PayCCModal({ liability, liquidityAccounts, onClose, onSaved }: {
               step="0.01"
               min="0.01"
               autoFocus
-              className="w-full px-3 py-2.5 rounded-lg border border-[#D0DDD6] text-[16px] font-mono text-[#141F19] focus:outline-none focus:border-[#2E7D52] bg-white"
+              className="w-full px-3 py-2.5 rounded-lg border border-white/10 text-[16px] font-mono text-white focus:outline-none focus:border-[#3A9E6A] bg-white/[6%]"
             />
             {amount && !isNaN(parseFloat(amount)) && parseFloat(amount) > 0 && (
               <p className="text-[10px] text-[#7A9A8A] mt-1.5">
@@ -387,7 +441,7 @@ function PayCCModal({ liability, liquidityAccounts, onClose, onSaved }: {
           {error && <p className="text-[#E84434] text-[12px]">{error}</p>}
           <div className="brujula-modal-actions flex gap-3">
             <button type="button" onClick={onClose} disabled={pending}
-              className="flex-1 py-2.5 rounded-xl border border-[#D0DDD6] text-[13px] font-medium text-[#7A9A8A]">
+              className="flex-1 py-2.5 rounded-xl border border-white/10 text-[13px] font-medium text-[#7A9A8A] hover:text-white transition-colors">
               Cancelar
             </button>
             <button type="submit" disabled={pending || !amount}
@@ -401,6 +455,142 @@ function PayCCModal({ liability, liquidityAccounts, onClose, onSaved }: {
   )
 }
 
+function CreditCardHistoryModal({ liability, onClose }: {
+  liability: Liability
+  onClose: () => void
+}) {
+  const [items, setItems] = useState<CreditCardExpenseHistoryItem[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let mounted = true
+    setLoading(true)
+    setError(null)
+    getCreditCardExpenseHistory(liability.id).then(res => {
+      if (!mounted) return
+      setItems(res.data)
+      setError(res.error)
+      setLoading(false)
+    })
+    return () => { mounted = false }
+  }, [liability.id])
+
+  const expenseTotal = items.reduce((sum, item) => sum + item.amount, 0)
+  const combinedDebt = liability.current_balance + expenseTotal
+  const usage = creditUsage(combinedDebt, liability.credit_limit)
+
+  return (
+    <div className="brujula-modal-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+      <div className="brujula-modal-card w-full max-w-md bg-[#1A2520] rounded-2xl p-6 shadow-xl border border-white/10">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="min-w-0">
+            <h2 className="text-[15px] font-semibold text-white">Historial de gastos</h2>
+            <p className="text-[11px] text-[#7A9A8A] mt-0.5 truncate">{liability.name}</p>
+          </div>
+          <button onClick={onClose} className="text-[#7A9A8A] hover:text-white transition-colors text-xl leading-none">×</button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2 mb-4 min-[380px]:grid-cols-3">
+          <div className="rounded-xl p-3" style={{ background: 'rgba(232,68,52,0.15)', border: '1px solid rgba(232,68,52,0.20)' }}>
+            <p className="text-[10px] uppercase tracking-widest text-[#E84434] mb-0.5">Esta tarjeta</p>
+            <p className="font-mono text-[18px] font-semibold leading-tight" style={{ color: 'var(--text-red)' }}>
+              {fmtFull(liability.current_balance, liability.currency)}
+            </p>
+          </div>
+          <div className="rounded-xl p-3" style={{ background: 'rgba(232,68,52,0.15)', border: '1px solid rgba(232,68,52,0.20)' }}>
+            <p className="text-[10px] uppercase tracking-widest text-[#E84434] mb-0.5">Deuda total actual</p>
+            <p className="font-mono text-[18px] font-semibold leading-tight" style={{ color: 'var(--text-red)' }}>
+              {fmtFull(combinedDebt, liability.currency)}
+            </p>
+          </div>
+          <div className="rounded-xl p-3" style={{ background: 'rgba(46,125,82,0.15)', border: '1px solid rgba(46,125,82,0.25)' }}>
+            <p className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: 'var(--green-bright)' }}>Gastos listados</p>
+            <p className="font-mono text-[18px] font-semibold leading-tight text-white">
+              {fmtFull(expenseTotal, liability.currency)}
+            </p>
+          </div>
+        </div>
+
+        {usage && (
+          <div className="rounded-xl border border-white/10 bg-white/[4%] p-3 mb-4">
+            <div className="flex items-center justify-between gap-3 mb-1.5">
+              <p className="text-[10px] uppercase tracking-widest text-[#7A9A8A]">Uso del límite</p>
+              <p className="font-mono text-[13px] font-semibold text-[#E84434]">{usage.pct.toFixed(0)}%</p>
+            </div>
+            <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-[#E84434] transition-all"
+                style={{ width: `${Math.min(usage.pct, 100)}%` }}
+              />
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-[#7A9A8A]">
+              <span>Límite {fmtFull(liability.credit_limit ?? 0, liability.currency)}</span>
+              <span>Disponible {fmtFull(usage.available, liability.currency)}</span>
+            </div>
+          </div>
+        )}
+        {!usage && (
+          <div className="rounded-xl border border-white/10 bg-white/[4%] p-3 mb-4">
+            <p className="text-[10px] uppercase tracking-widest text-[#7A9A8A]">Uso del límite</p>
+            <p className="text-[12px] text-white/60 mt-1">Límite no registrado para esta tarjeta.</p>
+          </div>
+        )}
+
+        <div className="max-h-[52vh] overflow-y-auto pr-1">
+          {loading && (
+            <p className="text-[13px] text-[#7A9A8A] py-6 text-center">Cargando historial…</p>
+          )}
+          {!loading && error && (
+            <p className="text-[13px] text-[#E84434] py-6 text-center">{error}</p>
+          )}
+          {!loading && !error && items.length === 0 && (
+            <p className="text-[13px] text-[#7A9A8A] py-6 text-center">No hay gastos registrados con esta tarjeta.</p>
+          )}
+          {!loading && !error && items.length > 0 && (
+            <div className="space-y-2">
+              {items.map(item => (
+                <div key={item.id} className="rounded-xl border border-white/10 bg-white/[3%] p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span
+                          className="h-2 w-2 rounded-full shrink-0"
+                          style={{ background: item.category_color ?? '#7A9A8A' }}
+                        />
+                        <p className="text-[13px] font-medium text-white truncate">
+                          {item.category_name ?? 'Sin categoría'}
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-[#7A9A8A]">
+                        {fmtDate(item.transaction_date)}
+                        {item.registered_by_name ? ` · ${item.registered_by_name}` : ''}
+                      </p>
+                      {item.notes && (
+                        <p className="text-[11px] text-[#7A9A8A] mt-1 truncate">{item.notes}</p>
+                      )}
+                    </div>
+                    <p className="font-mono text-[14px] font-semibold shrink-0" style={{ color: 'var(--text-red)' }}>
+                      {fmtFull(item.amount, item.currency)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="brujula-modal-actions flex gap-3 mt-5">
+          <button type="button" onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl bg-[#2E7D52] text-white text-[13px] font-medium hover:bg-[#3A9E6A] transition-colors">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 type Modal =
@@ -409,6 +599,7 @@ type Modal =
   | { type: 'liability_new' }
   | { type: 'liability_edit'; liability: Liability }
   | { type: 'pay_cc'; liability: Liability }
+  | { type: 'cc_history'; liability: Liability }
   | { type: 'business_new' }
   | { type: 'business_edit'; business: Business }
   | { type: 'goal_new' }
@@ -621,6 +812,7 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
                 onEdit={() => setModal({ type: 'liability_edit', liability: l })}
                 onDelete={() => handleDelete(() => deleteLiability(l.id))}
                 onPayCC={() => setModal({ type: 'pay_cc', liability: l })}
+                onHistory={() => setModal({ type: 'cc_history', liability: l })}
                 pending={pending} />
             ))
           )}
@@ -688,6 +880,9 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
       )}
       {modal?.type === 'pay_cc' && (
         <PayCCModal liability={modal.liability} liquidityAccounts={liquidity_accounts} onClose={() => setModal(null)} onSaved={refresh} />
+      )}
+      {modal?.type === 'cc_history' && (
+        <CreditCardHistoryModal liability={modal.liability} onClose={() => setModal(null)} />
       )}
       {modal?.type === 'business_new' && (
         <BusinessModal onClose={() => setModal(null)} onSaved={refresh} />

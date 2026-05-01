@@ -26,6 +26,18 @@ import type {
 
 const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
+function usdAmount(row: {
+  currency?: string | null
+  current_value?: number | null
+  value_in_usd?: number | null
+  current_balance?: number | null
+  balance_in_usd?: number | null
+}): number {
+  const current = Number(row.current_value ?? row.current_balance ?? 0)
+  if ((row.currency ?? 'USD') === 'USD') return current
+  return Number(row.value_in_usd ?? row.balance_in_usd ?? current)
+}
+
 function calcHorasReales(h: {
   contracted_hours_per_week: number
   extra_hours_per_week: number
@@ -232,7 +244,7 @@ export async function getCreditCardOptions(): Promise<ActionResult<CreditCardOpt
 
   const liabilityQuery = supabase
     .from('liabilities')
-    .select('id, name, current_balance, currency, is_shared, user_id, household_id')
+    .select('id, name, current_balance, credit_limit, currency, is_shared, user_id, household_id')
     .eq('liability_type', 'credit_card')
     .eq('is_active', true)
 
@@ -269,6 +281,7 @@ export async function getCreditCardOptions(): Promise<ActionResult<CreditCardOpt
       id: card.id,
       name: card.name,
       current_balance: Number(card.current_balance),
+      credit_limit: card.credit_limit != null ? Number(card.credit_limit) : null,
       currency: card.currency ?? 'USD',
       is_shared: card.is_shared,
       owner_name: card.user_id !== DEV_USER_ID ? ownerNames[card.user_id] : undefined,
@@ -579,9 +592,9 @@ export async function getDashboardData(): Promise<DashboardData> {
   }
 
   const total_assets_usd = (assetsRaw ?? [])
-    .reduce((s, asset) => s + Number(asset.value_in_usd ?? asset.current_value), 0)
+    .reduce((s, asset) => s + usdAmount(asset), 0)
   const total_liabilities_usd = (liabilitiesRaw ?? [])
-    .reduce((s, liability) => s + Number(liability.balance_in_usd ?? liability.current_balance), 0)
+    .reduce((s, liability) => s + usdAmount(liability), 0)
   const net_worth: DashboardNetWorth = {
     total_assets_usd,
     total_liabilities_usd,
@@ -733,12 +746,18 @@ async function adjustLiabilityBalance(
 ) {
   const { data: lib } = await supabase
     .from('liabilities')
-    .select('current_balance')
+    .select('current_balance, currency')
     .eq('id', liability_id)
     .single()
   if (!lib) return
   const newBalance = Math.max(0, Number(lib.current_balance) + delta)
-  await supabase.from('liabilities').update({ current_balance: newBalance }).eq('id', liability_id)
+  await supabase
+    .from('liabilities')
+    .update({
+      current_balance: newBalance,
+      balance_in_usd: lib.currency === 'USD' ? newBalance : null,
+    })
+    .eq('id', liability_id)
 }
 
 // ─── createTransaction ────────────────────────────────────────────────────────
@@ -903,6 +922,13 @@ export async function deleteTransaction(id: string): Promise<{ error: string | n
 
   if (!canDelete) return { error: 'No tienes permiso para eliminar esta transacción' }
 
+  const { data: paymentMovement } = await supabase
+    .from('liquidity_movements')
+    .select('movement_type, related_liability_id, amount')
+    .eq('related_transaction_id', txn.id)
+    .eq('movement_type', 'credit_card_payment')
+    .maybeSingle()
+
   const { data: deleted, error } = await supabase
     .from('transactions')
     .delete()
@@ -929,6 +955,13 @@ export async function deleteTransaction(id: string): Promise<{ error: string | n
       allowCash: true,
       relatedTransactionId: txn.id,
     })
+  }
+  if (paymentMovement?.related_liability_id) {
+    await adjustLiabilityBalance(
+      supabase,
+      paymentMovement.related_liability_id,
+      Number(paymentMovement.amount)
+    )
   }
 
   await recalculateBudgetAvgs(DEV_USER_ID)
@@ -986,7 +1019,7 @@ export async function registerCCPayment({
       period_id,
       category_id: category!.id,
       payment_source: 'cash_debit',
-      liability_id,
+      liability_id: null,
       liquidity_asset_id,
       type: 'expense',
       amount,

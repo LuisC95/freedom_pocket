@@ -83,6 +83,7 @@ export interface Liability {
   current_balance: number
   currency: string
   balance_in_usd: number | null
+  credit_limit: number | null
   interest_rate_pct: number | null
   monthly_payment: number | null
   is_active: boolean
@@ -92,6 +93,17 @@ export interface Liability {
 
 export type LiabilityInsert = Omit<Liability, 'id' | 'created_at' | 'updated_at'>
 export type LiabilityUpdate = Partial<Omit<Liability, 'id' | 'user_id' | 'created_at'>> & { id: string }
+
+export interface CreditCardExpenseHistoryItem {
+  id: string
+  amount: number
+  currency: string
+  transaction_date: string
+  notes: string | null
+  category_name: string | null
+  category_color: string | null
+  registered_by_name?: string
+}
 
 // ─── Businesses ───────────────────────────────────────────────────────────────
 

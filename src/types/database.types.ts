@@ -974,6 +974,7 @@ export type Database = {
         Row: {
           balance_in_usd: number | null
           created_at: string
+          credit_limit: number | null
           currency: string
           current_balance: number
           household_id: string | null
@@ -991,6 +992,7 @@ export type Database = {
         Insert: {
           balance_in_usd?: number | null
           created_at?: string
+          credit_limit?: number | null
           currency?: string
           current_balance: number
           household_id?: string | null
@@ -1008,6 +1010,7 @@ export type Database = {
         Update: {
           balance_in_usd?: number | null
           created_at?: string
+          credit_limit?: number | null
           currency?: string
           current_balance?: number
           household_id?: string | null

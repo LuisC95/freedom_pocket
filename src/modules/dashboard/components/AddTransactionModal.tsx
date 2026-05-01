@@ -61,6 +61,15 @@ function fmtMoney(n: number) {
   }).format(n)
 }
 
+function creditUsage(balance: number, limit: number | null) {
+  if (!limit || limit <= 0) return null
+  return {
+    pct: Math.min((balance / limit) * 100, 999),
+    available: Math.max(limit - balance, 0),
+    isOverLimit: balance > limit,
+  }
+}
+
 const INPUT_STYLE: React.CSSProperties = {
   backgroundColor: '#0E1512',
   border: '0.5px solid #2E7D5230',
@@ -155,6 +164,9 @@ export function AddTransactionModal({
   const projectedCardBalance = selectedCard && !Number.isNaN(amountValue)
     ? selectedCard.current_balance + amountValue
     : selectedCard?.current_balance ?? 0
+  const projectedCardUsage = selectedCard
+    ? creditUsage(projectedCardBalance, selectedCard.credit_limit)
+    : null
   const canExpandPaymentSelector = creditCardOptions.length > 0 || liquidityAccounts.length > 0
 
   function selectCashDebit(assetId: string) {
@@ -576,11 +588,33 @@ export function AddTransactionModal({
                     )}
                   </div>
                   {paymentSource === 'credit_card' && selectedCard && (
-                    <div style={{ marginTop: '2px', display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#7A9A8A' }}>Después de este gasto</span>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: '#E84434', fontWeight: 500 }}>
-                        {fmtMoney(projectedCardBalance)}
-                      </span>
+                    <div style={{ marginTop: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#7A9A8A' }}>Después de este gasto</span>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: '#E84434', fontWeight: 500 }}>
+                          {fmtMoney(projectedCardBalance)}
+                        </span>
+                      </div>
+                      {projectedCardUsage && (
+                        <div style={{ marginTop: '6px' }}>
+                          <div style={{ height: '5px', borderRadius: '999px', backgroundColor: '#2a3a33', overflow: 'hidden' }}>
+                            <div
+                              style={{
+                                height: '100%',
+                                width: `${Math.min(projectedCardUsage.pct, 100)}%`,
+                                borderRadius: '999px',
+                                backgroundColor: projectedCardUsage.isOverLimit ? '#E84434' : '#C69B30',
+                              }}
+                            />
+                          </div>
+                          <div style={{ marginTop: '3px', display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#7A9A8A' }}>{projectedCardUsage.pct.toFixed(0)}% del límite</span>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: projectedCardUsage.isOverLimit ? '#E84434' : '#7A9A8A' }}>
+                              {projectedCardUsage.isOverLimit ? 'Sobre límite' : `${fmtMoney(projectedCardUsage.available)} disp.`}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                   {paymentSource === 'cash_debit' && selectedLiquidity && (
@@ -678,6 +712,11 @@ export function AddTransactionModal({
                               </span>
                             )}
                           </div>
+                          {card.credit_limit && (
+                            <span style={{ display: 'block', marginTop: '2px', fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#7A9A8A' }}>
+                              {creditUsage(card.current_balance, card.credit_limit)?.pct.toFixed(0)}% usado · {fmtMoney(creditUsage(card.current_balance, card.credit_limit)?.available ?? 0)} disp.
+                            </span>
+                          )}
                         </div>
                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#E84434' }}>
                           {fmtMoney(card.current_balance)}
