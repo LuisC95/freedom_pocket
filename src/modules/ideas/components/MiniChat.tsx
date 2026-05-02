@@ -13,10 +13,23 @@ interface Props {
   context: ChatContext
 }
 
+function initialGreeting(context: ChatContext): string {
+  if (context.screen === 'sprint' && context.ideaTitle) {
+    return `Hola 👋 Estoy aquí para ayudarte con tu sprint de "${context.ideaTitle}". ¿En qué te puedo orientar?`
+  }
+  if (context.screen === 'cazador') {
+    return 'Hola 👋 Estoy aquí para ayudarte a detectar oportunidades. ¿Qué observación registraste hoy?'
+  }
+  if (context.screen === 'banco') {
+    return 'Hola 👋 ¿Te ayudo a evaluar alguna de tus ideas o decidir cuál sprint lanzar?'
+  }
+  return 'Hola 👋 ¿En qué te puedo ayudar con tu módulo de ideas?'
+}
+
 export function MiniChat({ context }: Props) {
   const [open, setOpen]       = useState(false)
   const [msgs, setMsgs]       = useState<Message[]>([
-    { role: 'ai', texto: 'Hola 👋 ¿En qué te puedo ayudar con tu módulo de ideas?' },
+    { role: 'ai', texto: initialGreeting(context) },
   ])
   const [input, setInput]     = useState('')
   const [loading, setLoading] = useState(false)
@@ -93,7 +106,11 @@ export function MiniChat({ context }: Props) {
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-sans)' }}>Coach AI</div>
                 <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
-                  {context.screen === 'sprint' ? 'Sprint activo' : `Ideas · ${context.screen}`}
+                  {context.screen === 'sprint'
+                    ? context.ideaTitle
+                      ? `Sprint · ${context.ideaTitle.slice(0, 22)}${context.ideaTitle.length > 22 ? '…' : ''}`
+                      : 'Sprint activo'
+                    : `Ideas · ${context.screen}`}
                 </div>
               </div>
             </div>

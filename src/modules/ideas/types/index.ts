@@ -114,6 +114,7 @@ export interface ChatContext {
   ideaId?:    string
   sprintId?:  string
   dayNumber?: number
+  ideaTitle?: string
 }
 
 // ── Input types para server actions ──────────────────────────────────────────

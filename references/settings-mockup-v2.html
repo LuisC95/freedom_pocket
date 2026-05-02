@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings — Glass Dark Theme</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --bg-base: #070E0A;
+    --glass-bg: rgba(255,255,255,0.055);
+    --glass-bg-strong: rgba(255,255,255,0.09);
+    --glass-border: rgba(255,255,255,0.10);
+    --glass-border-accent: rgba(58,158,106,0.35);
+    --glass-blur: blur(24px);
+    --glass-blur-heavy: blur(40px);
+    --accent: #2E7D52;
+    --accent-hover: #3A9E6A;
+    --green: #3A9E6A;
+    --green-bright: #4DC98A;
+    --green-dim: rgba(58,158,106,0.18);
+    --gold: #C69B30;
+    --gold-dim: rgba(198,155,48,0.15);
+    --gold-border: rgba(198,155,48,0.30);
+    --red: #E84434;
+    --red-dim: rgba(232,68,52,0.15);
+    --text-primary: #EEF5F0;
+    --text-secondary: rgba(238,245,240,0.55);
+    --text-muted: rgba(238,245,240,0.32);
+    --text-green: #4DC98A;
+    --text-gold: #D4A93A;
+    --text-red: #F2675A;
+    --font-sans: 'IBM Plex Sans', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --r-card: 16px;
+    --r-hero: 22px;
+    --r-pill: 9999px;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: #0a0a0a;
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 20px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Phone frame ── */
+  .phone-frame {
+    width: 393px;
+    height: 852px;
+    background: var(--bg-base);
+    border-radius: 48px;
+    border: 2px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+
+  /* Animated background orbs */
+  .bg-canvas {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.55;
+    animation: orbDrift 18s ease-in-out infinite alternate;
+  }
+  .orb-1 {
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(30,90,55,0.7) 0%, transparent 70%);
+    top: -100px; left: -80px;
+    animation-duration: 22s;
+  }
+  .orb-2 {
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(18,60,38,0.5) 0%, transparent 70%);
+    bottom: -60px; right: -60px;
+    animation-duration: 16s;
+    animation-delay: -6s;
+  }
+  .orb-3 {
+    width: 180px; height: 180px;
+    background: radial-gradient(circle, rgba(198,155,48,0.10) 0%, transparent 70%);
+    top: 40%; left: 50%;
+    animation-duration: 26s;
+    animation-delay: -10s;
+  }
+  @keyframes orbDrift {
+    from { transform: translate(0,0) scale(1); }
+    to   { transform: translate(30px,20px) scale(1.06); }
+  }
+
+  /* Status bar */
+  .status-bar {
+    height: 54px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 8px;
+    position: relative;
+    z-index: 2;
+  }
+  .notch {
+    width: 126px;
+    height: 34px;
+    background: #000;
+    border-radius: 0 0 20px 20px;
+  }
+
+  /* Screen */
+  .screen {
+    position: relative;
+    z-index: 1;
+    height: calc(100% - 54px - 78px);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .screen::-webkit-scrollbar { display: none; }
+
+  /* Page header */
+  .page-header {
+    padding: 16px 18px 14px;
+  }
+  .page-header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.3px;
+  }
+  .page-header p {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    font-weight: 400;
+  }
+
+  /* ── Profile hero card (glass-hero) ── */
+  .profile-hero {
+    margin: 0 16px 18px;
+    background: linear-gradient(135deg, rgba(30,80,52,0.45) 0%, rgba(10,26,18,0.60) 100%);
+    backdrop-filter: var(--glass-blur-heavy);
+    -webkit-backdrop-filter: var(--glass-blur-heavy);
+    border: 1px solid var(--glass-border-accent);
+    border-radius: var(--r-hero);
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .profile-hero:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 48px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+  .profile-hero:active { transform: scale(0.98); }
+
+  .avatar {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent) 0%, #1F6B3E 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 700; color: white;
+    flex-shrink: 0;
+    box-shadow: 0 4px 20px rgba(46,125,82,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+  }
+
+  .profile-info { flex: 1; min-width: 0; }
+  .profile-info .name {
+    font-size: 16px; font-weight: 600; color: var(--text-primary); line-height: 1.2;
+  }
+  .profile-info .occupation {
+    font-size: 11px; color: var(--text-secondary); margin-top: 2px; font-weight: 400;
+  }
+  .profile-info .edit-hint {
+    font-size: 10px; color: var(--text-green); margin-top: 5px; font-weight: 500;
+  }
+  .chevron { color: var(--text-muted); font-size: 18px; flex-shrink: 0; }
+
+  /* ── Section ── */
+  .section { margin-bottom: 18px; }
+  .section-title {
+    font-family: var(--font-mono);
+    font-size: 9px; font-weight: 400;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 0 18px;
+    margin-bottom: 8px;
+  }
+
+  .section-card {
+    margin: 0 16px;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--r-card);
+    overflow: hidden;
+  }
+
+  /* ── Row item ── */
+  .row-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: background 0.12s;
+    position: relative;
+  }
+  .row-item:hover { background: rgba(255,255,255,0.04); }
+  .row-item:active { background: rgba(255,255,255,0.07); }
+  .row-item + .row-item { border-top: 1px solid rgba(255,255,255,0.06); }
+
+  .row-icon {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+  }
+  .row-icon.green { background: var(--green-dim); }
+  .row-icon.gold { background: var(--gold-dim); }
+  .row-icon.dark { background: rgba(255,255,255,0.06); }
+
+  .row-content { flex: 1; min-width: 0; }
+  .row-label { font-size: 14px; font-weight: 500; color: var(--text-primary); line-height: 1.2; }
+  .row-detail { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+  .row-value {
+    font-family: var(--font-mono);
+    font-size: 12px; color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+  .row-chevron { color: var(--text-muted); font-size: 14px; flex-shrink: 0; }
+
+  /* ── Badge ── */
+  .badge {
+    font-size: 10px; font-weight: 500;
+    padding: 2px 8px; border-radius: 6px;
+    flex-shrink: 0;
+    font-family: var(--font-sans);
+  }
+  .badge.free { background: rgba(255,255,255,0.06); color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.07); }
+  .badge.soon { background: var(--gold-dim); color: var(--text-gold); border: 1px solid rgba(198,155,48,0.2); }
+
+  /* Members mini */
+  .members-row { display: flex; margin-top: 5px; }
+  .mini-avatar {
+    width: 20px; height: 20px; border-radius: 50%;
+    font-size: 9px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    color: white; margin-right: -4px;
+    border: 2px solid rgba(7,14,10,0.8);
+  }
+  .mini-avatar.l { background: var(--accent); }
+  .mini-avatar.a { background: var(--gold); }
+
+  /* ── Bottom nav (pill style) ── */
+  .bottom-nav {
+    position: absolute;
+    bottom: 12px;
+    left: 16px;
+    right: 16px;
+    height: 60px;
+    background: rgba(8,18,12,0.80);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--r-pill);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 6px;
+    z-index: 40;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .nav-item {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 2px; font-size: 9px; font-weight: 500;
+    color: rgba(238,245,240,0.35);
+    cursor: pointer; padding: 6px 12px;
+    border-radius: var(--r-pill);
+    transition: all 0.15s;
+  }
+  .nav-item.active {
+    color: var(--text-green);
+    background: var(--green-dim);
+  }
+  .nav-item .nav-icon { font-size: 18px; }
+
+  /* ── Detail overlay ── */
+  .detail-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--bg-base);
+    z-index: 10;
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.25,0.1,0.25,1);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .detail-overlay::-webkit-scrollbar { display: none; }
+  .detail-overlay.active { transform: translateX(0); }
+
+  /* Orbs in detail too */
+  .detail-overlay .bg-canvas { position: fixed; }
+
+  .detail-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 70px 18px 12px;
+    position: sticky; top: 0;
+    background: rgba(7,14,10,0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 2;
+  }
+  .back-btn {
+    font-size: 13px; color: var(--text-green);
+    cursor: pointer; display: flex; align-items: center; gap: 4px;
+    font-weight: 500; background: none; border: none;
+    font-family: var(--font-sans); padding: 6px 0;
+  }
+  .detail-title {
+    font-size: 16px; font-weight: 700; color: var(--text-primary);
+  }
+
+  .detail-body { padding: 8px 18px 120px; position: relative; z-index: 1; }
+
+  /* ── Form elements ── */
+  .form-group { margin-bottom: 18px; }
+  .form-label {
+    font-family: var(--font-mono);
+    font-size: 9px; font-weight: 400;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px; display: block;
+  }
+  .form-input, .form-select {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.09);
+    background: rgba(255,255,255,0.06);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .form-input:focus, .form-select:focus {
+    border-color: rgba(58,158,106,0.5);
+    background: rgba(58,158,106,0.07);
+  }
+  .form-input::placeholder { color: var(--text-muted); }
+  .form-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='rgba(238,245,240,0.35)'%3E%3Cpath d='M6 8.5L1 3.5h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    cursor: pointer;
+  }
+  .form-input-mono { font-family: var(--font-mono); }
+
+  /* Avatar editor */
+  .avatar-editor {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 10px; margin-bottom: 24px; padding-top: 8px;
+  }
+  .avatar-large {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent) 0%, #1F6B3E 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px; font-weight: 700; color: white;
+    box-shadow: 0 6px 28px rgba(46,125,82,0.5), inset 0 1px 0 rgba(255,255,255,0.2);
+  }
+  .avatar-change-btn {
+    font-size: 12px; color: var(--text-green); font-weight: 500;
+    cursor: pointer; background: none; border: none;
+    font-family: var(--font-sans);
+  }
+
+  /* Toggle */
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-label { font-size: 14px; color: var(--text-primary); font-weight: 500; }
+  .toggle-desc { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+  .toggle {
+    width: 44px; height: 26px; border-radius: 13px;
+    background: rgba(255,255,255,0.12);
+    position: relative; cursor: pointer;
+    transition: background 0.2s; flex-shrink: 0;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle .knob {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(255,255,255,0.92);
+    position: absolute; top: 2px; left: 2px;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+  }
+  .toggle.on .knob { transform: translateX(18px); }
+
+  /* Member card */
+  .member-card {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    margin-bottom: 8px;
+  }
+  .member-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 600; color: white;
+  }
+  .member-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .member-role { font-size: 11px; color: var(--text-secondary); }
+
+  /* Save button */
+  .save-btn {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, #2E7D52 0%, #1A5038 100%);
+    color: white; border: 1px solid rgba(77,201,138,0.25);
+    border-radius: var(--r-pill);
+    font-family: var(--font-sans); font-size: 14px; font-weight: 600;
+    cursor: pointer; margin-top: 24px;
+    box-shadow: 0 4px 20px rgba(46,125,82,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+    transition: box-shadow 0.15s, transform 0.1s;
+  }
+  .save-btn:hover {
+    box-shadow: 0 6px 28px rgba(46,125,82,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+    transform: translateY(-1px);
+  }
+  .save-btn:active { transform: scale(0.98); }
+
+  /* Tier card */
+  .tier-card {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--r-card);
+    padding: 24px; text-align: center;
+    margin-bottom: 18px;
+  }
+  .tier-label {
+    font-family: var(--font-mono);
+    font-size: 9px; font-weight: 400;
+    letter-spacing: 0.09em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .tier-name {
+    font-family: var(--font-mono);
+    font-size: 28px; font-weight: 600;
+    color: var(--text-primary); margin-top: 6px;
+  }
+  .tier-desc { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+
+  /* Feature list in subscription */
+  .feature-list { margin: 0; }
+  .feature-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    cursor: default;
+  }
+  .feature-row + .feature-row { border-top: 1px solid rgba(255,255,255,0.06); }
+  .feature-icon {
+    width: 28px; height: 28px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; flex-shrink: 0;
+  }
+  .feature-icon.green { background: var(--green-dim); color: var(--text-green); }
+  .feature-icon.gold { background: var(--gold-dim); color: var(--text-gold); }
+  .feature-name { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+  .feature-desc { font-size: 10px; color: var(--text-secondary); margin-top: 1px; }
+
+  /* ── Disabled state ── */
+  .row-item.future { opacity: 0.4; cursor: default; }
+  .row-item.future:hover { background: transparent; }
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+  <!-- Background orbs -->
+  <div class="bg-canvas">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="status-bar"><div class="notch"></div></div>
+
+  <!-- ══════════ MAIN SCREEN ══════════ -->
+  <div class="screen" id="mainScreen">
+    <div class="page-header">
+      <h1>Configuración</h1>
+      <p>Personaliza tu experiencia</p>
+    </div>
+
+    <!-- Profile hero -->
+    <div class="profile-hero" onclick="showDetail('profile')">
+      <div class="avatar">LC</div>
+      <div class="profile-info">
+        <div class="name">Luis Carmona</div>
+        <div class="occupation">CEO</div>
+        <div class="edit-hint">Editar perfil →</div>
+      </div>
+      <span class="chevron">›</span>
+    </div>
+
+    <!-- Preferencias -->
+    <div class="section">
+      <div class="section-title">Preferencias</div>
+      <div class="section-card">
+        <div class="row-item" onclick="showDetail('preferences')">
+          <div class="row-icon green">⚙️</div>
+          <div class="row-content">
+            <div class="row-label">Preferencias de la app</div>
+            <div class="row-detail">Moneda, zona horaria, formato</div>
+          </div>
+          <span class="row-value">USD</span>
+          <span class="row-chevron">›</span>
+        </div>
+        <div class="row-item" onclick="showDetail('household')">
+          <div class="row-icon green">👥</div>
+          <div class="row-content">
+            <div class="row-label">Hogar</div>
+            <div class="row-detail">Luis y Andreina</div>
+            <div class="members-row">
+              <div class="mini-avatar l">L</div>
+              <div class="mini-avatar a">A</div>
+            </div>
+          </div>
+          <span class="row-chevron">›</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Suscripción -->
+    <div class="section">
+      <div class="section-title">Suscripción</div>
+      <div class="section-card">
+        <div class="row-item" onclick="showDetail('subscription')">
+          <div class="row-icon gold">✦</div>
+          <div class="row-content">
+            <div class="row-label">Plan actual</div>
+            <div class="row-detail">Funciones básicas incluidas</div>
+          </div>
+          <span class="badge free">FREE</span>
+          <span class="row-chevron">›</span>
+        </div>
+        <div class="row-item future">
+          <div class="row-icon gold">🔑</div>
+          <div class="row-content">
+            <div class="row-label">API Keys (BYOK)</div>
+            <div class="row-detail">Trae tu propia key de AI</div>
+          </div>
+          <span class="badge soon">Próximamente</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cuenta -->
+    <div class="section">
+      <div class="section-title">Cuenta</div>
+      <div class="section-card">
+        <div class="row-item future">
+          <div class="row-icon dark">🔒</div>
+          <div class="row-content">
+            <div class="row-label">Cambiar PIN</div>
+            <div class="row-detail">Seguridad de acceso</div>
+          </div>
+          <span class="badge soon">Próximamente</span>
+        </div>
+        <div class="row-item future">
+          <div class="row-icon dark">📦</div>
+          <div class="row-content">
+            <div class="row-label">Exportar mis datos</div>
+            <div class="row-detail">Descarga toda tu información</div>
+          </div>
+          <span class="badge soon">Próximamente</span>
+        </div>
+        <div class="row-item" onclick="showDetail('about')">
+          <div class="row-icon dark">ℹ️</div>
+          <div class="row-content">
+            <div class="row-label">Acerca de</div>
+            <div class="row-detail">Versión, créditos</div>
+          </div>
+          <span class="row-chevron">›</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="height: 90px;"></div>
+  </div>
+
+  <!-- ══════════ DETAIL: Profile ══════════ -->
+  <div class="detail-overlay" id="detail-profile">
+    <div class="bg-canvas"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+    <div class="detail-header">
+      <button class="back-btn" onclick="hideDetail('profile')">‹ Atrás</button>
+      <span class="detail-title">Perfil</span>
+    </div>
+    <div class="detail-body">
+      <div class="avatar-editor">
+        <div class="avatar-large">LC</div>
+        <button class="avatar-change-btn">Cambiar foto</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nombre</label>
+        <input class="form-input" type="text" value="Luis Carmona" placeholder="Tu nombre">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ocupación</label>
+        <input class="form-input" type="text" value="CEO" placeholder="¿A qué te dedicas?">
+      </div>
+      <button class="save-btn">Guardar cambios</button>
+    </div>
+  </div>
+
+  <!-- ══════════ DETAIL: Preferences ══════════ -->
+  <div class="detail-overlay" id="detail-preferences">
+    <div class="bg-canvas"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+    <div class="detail-header">
+      <button class="back-btn" onclick="hideDetail('preferences')">‹ Atrás</button>
+      <span class="detail-title">Preferencias</span>
+    </div>
+    <div class="detail-body">
+      <div class="form-group">
+        <label class="form-label">Moneda principal</label>
+        <select class="form-select">
+          <option selected>USD — Dólar estadounidense</option>
+          <option>COP — Peso colombiano</option>
+          <option>EUR — Euro</option>
+          <option>MXN — Peso mexicano</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Zona horaria</label>
+        <select class="form-select">
+          <option>America/New_York</option>
+          <option selected>America/Bogota</option>
+          <option>America/Mexico_City</option>
+          <option>Europe/Madrid</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Días laborales por semana</label>
+        <select class="form-select form-input-mono">
+          <option>4</option>
+          <option selected>5</option>
+          <option>6</option>
+          <option>7</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Método de pago por defecto</label>
+        <select class="form-select">
+          <option selected>Efectivo / Débito</option>
+          <option>Tarjeta de crédito</option>
+        </select>
+      </div>
+      <button class="save-btn">Guardar cambios</button>
+    </div>
+  </div>
+
+  <!-- ══════════ DETAIL: Household ══════════ -->
+  <div class="detail-overlay" id="detail-household">
+    <div class="bg-canvas"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+    <div class="detail-header">
+      <button class="back-btn" onclick="hideDetail('household')">‹ Atrás</button>
+      <span class="detail-title">Hogar</span>
+    </div>
+    <div class="detail-body">
+      <div class="form-group">
+        <label class="form-label">Nombre del hogar</label>
+        <input class="form-input" type="text" value="Luis y Andreina">
+      </div>
+
+      <label class="form-label" style="margin-top:8px;">Miembros</label>
+      <div class="member-card">
+        <div class="member-avatar" style="background: linear-gradient(135deg, var(--accent), #1F6B3E); box-shadow: 0 2px 12px rgba(46,125,82,0.3);">L</div>
+        <div>
+          <div class="member-name">Luis</div>
+          <div class="member-role">Propietario</div>
+        </div>
+      </div>
+      <div class="member-card">
+        <div class="member-avatar" style="background: linear-gradient(135deg, var(--gold), #A07D20); box-shadow: 0 2px 12px rgba(198,155,48,0.3);">A</div>
+        <div>
+          <div class="member-name">Andreina</div>
+          <div class="member-role">Miembro</div>
+        </div>
+      </div>
+
+      <label class="form-label" style="margin-top:20px;">Reglas del hogar</label>
+      <div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Compartir ingresos</div>
+            <div class="toggle-desc">Ambos ven todos los ingresos</div>
+          </div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"><div class="knob"></div></div>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Compartir gastos</div>
+            <div class="toggle-desc">Ambos ven todos los gastos</div>
+          </div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"><div class="knob"></div></div>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">División proporcional</div>
+            <div class="toggle-desc">Cada quien aporta según su ingreso</div>
+          </div>
+          <div class="toggle" onclick="this.classList.toggle('on')"><div class="knob"></div></div>
+        </div>
+      </div>
+      <button class="save-btn">Guardar cambios</button>
+    </div>
+  </div>
+
+  <!-- ══════════ DETAIL: Subscription ══════════ -->
+  <div class="detail-overlay" id="detail-subscription">
+    <div class="bg-canvas"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+    <div class="detail-header">
+      <button class="back-btn" onclick="hideDetail('subscription')">‹ Atrás</button>
+      <span class="detail-title">Plan</span>
+    </div>
+    <div class="detail-body">
+      <div class="tier-card">
+        <div class="tier-label">Tu plan actual</div>
+        <div class="tier-name">Free</div>
+        <div class="tier-desc">Acceso completo a tus finanzas</div>
+      </div>
+
+      <label class="form-label">Incluido en tu plan</label>
+      <div class="section-card feature-list" style="margin:0 0 16px;">
+        <div class="feature-row">
+          <div class="feature-icon green">✓</div>
+          <div>
+            <div class="feature-name">Mi Realidad</div>
+            <div class="feature-desc">Ingresos, horas, precio real por hora</div>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="feature-icon green">✓</div>
+          <div>
+            <div class="feature-name">Dashboard Financiero</div>
+            <div class="feature-desc">Transacciones, presupuestos, tendencias</div>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="feature-icon green">✓</div>
+          <div>
+            <div class="feature-name">La Brújula</div>
+            <div class="feature-desc">Patrimonio, metas, score de progreso</div>
+          </div>
+        </div>
+        <div class="feature-row" style="opacity: 0.4;">
+          <div class="feature-icon gold">✦</div>
+          <div style="flex:1;">
+            <div class="feature-name">Ideas de Negocio + AI</div>
+            <div class="feature-desc">Disponible con plan Pro o BYOK</div>
+          </div>
+          <span class="badge soon">Pro</span>
+        </div>
+      </div>
+
+      <div style="text-align:center; padding: 12px 0;">
+        <div style="font-size:11px; color: var(--text-muted);">Los planes de pago estarán disponibles próximamente</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ DETAIL: About ══════════ -->
+  <div class="detail-overlay" id="detail-about">
+    <div class="bg-canvas"><div class="orb orb-1"></div><div class="orb orb-3"></div></div>
+    <div class="detail-header">
+      <button class="back-btn" onclick="hideDetail('about')">‹ Atrás</button>
+      <span class="detail-title">Acerca de</span>
+    </div>
+    <div class="detail-body" style="text-align:center; padding-top: 48px;">
+      <div style="font-size: 44px; margin-bottom: 10px;">🧭</div>
+      <div style="font-size: 20px; font-weight: 700; color: var(--text-primary);">Fastlane Compass</div>
+      <div style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); margin-top: 6px; letter-spacing: 0.05em;">v0.1.0 · Beta privada</div>
+      <div style="font-size: 12px; color: var(--text-secondary); margin-top: 20px; line-height: 1.7;">
+        Desvincula tu dinero de tu tiempo.<br>
+        Inspirado en "La Vía Rápida del Millonario"<br>
+        de MJ DeMarco.
+      </div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-top: 28px;">
+        Hecho con 🤍 por Luis Carmona
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom nav -->
+  <div class="bottom-nav">
+    <div class="nav-item"><span class="nav-icon">👤</span><span>Realidad</span></div>
+    <div class="nav-item"><span class="nav-icon">📊</span><span>Dashboard</span></div>
+    <div class="nav-item"><span class="nav-icon">🧭</span><span>Brújula</span></div>
+    <div class="nav-item"><span class="nav-icon">💡</span><span>Ideas</span></div>
+    <div class="nav-item active"><span class="nav-icon">⚙️</span><span>Config</span></div>
+  </div>
+</div>
+
+<script>
+  function showDetail(id) {
+    const el = document.getElementById('detail-' + id);
+    if (el) el.classList.add('active');
+  }
+  function hideDetail(id) {
+    const el = document.getElementById('detail-' + id);
+    if (el) el.classList.remove('active');
+  }
+</script>
+</body>
+</html>

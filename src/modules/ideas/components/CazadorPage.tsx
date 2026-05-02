@@ -169,24 +169,26 @@ export function CazadorPage({ observations: initialObs, pattern, streak }: Props
                     )}
                   </div>
                   {o.potential_score != null && (
-                    <div style={{ textAlign: 'center', minWidth: 42 }}>
+                    <div style={{ textAlign: 'center', minWidth: 46, flexShrink: 0 }}>
                       <div style={{
-                        width: 42, height: 42, borderRadius: '50%',
-                        background: `conic-gradient(#3A9E6A ${o.potential_score}%, rgba(255,255,255,0.07) 0)`,
+                        width: 46, height: 46, borderRadius: '50%',
+                        background: `conic-gradient(#4DC98A ${o.potential_score}%, rgba(255,255,255,0.08) 0)`,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: o.potential_score >= 80 ? '0 0 12px rgba(77,201,138,0.25)' : 'none',
                       }}>
                         <div style={{
-                          width: 32, height: 32, borderRadius: '50%',
-                          background: 'rgba(8,18,12,0.9)',
+                          width: 34, height: 34, borderRadius: '50%',
+                          background: 'rgba(7,14,10,0.95)',
+                          border: '1px solid rgba(255,255,255,0.06)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           fontSize: 10, fontWeight: 800,
-                          color: 'var(--green-bright)',
+                          color: o.potential_score >= 80 ? 'var(--green-bright)' : 'var(--text-secondary)',
                           fontFamily: 'var(--font-mono)',
                         }}>
                           {o.potential_score}
                         </div>
                       </div>
-                      <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'var(--font-sans)' }}>potencial</div>
+                      <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 3, fontFamily: 'var(--font-sans)', letterSpacing: '0.02em' }}>potencial</div>
                     </div>
                   )}
                   <button

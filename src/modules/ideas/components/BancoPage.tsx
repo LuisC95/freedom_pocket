@@ -296,7 +296,7 @@ export function BancoPage({ ideas: initialIdeas, initialFilter, caminoId }: Prop
                       transition: 'opacity 0.15s',
                     }}
                   >
-                    {idea.status === 'en_sprint' ? 'Continuar sprint →' : '⚡ Lanzar sprint'}
+                    {idea.status === 'en_sprint' ? 'Continuar sprint →' : '⚡ Lanzar sprint para esta idea'}
                   </button>
                   <button
                     onClick={() => handleDiscard(idea)}

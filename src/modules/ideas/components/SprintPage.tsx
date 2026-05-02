@@ -93,7 +93,7 @@ export function SprintPage({ sprint: initialSprint, idea }: Props) {
           </div>
         </div>
         <div style={{ height: 4, background: 'rgba(255,255,255,0.10)', borderRadius: 999, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${progresoPct}%`, background: 'linear-gradient(90deg, #2E7D52, #4DC98A)', borderRadius: 999, transition: 'width 0.5s ease' }} />
+          <div style={{ height: '100%', width: `${progresoPct}%`, background: 'linear-gradient(90deg, var(--gold), var(--text-gold))', borderRadius: 999, transition: 'width 0.5s ease' }} />
         </div>
       </div>
 
@@ -110,11 +110,15 @@ export function SprintPage({ sprint: initialSprint, idea }: Props) {
                 minWidth: 56,
                 padding: '8px 6px',
                 borderRadius: 12,
-                background: active ? 'rgba(58,158,106,0.30)' : done ? 'rgba(58,158,106,0.10)' : 'rgba(255,255,255,0.05)',
-                border: `1.5px solid ${active ? 'rgba(77,201,138,0.5)' : done ? 'rgba(58,158,106,0.25)' : 'rgba(255,255,255,0.08)'}`,
+                background: active
+                  ? 'linear-gradient(135deg, var(--fc-accent) 0%, #1F6B3E 100%)'
+                  : done
+                    ? 'rgba(58,158,106,0.12)'
+                    : 'rgba(255,255,255,0.05)',
+                border: `1.5px solid ${active ? 'rgba(77,201,138,0.4)' : done ? 'rgba(58,158,106,0.3)' : 'rgba(255,255,255,0.08)'}`,
                 cursor: 'pointer',
                 transition: 'all 0.15s',
-                boxShadow: active ? '0 4px 16px rgba(58,158,106,0.3)' : 'none',
+                boxShadow: active ? '0 4px 16px rgba(46,125,82,0.45), inset 0 1px 0 rgba(255,255,255,0.15)' : 'none',
                 fontFamily: 'var(--font-sans)',
                 display: 'flex',
                 flexDirection: 'column',
@@ -123,7 +127,7 @@ export function SprintPage({ sprint: initialSprint, idea }: Props) {
               }}
             >
               <span style={{ fontSize: 15 }}>{done && !active ? '✅' : task.emoji}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: active ? 'var(--green-bright)' : done ? 'var(--green-bright)' : 'var(--text-muted)' }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: active ? '#fff' : done ? 'var(--green-bright)' : 'var(--text-muted)' }}>
                 Día {task.day_number}
               </span>
             </button>
@@ -142,7 +146,7 @@ export function SprintPage({ sprint: initialSprint, idea }: Props) {
             </div>
           </div>
 
-          <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 12, marginBottom: 12, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, fontFamily: 'var(--font-sans)' }}>
+          <div style={{ background: 'rgba(255,255,255,0.055)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: 12, marginBottom: 12, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, fontFamily: 'var(--font-sans)' }}>
             {dia.detail}
           </div>
 
@@ -170,14 +174,21 @@ export function SprintPage({ sprint: initialSprint, idea }: Props) {
               onClick={handleComplete}
               disabled={isPending}
               className="fc-btn-primary"
-              style={{ width: '100%' }}
+              style={{ width: '100%', opacity: isPending ? 0.5 : 1 }}
             >
-              Marcar como completado ✓
+              {isPending ? 'Guardando...' : 'Marcar como completado ✓'}
             </button>
           ) : diaActivo < totalDays - 1 ? (
             <button
               onClick={() => setDiaActivo(d => d + 1)}
-              style={{ width: '100%', background: 'rgba(58,158,106,0.12)', border: '1px solid rgba(58,158,106,0.25)', borderRadius: 9999, padding: '12px', fontSize: 13, fontWeight: 700, color: 'var(--green-bright)', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, rgba(198,155,48,0.22) 0%, rgba(198,155,48,0.12) 100%)',
+                border: '1px solid rgba(198,155,48,0.35)',
+                borderRadius: 9999, padding: '13px', fontSize: 13, fontWeight: 700,
+                color: 'var(--text-gold)', cursor: 'pointer', fontFamily: 'var(--font-sans)',
+                transition: 'all 0.15s',
+              }}
             >
               Ir al Día {diaActivo + 2} →
             </button>
