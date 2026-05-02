@@ -67,6 +67,7 @@ export function HeroCard({ metrics, net_worth, monthly_history, periodo_label, o
   const frameNet = frameTotals.income - frameExpense
   const spendPct = frameTotals.income > 0 ? Math.round((frameExpense / frameTotals.income) * 100) : 0
   const barPct = Math.max(0, Math.min(100, spendPct))
+  const incomePct = 100 - barPct
   const cashSpendPct = frameExpense > 0 ? barPct * (frameTotals.cashExpense / frameExpense) : 0
   const creditSpendPct = frameExpense > 0 ? barPct * (frameTotals.creditExpense / frameExpense) : 0
   const netWorthPositive = net_worth.net_worth_usd >= 0
@@ -152,8 +153,9 @@ export function HeroCard({ metrics, net_worth, monthly_history, periodo_label, o
           </p>
         </div>
         <div style={{ backgroundColor: '#2E7D5220', borderRadius: '4px', height: '7px', overflow: 'hidden', display: 'flex' }}>
+          <div style={{ width: `${incomePct}%`, height: '7px', backgroundColor: '#3A9E6A', transition: 'width 0.4s', borderRadius: '4px 0 0 4px' }} />
           <div style={{ width: `${cashSpendPct}%`, height: '7px', backgroundColor: '#E84434', transition: 'width 0.4s' }} />
-          <div style={{ width: `${creditSpendPct}%`, height: '7px', backgroundColor: '#C69B30', transition: 'width 0.4s' }} />
+          <div style={{ width: `${creditSpendPct}%`, height: '7px', backgroundColor: '#C69B30', transition: 'width 0.4s', borderRadius: creditSpendPct > 0 ? '0 4px 4px 0' : 0 }} />
         </div>
         <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: '#7A9A8A', marginTop: '5px', lineHeight: 1.4 }}>
           Retenido por liquidez: <span style={{ color: netColor, fontFamily: 'var(--font-mono)' }}>{retPct}% libre</span>.
