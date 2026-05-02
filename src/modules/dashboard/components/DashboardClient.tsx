@@ -7,7 +7,7 @@ import { RecurringBanner } from './RecurringBanner'
 import { TransactionSlider } from './TransactionSlider'
 import { AddTransactionModal } from './AddTransactionModal'
 import { ChartModal } from './ChartModal'
-import { registerCCPayment } from '../actions'
+import { registerCCPayment, transferBetweenLiquidityAccounts } from '../actions'
 import type { DashboardData, Transaction, CreditCardOption } from '../types'
 import type { LiquidityAccount } from '@/types/liquidity'
 
@@ -20,6 +20,7 @@ type Modal =
   | { type: 'edit'; transaction: Transaction }
   | { type: 'chart' }
   | { type: 'pay_cc' }
+  | { type: 'transfer' }
   | null
 
 // ─── PayCCModal ───────────────────────────────────────────────────────────────
@@ -201,6 +202,101 @@ function PayCCModal({ cards, liquidityAccounts, periodId, onClose, onSaved }: {
   )
 }
 
+// ─── TransferModal ────────────────────────────────────────────────────────────
+
+function TransferModal({ accounts, onClose, onSaved }: {
+  accounts: LiquidityAccount[]
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [fromId, setFromId] = useState(accounts[0]?.id ?? '')
+  const [toId, setToId] = useState(accounts.length > 1 ? accounts[1].id : '')
+  const [amount, setAmount] = useState('')
+  const [notes, setNotes] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+
+  const fromAccount = accounts.find(a => a.id === fromId)
+  const toAccount = accounts.find(a => a.id === toId)
+  const parsedAmount = parseFloat(amount)
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!fromId || !toId) return setError('Seleccioná ambas cuentas')
+    if (fromId === toId) return setError('Las cuentas deben ser diferentes')
+    if (isNaN(parsedAmount) || parsedAmount <= 0) return setError('Ingresá un monto válido')
+    if (fromAccount && parsedAmount > fromAccount.current_value) return setError(`Saldo insuficiente en ${fromAccount.name}`)
+    setError(null)
+    startTransition(async () => {
+      const res = await transferBetweenLiquidityAccounts({
+        fromAssetId: fromId,
+        toAssetId: toId,
+        amount: parsedAmount,
+        currency: fromAccount?.currency ?? 'USD',
+        notes: notes.trim() || null,
+      })
+      if (res.error) return setError(res.error)
+      onSaved()
+    })
+  }
+
+  return (
+    <div className="dashboard-paycc-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-4">
+      <div className="dashboard-paycc-card w-full max-w-sm bg-white rounded-2xl p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#2E7D52' }}>
+            Transferir entre cuentas
+          </p>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7A9A8A', fontSize: '18px' }}>✕</button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          {/* Desde */}
+          <label style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7A9A8A', display: 'block', marginBottom: '4px' }}>Desde</label>
+          <select value={fromId} onChange={e => { setFromId(e.target.value); if (e.target.value === toId) setToId('') }}
+            style={{ width: '100%', padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #D6E2DA', backgroundColor: '#F2F7F4', marginBottom: '10px', fontFamily: 'var(--font-mono)' }}>
+            {accounts.map(a => (
+              <option key={a.id} value={a.id}>{a.name} · {fmt(a.current_value, a.currency)}</option>
+            ))}
+          </select>
+
+          {/* Hacia */}
+          <label style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7A9A8A', display: 'block', marginBottom: '4px' }}>Hacia</label>
+          <select value={toId} onChange={e => setToId(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #D6E2DA', backgroundColor: '#F2F7F4', marginBottom: '10px', fontFamily: 'var(--font-mono)' }}>
+            {accounts.filter(a => a.id !== fromId).map(a => (
+              <option key={a.id} value={a.id}>{a.name} · {fmt(a.current_value, a.currency)}</option>
+            ))}
+          </select>
+
+          {/* Monto */}
+          <label style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7A9A8A', display: 'block', marginBottom: '4px' }}>Monto</label>
+          <input type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)}
+            placeholder="0.00"
+            style={{ width: '100%', padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #D6E2DA', backgroundColor: '#F2F7F4', marginBottom: '10px', fontFamily: 'var(--font-mono)' }} />
+
+          {/* Notas */}
+          <label style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7A9A8A', display: 'block', marginBottom: '4px' }}>Notas (opcional)</label>
+          <input type="text" value={notes} onChange={e => setNotes(e.target.value)}
+            placeholder="Ej: Ahorro para x"
+            style={{ width: '100%', padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid #D6E2DA', backgroundColor: '#F2F7F4', marginBottom: '12px', fontFamily: 'var(--font-mono)' }} />
+
+          {error && <p style={{ color: '#E84434', fontSize: '11px', marginBottom: '8px', fontFamily: 'var(--font-sans)' }}>{error}</p>}
+
+          <button type="submit" disabled={pending}
+            style={{
+              width: '100%', padding: '10px', borderRadius: '8px', border: 'none',
+              backgroundColor: pending ? '#B0C8BA' : '#2E7D52', color: 'white',
+              fontSize: '13px', fontWeight: 600, cursor: pending ? 'default' : 'pointer',
+              fontFamily: 'var(--font-mono)',
+            }}>
+            {pending ? 'Transfiriendo…' : 'Transferir'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export function DashboardClient({ data }: DashboardClientProps) {
   const router = useRouter()
   const [modal, setModal] = useState<Modal>(null)
@@ -268,6 +364,23 @@ export function DashboardClient({ data }: DashboardClientProps) {
       {/* FABs */}
       {periodo_activo && (
         <div className="dashboard-fab-stack" style={{ display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 30 }}>
+          {/* Transferir entre cuentas */}
+          {liquidity_accounts.length >= 2 && (
+            <button
+              onClick={() => setModal({ type: 'transfer' })}
+              title="Transferir entre cuentas"
+              style={{
+                width: '48px', height: '48px', borderRadius: '50%',
+                backgroundColor: '#C69B30', border: 'none', color: 'white',
+                cursor: 'pointer', boxShadow: '0 4px 14px rgba(198,155,48,0.35)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={20} height={20}>
+                <path d="M7 17l10-10" /><path d="M7 7h10v10" />
+              </svg>
+            </button>
+          )}
           {/* Pagar CC — solo si hay tarjetas registradas */}
           {credit_card_options.length > 0 && (
             <button
@@ -305,6 +418,13 @@ export function DashboardClient({ data }: DashboardClientProps) {
       {/* Modales */}
       {modal?.type === 'chart' && (
         <ChartModal onClose={() => setModal(null)} />
+      )}
+      {modal?.type === 'transfer' && liquidity_accounts.length >= 2 && (
+        <TransferModal
+          accounts={liquidity_accounts}
+          onClose={() => setModal(null)}
+          onSaved={refresh}
+        />
       )}
       {modal?.type === 'add' && periodo_activo && (
         <AddTransactionModal

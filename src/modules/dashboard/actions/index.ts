@@ -1437,3 +1437,57 @@ export async function confirmRecurringTemplate(id: string): Promise<{ error: str
 
   return { error: error?.message ?? null }
 }
+
+// ─── transferBetweenLiquidityAccounts ─────────────────────────────────────────
+
+export async function transferBetweenLiquidityAccounts(input: {
+  fromAssetId: string
+  toAssetId: string
+  amount: number
+  currency: string
+  notes?: string | null
+}): Promise<{ error: string | null }> {
+  if (input.amount <= 0) return { error: 'El monto debe ser mayor a 0' }
+  if (input.fromAssetId === input.toAssetId) return { error: 'No puedes transferir a la misma cuenta' }
+
+  const DEV_USER_ID = await getDevUserId()
+  const supabase = createAdminClient()
+
+  // Descontar de origen
+  const deductResult = await adjustLiquidityBalance(supabase, {
+    assetId: input.fromAssetId,
+    currentUserId: DEV_USER_ID,
+    delta: -input.amount,
+    movementType: 'manual_adjustment',
+    currency: input.currency,
+    allowCash: true,
+    notes: input.notes ?? `Transferencia a cuenta de liquidez`,
+  })
+  if (deductResult.error) return deductResult
+
+  // Acreditar en destino
+  const addResult = await adjustLiquidityBalance(supabase, {
+    assetId: input.toAssetId,
+    currentUserId: DEV_USER_ID,
+    delta: input.amount,
+    movementType: 'cash_deposit',
+    currency: input.currency,
+    allowCash: true,
+    notes: input.notes ?? `Transferencia desde cuenta de liquidez`,
+  })
+  if (addResult.error) {
+    // Reversión: devolver a origen
+    await adjustLiquidityBalance(supabase, {
+      assetId: input.fromAssetId,
+      currentUserId: DEV_USER_ID,
+      delta: input.amount,
+      movementType: 'manual_adjustment',
+      currency: input.currency,
+      allowCash: true,
+      notes: 'Reversión por error en transferencia',
+    })
+    return addResult
+  }
+
+  return { error: null }
+}
