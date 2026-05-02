@@ -130,7 +130,7 @@ function getCompleteExpenseBucket(tx: {
   payment_source?: PaymentSource | null
   exclude_from_metrics?: boolean | null
 }): 'cash' | 'credit' | null {
-  if (tx.type !== 'expense' || tx.exclude_from_metrics) return null
+  if (tx.type !== 'expense') return null
   return (tx.payment_source ?? 'cash_debit') === 'credit_card' ? 'credit' : 'cash'
 }
 
