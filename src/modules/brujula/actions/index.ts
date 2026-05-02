@@ -457,21 +457,58 @@ export async function payOffCreditCard({
   const household = await getHouseholdScope(supabase, DEV_USER_ID)
   const { data: lib } = await supabase
     .from('liabilities')
-    .select('current_balance, currency')
+    .select('current_balance, currency, name')
     .eq('id', liability_id)
     .in('user_id', household.householdId ? household.memberUserIds : [DEV_USER_ID])
     .single()
   if (!lib) return { data: null, error: 'Tarjeta no encontrada' }
+
+  // Crear transacción en dashboard (excluida de métricas) para que el pago
+  // también aparezca en el dashboard y el historial pueda detectar si se elimina
+  const { data: period } = await supabase
+    .from('periods')
+    .select('id')
+    .eq('user_id', DEV_USER_ID)
+    .eq('is_active', true)
+    .single()
+
+  const { data: txn, error: txnError } = await supabase
+    .from('transactions')
+    .insert({
+      user_id: DEV_USER_ID,
+      period_id: period?.id ?? null,
+      type: 'expense',
+      amount,
+      currency: lib.currency ?? 'USD',
+      transaction_date: new Date().toISOString().slice(0, 10),
+      payment_source: 'cash_debit',
+      liability_id: null,
+      liquidity_asset_id,
+      exclude_from_metrics: true,
+      notes: `Pago de tarjeta: ${lib.name}`,
+    } as any)
+    .select('id')
+    .single()
+
+  if (txnError) return { data: null, error: txnError.message }
+
+  // Movimiento de liquidez con related_transaction_id para tracking
   const liquidityResult = await adjustLiquidityBalance(supabase, {
     assetId: liquidity_asset_id,
     currentUserId: DEV_USER_ID,
     delta: -amount,
     movementType: 'credit_card_payment',
     allowCash: false,
+    relatedTransactionId: txn.id,
     relatedLiabilityId: liability_id,
     notes: 'Pago de tarjeta desde brújula',
   })
-  if (liquidityResult.error) return { data: null, error: liquidityResult.error }
+
+  if (liquidityResult.error) {
+    await supabase.from('transactions').delete().eq('id', txn.id)
+    return { data: null, error: liquidityResult.error }
+  }
+
   const newBalance = Math.max(0, Number(lib.current_balance) - amount)
   return updateLiability({
     id: liability_id,
