@@ -541,9 +541,11 @@ export async function getCreditCardExpenseHistory(
   if (error) return { data: [], error: error.message }
 
   // ── Pagos (liquidity_movements) ──────────────────────────────────────────
+  // Incluimos related_transaction_id para detectar movimientos huérfanos
+  // (cuando se elimina la transacción original, el movimiento queda huérfano)
   const { data: paymentMovements } = await supabase
     .from('liquidity_movements')
-    .select('id, user_id, amount, currency, created_at, notes, asset_id')
+    .select('id, user_id, amount, currency, created_at, notes, asset_id, related_transaction_id')
     .eq('related_liability_id', liability_id)
     .eq('movement_type', 'credit_card_payment')
     .in('user_id', scope.visibleExpenseUserIds)
@@ -551,18 +553,28 @@ export async function getCreditCardExpenseHistory(
     .order('created_at', { ascending: false })
     .limit(200)
 
-  // Filtrar pagos asociados a transacciones eliminadas
-  // (related_transaction_id apunta a transacción que pudo ser borrada)
-  const paymentIdsToExclude: Set<string> = new Set()
-  for (const m of paymentMovements ?? []) {
-    // Si tiene related_transaction_id, verificar que la transacción aún existe
-    // pero como liquidity_movements no tiene related_transaction_id
-    // para pagos desde brújula (se crean sin él), todos los pagos
-    // hechos desde la UI de brújula son válidos
+  // Detectar movimientos huérfanos: los que tienen related_transaction_id
+  // y la transacción ya fue eliminada
+  const paymentMovementsWithTx = (paymentMovements ?? []).filter(m => m.related_transaction_id)
+  let validTransactionIds: Set<string> = new Set()
+  if (paymentMovementsWithTx.length > 0) {
+    const txIds = paymentMovementsWithTx.map(m => m.related_transaction_id!)
+    const { data: existingTxs } = await supabase
+      .from('transactions')
+      .select('id')
+      .in('id', txIds)
+    validTransactionIds = new Set((existingTxs ?? []).map(t => t.id))
   }
 
   // Resolver nombres de las cuentas bancarias origen
-  const assetIds = Array.from(new Set((paymentMovements ?? []).map(m => m.asset_id)))
+  const validMovements = (paymentMovements ?? []).filter(m => {
+    // Si no tiene related_transaction_id (pago hecho desde brújula), siempre válido
+    if (!m.related_transaction_id) return true
+    // Si tiene related_transaction_id, solo válido si la transacción aún existe
+    return validTransactionIds.has(m.related_transaction_id)
+  })
+
+  const assetIds = Array.from(new Set(validMovements.map(m => m.asset_id)))
   let assetNames: Record<string, string> = {}
   if (assetIds.length > 0) {
     const { data: assetRows } = await supabase
@@ -575,7 +587,7 @@ export async function getCreditCardExpenseHistory(
     }, {})
   }
 
-  const paymentProfileUserIds = (paymentMovements ?? []).map(m => m.user_id)
+  const paymentProfileUserIds = validMovements.map(m => m.user_id)
   const profileNames = await getProfileNames(supabase, [
     ...(rows ?? []).map((row: CreditCardExpenseRow) => row.user_id),
     ...paymentProfileUserIds,
@@ -601,20 +613,18 @@ export async function getCreditCardExpenseHistory(
     }
   })
 
-  const payments: CreditCardExpenseHistoryItem[] = (paymentMovements ?? [])
-    .filter(m => !paymentIdsToExclude.has(m.id))
-    .map(m => ({
-      id: 'pay_' + m.id,
-      kind: 'payment',
-      amount: Math.abs(Number(m.amount)),
-      currency: m.currency,
-      transaction_date: m.created_at.slice(0, 10),
-      notes: m.notes,
-      category_name: null,
-      category_color: null,
-      registered_by_name: profileNames[m.user_id],
-      source_account_name: assetNames[m.asset_id] ?? null,
-    }))
+  const payments: CreditCardExpenseHistoryItem[] = validMovements.map(m => ({
+    id: 'pay_' + m.id,
+    kind: 'payment',
+    amount: Math.abs(Number(m.amount)),
+    currency: m.currency,
+    transaction_date: m.created_at.slice(0, 10),
+    notes: m.notes,
+    category_name: null,
+    category_color: null,
+    registered_by_name: profileNames[m.user_id],
+    source_account_name: assetNames[m.asset_id] ?? null,
+  }))
 
   const merged = [...expenses, ...payments].sort((a, b) =>
     b.transaction_date.localeCompare(a.transaction_date)
