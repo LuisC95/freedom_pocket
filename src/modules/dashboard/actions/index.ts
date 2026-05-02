@@ -115,14 +115,11 @@ function normalizePaymentFields(input: {
 function countsAsLiquidityExpense(tx: {
   type: string
   payment_source?: PaymentSource | null
-  liability_id?: string | null
   exclude_from_metrics?: boolean | null
 }): boolean {
   if (tx.type !== 'expense') return false
-  if ((tx.payment_source ?? 'cash_debit') !== 'cash_debit') return false
-
-  const isCreditCardPayment = Boolean(tx.liability_id)
-  return !tx.exclude_from_metrics || isCreditCardPayment
+  // Solo gastos cash/debit cuentan como salida de liquidez real
+  return (tx.payment_source ?? 'cash_debit') === 'cash_debit'
 }
 
 function getCompleteExpenseBucket(tx: {
