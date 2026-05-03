@@ -116,7 +116,7 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
     return {
       periodo_activo: null, ingresos: [], allEntries: [], real_hours: null, precio_real_por_hora: null, estado: 'sin_datos',
       diasDelPeriodo: null, costoRealDeTrabajar: null, rendimientoDeTuTiempo: null, valorRealDeTuTiempo: null,
-      liquidity_accounts: [],
+      gastoMensualEstimado: null, liquidity_accounts: [],
     }
   }
 
@@ -199,9 +199,36 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
 
   const costoRealDeTrabajar = precio_real_por_hora?.precio_por_hora ?? null
 
-  const rendimientoDeTuTiempo =
-    totalIngresosMes > 0 && diasDelPeriodo > 0
-      ? totalIngresosMes / (diasDelPeriodo * 24)
+  // Fix: dividir entre 30×24 (horas de vida mensual normalizadas), no entre el total de horas del período
+  const HORAS_MES = 30 * 24
+  const rendimientoDeTuTiempo = totalIngresosMes > 0 ? totalIngresosMes / HORAS_MES : null
+
+  // ── Gasto mensual estimado (para valorRealDeTuTiempo) ────────────────────
+  const hoy = new Date()
+  const diasDelMes = hoy.getDate()
+  const daysBack   = Math.max(1, diasDelMes - 1)
+  const ventana    = new Date(hoy)
+  ventana.setDate(ventana.getDate() - daysBack)
+  const ventanaStr = ventana.toISOString().split('T')[0]
+
+  const { data: txRaw } = await supabase
+    .from('transactions')
+    .select('amount, type')
+    .in('user_id', scope.visibleExpenseUserIds)
+    .gte('transaction_date', ventanaStr)
+    .eq('exclude_from_metrics', false)
+
+  const totalGastoPeriodo = (txRaw ?? [])
+    .filter(t => t.type === 'expense')
+    .reduce((s, t) => s + Number(t.amount), 0)
+
+  const gastoDiario = daysBack > 0 ? totalGastoPeriodo / daysBack : 0
+  const gastoMensualEstimado = gastoDiario * 30
+
+  // (ingreso - gasto) por hora de vida en un mes normalizado
+  const valorRealDeTuTiempo =
+    totalIngresosMes > 0 && gastoMensualEstimado >= 0
+      ? (totalIngresosMes - gastoMensualEstimado) / HORAS_MES
       : null
 
   return {
@@ -214,7 +241,8 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
     diasDelPeriodo,
     costoRealDeTrabajar,
     rendimientoDeTuTiempo,
-    valorRealDeTuTiempo: null,
+    valorRealDeTuTiempo,
+    gastoMensualEstimado,
     liquidity_accounts,
   }
 }

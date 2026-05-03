@@ -13,6 +13,8 @@ import type {
   DiasDeLibertad, FastlaneFormula, ScoreDeProgreso,
   BrujulaData,
   CreditCardExpenseHistoryItem,
+  AssetMovementHistoryItem,
+  LiabilityPaymentHistoryItem,
 } from '../types'
 import { PROGRESS_LEVEL_LABELS } from '../types'
 
@@ -669,6 +671,105 @@ export async function getCreditCardExpenseHistory(
 
   return {
     data: merged,
+    error: null,
+  }
+}
+
+// ─── Asset Movement History ───────────────────────────────────────────────────
+
+export async function getAssetMovementHistory(
+  asset_id: string
+): Promise<{ data: AssetMovementHistoryItem[]; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
+  const supabase = createAdminClient()
+  const household = await getHouseholdScope(supabase, DEV_USER_ID)
+  const visibleUserIds = household.householdId ? household.memberUserIds : [DEV_USER_ID]
+
+  const { data: asset } = await supabase
+    .from('assets')
+    .select('id')
+    .eq('id', asset_id)
+    .in('user_id', visibleUserIds)
+    .maybeSingle()
+
+  if (!asset) return { data: [], error: 'Activo no encontrado' }
+
+  const { data: rows, error } = await supabase
+    .from('liquidity_movements')
+    .select('id, user_id, amount, currency, movement_type, created_at, notes')
+    .eq('asset_id', asset_id)
+    .order('created_at', { ascending: false })
+    .limit(100)
+
+  if (error) return { data: [], error: error.message }
+
+  const profileNames = await getProfileNames(supabase, (rows ?? []).map(r => r.user_id))
+
+  return {
+    data: (rows ?? []).map(r => ({
+      id: r.id,
+      amount: Number(r.amount),
+      currency: r.currency,
+      movement_type: r.movement_type,
+      created_at: r.created_at,
+      notes: r.notes,
+      registered_by_name: profileNames[r.user_id],
+    })),
+    error: null,
+  }
+}
+
+// ─── Liability Payment History ────────────────────────────────────────────────
+
+export async function getLiabilityPaymentHistory(
+  liability_id: string
+): Promise<{ data: LiabilityPaymentHistoryItem[]; error: string | null }> {
+  const DEV_USER_ID = await getDevUserId()
+  const supabase = createAdminClient()
+  const household = await getHouseholdScope(supabase, DEV_USER_ID)
+  const visibleUserIds = household.householdId ? household.memberUserIds : [DEV_USER_ID]
+
+  const { data: liability } = await supabase
+    .from('liabilities')
+    .select('id')
+    .eq('id', liability_id)
+    .in('user_id', visibleUserIds)
+    .maybeSingle()
+
+  if (!liability) return { data: [], error: 'Pasivo no encontrado' }
+
+  const { data: rows, error } = await supabase
+    .from('liquidity_movements')
+    .select('id, user_id, amount, currency, movement_type, created_at, notes, asset_id')
+    .eq('related_liability_id', liability_id)
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  if (error) return { data: [], error: error.message }
+
+  const assetIds = Array.from(new Set((rows ?? []).map(r => r.asset_id).filter(Boolean)))
+  let assetNames: Record<string, string> = {}
+  if (assetIds.length > 0) {
+    const { data: assetRows } = await supabase.from('assets').select('id, name').in('id', assetIds)
+    assetNames = (assetRows ?? []).reduce<Record<string, string>>((acc, a) => {
+      acc[a.id] = a.name
+      return acc
+    }, {})
+  }
+
+  const profileNames = await getProfileNames(supabase, (rows ?? []).map(r => r.user_id))
+
+  return {
+    data: (rows ?? []).map(r => ({
+      id: r.id,
+      amount: Math.abs(Number(r.amount)),
+      currency: r.currency,
+      movement_type: r.movement_type,
+      created_at: r.created_at,
+      notes: r.notes,
+      source_account_name: assetNames[r.asset_id] ?? null,
+      registered_by_name: profileNames[r.user_id],
+    })),
     error: null,
   }
 }

@@ -185,7 +185,8 @@ export interface MiRealidadData {
   // ── Métricas derivadas ──────────────────────────────────────────────────
   diasDelPeriodo: number | null          // días reales del período activo
   costoRealDeTrabajar: number | null     // ingreso ÷ horas reales (ya en precioRealPorHora, alias explícito)
-  rendimientoDeTuTiempo: number | null   // ingreso ÷ horas de vida del período
-  valorRealDeTuTiempo: null              // Módulo 2 — pendiente
+  rendimientoDeTuTiempo: number | null   // ingreso mensual ÷ 720 hrs (30d × 24h)
+  valorRealDeTuTiempo: number | null     // (ingreso - gasto) mensual ÷ 720 hrs
+  gastoMensualEstimado: number | null    // gasto diario reciente × 30
   liquidity_accounts: LiquidityAccount[]
 }

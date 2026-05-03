@@ -488,7 +488,7 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
   const [modal, setModal] = useState<Modal>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const { periodo_activo, ingresos, allEntries, real_hours, precio_real_por_hora, costoRealDeTrabajar, rendimientoDeTuTiempo, liquidity_accounts } = data
+  const { periodo_activo, ingresos, allEntries, real_hours, precio_real_por_hora, costoRealDeTrabajar, rendimientoDeTuTiempo, valorRealDeTuTiempo, gastoMensualEstimado, liquidity_accounts } = data
 
   function refresh() {
     setModal(null)
@@ -528,6 +528,8 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
 
   // ── Hero derivados ────────────────────────────────────────────────────────
   const heroCurrency = precio_real_por_hora?.currency ?? ingresos[0]?.currency ?? 'USD'
+  const totalIngresosMes = precio_real_por_hora?.total_ingresos_mes
+    ?? ingresos.reduce((s, i) => s + i.total_mes_calculado, 0)
   const desgloseHoras = precio_real_por_hora?.desglose_horas ?? (real_hours ? {
     contratadas:   real_hours.contracted_hours_per_week,
     extra:         real_hours.extra_hours_per_week,
@@ -544,19 +546,22 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
         {/* Fila 1 */}
         <div className="grid grid-cols-1 gap-3 border-b border-white/[8%] pb-3 mb-3 sm:grid-cols-[minmax(150px,0.9fr)_minmax(0,2fr)]">
 
-          {/* Columna izquierda — Valor real de tu tiempo (Módulo 2) */}
+          {/* Columna izquierda — Valor real de tu tiempo */}
           <div className="min-w-0 border-b border-white/10 pb-3 sm:border-b-0 sm:border-r sm:pb-0 sm:pr-[14px]">
             <p className="text-[10px] uppercase tracking-widest text-[#5DCAA5] mb-1.5">
               Valor real de tu tiempo
             </p>
-            <p className="font-mono text-[32px] leading-none text-white/20 mb-0.5">
-              - -
+            <p className={`font-mono text-[32px] leading-none mb-0.5 ${valorRealDeTuTiempo !== null ? (valorRealDeTuTiempo >= 0 ? 'text-white' : 'text-[#E84434]') : 'text-white/20'}`}>
+              {valorRealDeTuTiempo !== null ? fmtMetric(valorRealDeTuTiempo, heroCurrency) : '- -'}
             </p>
-            <p className="text-[10px] text-white/[18%] mb-2">/hr de vida</p>
-            <span className="inline-block bg-[#C69B30]/10 border border-[#C69B30]/25 rounded-lg px-[7px] py-[2px] text-[9px] text-[#C69B30] mb-1.5">
-              módulo 2
-            </span>
-            <p className="text-[10px] text-white/[35%]">tu margen real por hora de existencia</p>
+            <p className="text-[10px] text-white/[35%] mb-2">/hr de vida</p>
+            {valorRealDeTuTiempo !== null && gastoMensualEstimado != null ? (
+              <p className="text-[10px] text-white/[35%]">
+                ingreso {fmtMetric(totalIngresosMes, heroCurrency)} · gasto ~{fmtMetric(gastoMensualEstimado, heroCurrency)}/mes
+              </p>
+            ) : (
+              <p className="text-[10px] text-white/[35%]">tu margen real por hora de existencia</p>
+            )}
           </div>
 
           {/* Columna derecha — 2 métricas */}
@@ -588,7 +593,7 @@ export function MiRealidadClient({ data }: MiRealidadClientProps) {
                   ? fmtMetric(rendimientoDeTuTiempo, heroCurrency)
                   : '- -'}
               </p>
-              <p className="text-[10px] text-white/[35%]">cuánto genera tu trabajo por cada hora del período, incluyendo descansos</p>
+              <p className="text-[10px] text-white/[35%]">tu ingreso mensual dividido entre las 720 horas de un mes (24h × 30d)</p>
             </div>
 
           </div>

@@ -107,6 +107,27 @@ export interface CreditCardExpenseHistoryItem {
   source_account_name?: string
 }
 
+export interface AssetMovementHistoryItem {
+  id: string
+  amount: number
+  currency: string
+  movement_type: string
+  created_at: string
+  notes: string | null
+  registered_by_name?: string
+}
+
+export interface LiabilityPaymentHistoryItem {
+  id: string
+  amount: number
+  currency: string
+  movement_type: string
+  created_at: string
+  notes: string | null
+  source_account_name?: string | null
+  registered_by_name?: string
+}
+
 // ─── Businesses ───────────────────────────────────────────────────────────────
 
 export interface Business {
