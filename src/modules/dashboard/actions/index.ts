@@ -8,12 +8,14 @@ import type { ActionResult } from '@/types/actions'
 import type {
   CreditCardOption,
   DashboardUserSettings,
+  LiabilityPaymentOption,
   PaymentSource,
   Transaction,
   TransactionInsert,
   TransactionCategory,
   Budget,
   RecurringTemplate,
+  RecurringFrequency,
   RecurringTemplateInsert,
   TransactionGroup,
   MonthlySnapshot,
@@ -235,14 +237,22 @@ function isTemplatePending(
 // ─── Payment source helpers ──────────────────────────────────────────────────
 
 export async function getCreditCardOptions(): Promise<ActionResult<CreditCardOption[]>> {
+  const result = await getLiabilityPaymentOptions()
+  if (!result.ok) return result
+  return {
+    ok: true,
+    data: result.data.filter(liability => liability.liability_type === 'credit_card'),
+  }
+}
+
+export async function getLiabilityPaymentOptions(): Promise<ActionResult<LiabilityPaymentOption[]>> {
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const scope = await getHouseholdScope(supabase, DEV_USER_ID)
 
   const liabilityQuery = supabase
     .from('liabilities')
-    .select('id, name, current_balance, credit_limit, currency, is_shared, user_id, household_id')
-    .eq('liability_type', 'credit_card')
+    .select('id, name, liability_type, current_balance, credit_limit, monthly_payment, currency, is_shared, user_id, household_id')
     .eq('is_active', true)
 
   const { data, error } = scope.householdId
@@ -251,12 +261,12 @@ export async function getCreditCardOptions(): Promise<ActionResult<CreditCardOpt
 
   if (error) return { ok: false, error: error.message }
 
-  const visibleCards = data ?? []
+  const visibleLiabilities = data ?? []
 
   const otherUserIds = Array.from(new Set(
-    visibleCards
-      .filter(card => card.user_id !== DEV_USER_ID && card.is_shared)
-      .map(card => card.user_id)
+    visibleLiabilities
+      .filter(liability => liability.user_id !== DEV_USER_ID && liability.is_shared)
+      .map(liability => liability.user_id)
   ))
 
   let ownerNames: Record<string, string> = {}
@@ -274,14 +284,16 @@ export async function getCreditCardOptions(): Promise<ActionResult<CreditCardOpt
 
   return {
     ok: true,
-    data: visibleCards.map(card => ({
-      id: card.id,
-      name: card.name,
-      current_balance: Number(card.current_balance),
-      credit_limit: card.credit_limit != null ? Number(card.credit_limit) : null,
-      currency: card.currency ?? 'USD',
-      is_shared: card.is_shared,
-      owner_name: card.user_id !== DEV_USER_ID ? ownerNames[card.user_id] : undefined,
+    data: visibleLiabilities.map(liability => ({
+      id: liability.id,
+      name: liability.name,
+      liability_type: liability.liability_type,
+      current_balance: Number(liability.current_balance),
+      credit_limit: liability.credit_limit != null ? Number(liability.credit_limit) : null,
+      monthly_payment: liability.monthly_payment != null ? Number(liability.monthly_payment) : null,
+      currency: liability.currency ?? 'USD',
+      is_shared: liability.is_shared,
+      owner_name: liability.user_id !== DEV_USER_ID ? ownerNames[liability.user_id] : undefined,
     })),
   }
 }
@@ -350,6 +362,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       pending_recurring: [],
       categories: [],
       credit_card_options: [],
+      liability_options: [],
       user_settings: {
         default_payment_source: 'cash_debit',
         default_liability_id: null,
@@ -570,8 +583,9 @@ export async function getDashboardData(): Promise<DashboardData> {
     .filter(c => !hiddenIds.includes(c.id))
     .map(mapCategory)
 
-  const creditCardsResult = await getCreditCardOptions()
-  const credit_card_options = creditCardsResult.ok ? creditCardsResult.data : []
+  const liabilitiesResult = await getLiabilityPaymentOptions()
+  const liability_options = liabilitiesResult.ok ? liabilitiesResult.data : []
+  const credit_card_options = liability_options.filter(liability => liability.liability_type === 'credit_card')
   const defaultPaymentSource = (settingsRaw as any)?.default_payment_source === 'credit_card'
     ? 'credit_card'
     : 'cash_debit'
@@ -661,6 +675,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     pending_recurring,
     categories,
     credit_card_options,
+    liability_options,
     user_settings,
     liquidity_accounts,
   }
@@ -967,7 +982,41 @@ export async function deleteTransaction(id: string): Promise<{ error: string | n
 
 // ─── registerCCPayment ────────────────────────────────────────────────────────
 
-export async function registerCCPayment({
+async function getOrCreateLiabilityPaymentCategory(
+  supabase: ReturnType<typeof createAdminClient>,
+  userId: string
+): Promise<{ id: string } | null> {
+  let { data: category } = await supabase
+    .from('transaction_categories')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('name', 'Pago de deuda')
+    .maybeSingle()
+
+  if (!category) {
+    const { data: legacyCategory } = await supabase
+      .from('transaction_categories')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('name', 'Pago de tarjeta')
+      .maybeSingle()
+    category = legacyCategory
+  }
+
+  if (!category) {
+    const { data: created, error } = await supabase
+      .from('transaction_categories')
+      .insert({ user_id: userId, name: 'Pago de deuda', applies_to: 'expense', is_custom: true })
+      .select('id')
+      .single()
+    if (error) return null
+    category = created
+  }
+
+  return category
+}
+
+export async function registerLiabilityPayment({
   liability_id,
   liquidity_asset_id,
   amount,
@@ -989,23 +1038,17 @@ export async function registerCCPayment({
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
 
-  // Find or create the system "Pago de tarjeta" category
-  let { data: category } = await supabase
-    .from('transaction_categories')
-    .select('id')
-    .eq('user_id', DEV_USER_ID)
-    .eq('name', 'Pago de tarjeta')
+  const { data: liability } = await supabase
+    .from('liabilities')
+    .select('id, name, current_balance, currency')
+    .eq('id', liability_id)
+    .eq('is_active', true)
     .maybeSingle()
+  if (!liability) return { error: 'Deuda no encontrada' }
+  if (amount > Number(liability.current_balance)) return { error: 'El monto supera la deuda actual' }
 
-  if (!category) {
-    const { data: created, error: catErr } = await supabase
-      .from('transaction_categories')
-      .insert({ user_id: DEV_USER_ID, name: 'Pago de tarjeta', applies_to: 'expense', is_custom: true })
-      .select('id')
-      .single()
-    if (catErr) return { error: catErr.message }
-    category = created
-  }
+  const category = await getOrCreateLiabilityPaymentCategory(supabase, DEV_USER_ID)
+  if (!category) return { error: 'No se pudo preparar la categoría de pago de deuda' }
 
   const pricePerHour = await getPricePerHour(supabase, period_id, DEV_USER_ID)
 
@@ -1020,9 +1063,9 @@ export async function registerCCPayment({
       liquidity_asset_id,
       type: 'expense',
       amount,
-      currency,
+      currency: currency || liability.currency || 'USD',
       transaction_date,
-      notes: notes?.trim() || 'Pago de tarjeta de crédito',
+      notes: notes?.trim() || `Pago de deuda: ${liability.name}`,
       status: 'confirmed',
       price_per_hour_snapshot: pricePerHour,
       exclude_from_metrics: true,
@@ -1037,21 +1080,76 @@ export async function registerCCPayment({
     currentUserId: DEV_USER_ID,
     delta: -amount,
     movementType: 'credit_card_payment',
-    currency,
+    currency: currency || liability.currency || 'USD',
     allowCash: false,
     relatedTransactionId: txRow.id,
     relatedLiabilityId: liability_id,
-    notes,
+    notes: notes?.trim() || `Pago de deuda: ${liability.name}`,
   })
   if (liquidityResult.error) {
     await supabase.from('transactions').delete().eq('id', txRow.id)
     return { error: liquidityResult.error }
   }
 
-  // Reduce CC debt
   await adjustLiabilityBalance(supabase, liability_id, -amount)
   await recalculateBudgetAvgs(DEV_USER_ID)
   return { error: null }
+}
+
+export async function registerCCPayment(input: {
+  liability_id: string
+  liquidity_asset_id: string
+  amount: number
+  currency: string
+  transaction_date: string
+  period_id: string
+  notes?: string | null
+}): Promise<{ error: string | null }> {
+  return registerLiabilityPayment(input)
+}
+
+export async function createLiabilityPaymentTemplate(input: {
+  liability_id: string
+  liquidity_asset_id: string
+  name?: string | null
+  amount: number
+  currency: string
+  frequency?: RecurringFrequency
+  day_of_month: number
+  month_of_year?: number | null
+  custom_interval_days?: number | null
+}): Promise<{ data: RecurringTemplate | null; error: string | null }> {
+  if (input.amount <= 0) return { data: null, error: 'El monto debe ser mayor a 0' }
+  if (!input.liability_id) return { data: null, error: 'Selecciona una deuda' }
+  if (!input.liquidity_asset_id) return { data: null, error: 'Selecciona una cuenta bancaria' }
+
+  const DEV_USER_ID = await getDevUserId()
+  const supabase = createAdminClient()
+  const { data: liability } = await supabase
+    .from('liabilities')
+    .select('name, currency')
+    .eq('id', input.liability_id)
+    .eq('is_active', true)
+    .maybeSingle()
+  if (!liability) return { data: null, error: 'Deuda no encontrada' }
+
+  const category = await getOrCreateLiabilityPaymentCategory(supabase, DEV_USER_ID)
+  if (!category) return { data: null, error: 'No se pudo preparar la categoría de pago de deuda' }
+
+  return createRecurringTemplate({
+    category_id: category.id,
+    name: input.name?.trim() || `Pago de deuda: ${liability.name}`,
+    type: 'expense',
+    payment_source: 'cash_debit',
+    liability_id: input.liability_id,
+    liquidity_asset_id: input.liquidity_asset_id,
+    amount: input.amount,
+    currency: input.currency || liability.currency || 'USD',
+    frequency: input.frequency ?? 'monthly',
+    day_of_month: input.day_of_month,
+    month_of_year: input.month_of_year ?? null,
+    custom_interval_days: input.custom_interval_days ?? null,
+  })
 }
 
 // ─── getCategories ────────────────────────────────────────────────────────────
@@ -1315,14 +1413,18 @@ export async function approveRecurringTransaction(
   if (!period) return { error: 'Sin período activo' }
 
   const pricePerHour = await getPricePerHour(supabase, period.id, DEV_USER_ID)
+  const isLiabilityPayment =
+    template.type === 'expense' &&
+    (template.payment_source ?? 'cash_debit') === 'cash_debit' &&
+    Boolean(template.liability_id)
 
-  const { error } = await supabase.from('transactions').insert({
+  const { data: txRow, error } = await supabase.from('transactions').insert({
     user_id: DEV_USER_ID,
     period_id: period.id,
     category_id: template.category_id,
     recurring_template_id: template.id,
     payment_source: template.payment_source ?? 'cash_debit',
-    liability_id: template.liability_id ?? null,
+    liability_id: isLiabilityPayment ? null : template.liability_id ?? null,
     liquidity_asset_id: template.liquidity_asset_id ?? null,
     type: template.type,
     amount: template.amount,
@@ -1331,9 +1433,38 @@ export async function approveRecurringTransaction(
     notes: template.name,
     price_per_hour_snapshot: pricePerHour,
     status: 'confirmed',
+    exclude_from_metrics: isLiabilityPayment,
   })
+  .select('id')
+  .single()
 
   if (error) return { error: error.message }
+
+  if (isLiabilityPayment) {
+    if (!template.liquidity_asset_id) return { error: 'Esta recurrencia no tiene cuenta bancaria configurada' }
+    const liquidityResult = await adjustLiquidityBalance(supabase, {
+      assetId: template.liquidity_asset_id,
+      currentUserId: DEV_USER_ID,
+      delta: -Number(template.amount),
+      movementType: 'credit_card_payment',
+      currency: template.currency,
+      allowCash: false,
+      relatedTransactionId: txRow.id,
+      relatedLiabilityId: template.liability_id,
+      notes: template.name,
+    })
+    if (liquidityResult.error) {
+      await supabase.from('transactions').delete().eq('id', txRow.id)
+      return { error: liquidityResult.error }
+    }
+    await adjustLiabilityBalance(supabase, template.liability_id, -Number(template.amount))
+    await supabase
+      .from('recurring_templates')
+      .update({ last_confirmed_at: new Date().toISOString() })
+      .eq('id', template_id)
+    await recalculateBudgetAvgs(DEV_USER_ID)
+    return { error: null }
+  }
 
   if (template.type === 'expense' && (template.payment_source ?? 'cash_debit') === 'credit_card' && template.liability_id) {
     await adjustLiabilityBalance(supabase, template.liability_id, Number(template.amount))

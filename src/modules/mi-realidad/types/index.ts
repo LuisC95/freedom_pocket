@@ -106,10 +106,15 @@ export interface PaymentComponent {
   notes: string | null
 }
 
+export interface LiquiditySplit {
+  asset_id: string
+  amount: number
+}
+
 // Payload completo del modal de registro
 export interface RegisterPaymentPayload {
   entry_date: string
-  liquidity_asset_id: string
+  liquidity_splits: LiquiditySplit[]
   components: PaymentComponent[]
 }
 

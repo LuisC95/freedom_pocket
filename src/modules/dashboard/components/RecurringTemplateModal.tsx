@@ -133,19 +133,6 @@ export function RecurringTemplateModal({
 
         <form onSubmit={handleSubmit}>
 
-          {/* Nombre */}
-          <div style={{ marginBottom: '14px' }}>
-            <label style={LABEL_STYLE}>Nombre</label>
-            <input
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Ej: Dentista, Netflix..."
-              style={INPUT_STYLE}
-              autoFocus
-            />
-          </div>
-
           {/* Monto */}
           <div style={{ marginBottom: '14px' }}>
             <label style={LABEL_STYLE}>Monto</label>
@@ -158,6 +145,7 @@ export function RecurringTemplateModal({
                 min="0"
                 step="0.01"
                 style={{ ...INPUT_STYLE, flex: 1, fontSize: '22px', fontWeight: 600, textAlign: 'center', color: '#E84434' }}
+                autoFocus
               />
               <select
                 value={currency}
@@ -171,6 +159,18 @@ export function RecurringTemplateModal({
                 <option value="COP">COP</option>
               </select>
             </div>
+          </div>
+
+          {/* Nombre */}
+          <div style={{ marginBottom: '14px' }}>
+            <label style={LABEL_STYLE}>Nombre</label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Ej: Dentista, Netflix..."
+              style={INPUT_STYLE}
+            />
           </div>
 
           {/* Categoría */}

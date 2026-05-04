@@ -15,6 +15,7 @@ import type {
   MiRealidadData,
   MiRealidadEstado,
   RegisterPaymentPayload,
+  LiquiditySplit,
 } from '../types'
 
 // ─── Algoritmo 1 — Precio Real por Hora ──────────────────────────────────────
@@ -373,7 +374,7 @@ export async function deleteIncomeEntry(id: string): Promise<{ error: string | n
 
   const { data: entry } = await supabase
     .from('income_entries')
-    .select('id,user_id,amount,entry_type,liquidity_asset_id')
+    .select('id,user_id,amount,entry_type,liquidity_asset_id,batch_id')
     .eq('id', id)
     .maybeSingle()
 
@@ -386,7 +387,22 @@ export async function deleteIncomeEntry(id: string): Promise<{ error: string | n
 
   if (error) return { error: error.message }
   if (!data?.length) return { error: 'No tienes permiso para eliminar este registro' }
-  if (entry?.liquidity_asset_id) {
+
+  if (entry?.batch_id) {
+    // Revertir todos los movimientos del batch (soporta multi-split)
+    const { data: movements } = await supabase
+      .from('liquidity_movements')
+      .select('asset_id, amount')
+      .eq('related_income_entry_batch_id', entry.batch_id)
+    const deltas = new Map<string, number>()
+    for (const m of movements ?? []) {
+      deltas.set(m.asset_id, (deltas.get(m.asset_id) ?? 0) - Number(m.amount))
+    }
+    for (const [assetId, delta] of deltas) {
+      await adjustLiquidityBalance(supabase, { assetId, currentUserId: DEV_USER_ID, delta, movementType: 'manual_adjustment', allowCash: true, notes: 'Eliminación de registro de pago' })
+    }
+  } else if (entry?.liquidity_asset_id) {
+    // Fallback para entradas legacy sin batch_id
     await adjustLiquidityBalance(supabase, {
       assetId: entry.liquidity_asset_id,
       currentUserId: DEV_USER_ID,
@@ -409,7 +425,7 @@ export async function deleteIncomeEntries(ids: string[]): Promise<{ error: strin
 
   const { data: entries } = await supabase
     .from('income_entries')
-    .select('id,amount,entry_type,liquidity_asset_id')
+    .select('id,amount,entry_type,liquidity_asset_id,batch_id')
     .in('id', ids)
     .in('user_id', scope.visibleIncomeUserIds)
 
@@ -422,21 +438,32 @@ export async function deleteIncomeEntries(ids: string[]): Promise<{ error: strin
 
   if (error) return { error: error.message }
   if (!data?.length) return { error: 'No tienes permiso para eliminar estos registros' }
-  const deltas = new Map<string, number>()
-  for (const entry of entries ?? []) {
-    if (!entry.liquidity_asset_id) continue
-    const delta = entry.entry_type === 'deduction' ? Number(entry.amount) : -Number(entry.amount)
-    deltas.set(entry.liquidity_asset_id, (deltas.get(entry.liquidity_asset_id) ?? 0) + delta)
-  }
-  for (const [assetId, delta] of deltas) {
-    await adjustLiquidityBalance(supabase, {
-      assetId,
-      currentUserId: DEV_USER_ID,
-      delta,
-      movementType: 'manual_adjustment',
-      allowCash: true,
-      notes: 'Eliminación de registro de pago',
-    })
+
+  // Revertir por batch_id → soporta pagos multi-split
+  const batchIds = Array.from(new Set((entries ?? []).map(e => e.batch_id).filter(Boolean)))
+  if (batchIds.length > 0) {
+    const { data: movements } = await supabase
+      .from('liquidity_movements')
+      .select('asset_id, amount')
+      .in('related_income_entry_batch_id', batchIds)
+    const deltas = new Map<string, number>()
+    for (const m of movements ?? []) {
+      deltas.set(m.asset_id, (deltas.get(m.asset_id) ?? 0) - Number(m.amount))
+    }
+    for (const [assetId, delta] of deltas) {
+      await adjustLiquidityBalance(supabase, { assetId, currentUserId: DEV_USER_ID, delta, movementType: 'manual_adjustment', allowCash: true, notes: 'Eliminación de registro de pago' })
+    }
+  } else {
+    // Fallback para entradas legacy sin batch_id
+    const deltas = new Map<string, number>()
+    for (const entry of entries ?? []) {
+      if (!entry.liquidity_asset_id) continue
+      const delta = entry.entry_type === 'deduction' ? Number(entry.amount) : -Number(entry.amount)
+      deltas.set(entry.liquidity_asset_id, (deltas.get(entry.liquidity_asset_id) ?? 0) + delta)
+    }
+    for (const [assetId, delta] of deltas) {
+      await adjustLiquidityBalance(supabase, { assetId, currentUserId: DEV_USER_ID, delta, movementType: 'manual_adjustment', allowCash: true, notes: 'Eliminación de registro de pago' })
+    }
   }
   return { error: null }
 }
@@ -493,7 +520,8 @@ export async function registerPayment(
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const scope = await getHouseholdVisibilityScope(supabase, DEV_USER_ID)
-  if (!payload.liquidity_asset_id) return { data: null, error: 'Selecciona cuenta o cash de destino' }
+
+  if (!payload.liquidity_splits?.length) return { data: null, error: 'Selecciona al menos una cuenta de destino' }
 
   // Validar que todos los income_ids sean visibles dentro del grupo familiar
   const incomeIds = [...new Set(payload.components.map(c => c.income_id))]
@@ -513,16 +541,28 @@ export async function registerPayment(
   const unauthorized = incomeIds.find(id => !visibleIds.has(id))
   if (unauthorized) return { data: null, error: 'Fuente de ingreso no válida' }
 
-  const batchId = crypto.randomUUID()
-  const netAmount = payload.components.reduce((sum, component) => (
-    component.entry_type === 'deduction' ? sum - component.amount : sum + component.amount
+  const netAmount = payload.components.reduce((sum, c) => (
+    c.entry_type === 'deduction' ? sum - c.amount : sum + c.amount
   ), 0)
   if (netAmount <= 0) return { data: null, error: 'El neto del pago debe ser mayor a 0' }
+
+  // Validar que la suma de splits sea igual al neto
+  const splitsTotal = payload.liquidity_splits.reduce((s, split) => s + split.amount, 0)
+  if (Math.abs(splitsTotal - netAmount) > 0.01) {
+    return { data: null, error: `Los montos asignados ($${splitsTotal.toFixed(2)}) no coinciden con el neto ($${netAmount.toFixed(2)})` }
+  }
+
+  const batchId = crypto.randomUUID()
+  // Para un solo split guardamos su asset_id en la entrada (compatibilidad hacia atrás).
+  // Para múltiples splits usamos null — los movimientos se rastrean por batch_id.
+  const primaryAssetId = payload.liquidity_splits.length === 1
+    ? payload.liquidity_splits[0].asset_id
+    : null
 
   const rows = payload.components.map(c => ({
     income_id: c.income_id,
     user_id: DEV_USER_ID,
-    liquidity_asset_id: payload.liquidity_asset_id,
+    liquidity_asset_id: primaryAssetId,
     amount: c.amount,
     currency: 'USD',
     entry_date: payload.entry_date,
@@ -539,20 +579,30 @@ export async function registerPayment(
     .select()
 
   if (error) return { data: null, error: error.message }
-  const liquidityResult = await adjustLiquidityBalance(supabase, {
-    assetId: payload.liquidity_asset_id,
-    currentUserId: DEV_USER_ID,
-    delta: netAmount,
-    movementType: 'income_deposit',
-    currency: 'USD',
-    allowCash: true,
-    relatedIncomeEntryBatchId: batchId,
-    notes: `Registro de pago ${payload.entry_date}`,
-  })
-  if (liquidityResult.error) {
-    await supabase.from('income_entries').delete().eq('batch_id', batchId)
-    return { data: null, error: liquidityResult.error }
+
+  // Ajustar liquidez por cada split; rollback completo si alguno falla
+  const doneSplits: LiquiditySplit[] = []
+  for (const split of payload.liquidity_splits) {
+    const liquidityResult = await adjustLiquidityBalance(supabase, {
+      assetId: split.asset_id,
+      currentUserId: DEV_USER_ID,
+      delta: split.amount,
+      movementType: 'income_deposit',
+      currency: 'USD',
+      allowCash: true,
+      relatedIncomeEntryBatchId: batchId,
+      notes: `Registro de pago ${payload.entry_date}`,
+    })
+    if (liquidityResult.error) {
+      await supabase.from('income_entries').delete().eq('batch_id', batchId)
+      for (const done of doneSplits) {
+        await adjustLiquidityBalance(supabase, { assetId: done.asset_id, currentUserId: DEV_USER_ID, delta: -done.amount, movementType: 'manual_adjustment', currency: 'USD', allowCash: true, notes: 'Reversión por error en registro de pago' })
+      }
+      return { data: null, error: liquidityResult.error }
+    }
+    doneSplits.push(split)
   }
+
   return {
     data: (data ?? []).map(e => ({ ...e, amount: Number(e.amount) })),
     error: null,

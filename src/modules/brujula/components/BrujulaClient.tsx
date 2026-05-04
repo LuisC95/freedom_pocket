@@ -515,10 +515,18 @@ function LiabilityDetailModal({ liability, liquidityAccounts, onClose, onEdit, o
 
   // Inline pay form
   const [view, setView] = useState<'history' | 'paying'>('history')
-  const [payAmount, setPayAmount] = useState('')
-  const [payAccount, setPayAccount] = useState(bankAccounts[0]?.id ?? '')
+  const [paySplits, setPaySplits] = useState<{ asset_id: string; amount: string }[]>([
+    { asset_id: bankAccounts[0]?.id ?? '', amount: '' },
+  ])
   const [payError, setPayError] = useState<string | null>(null)
   const [payPending, startPayTransition] = useTransition()
+
+  const payTotal      = paySplits.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0)
+  const isMultiPay    = paySplits.length > 1
+  const addPaySplit    = () => setPaySplits(prev => [...prev, { asset_id: bankAccounts[0]?.id ?? '', amount: '' }])
+  const removePaySplit = (i: number) => setPaySplits(prev => prev.filter((_, idx) => idx !== i))
+  const updatePaySplit = (i: number, field: 'asset_id' | 'amount', val: string) =>
+    setPaySplits(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: val } : s))
 
   // Delete confirm
   const [confirming, setConfirming] = useState(false)
@@ -552,15 +560,19 @@ function LiabilityDetailModal({ liability, liquidityAccounts, onClose, onEdit, o
   }
 
   function handlePay() {
-    const n = parseFloat(payAmount)
-    const selectedAccount = bankAccounts.find(a => a.id === payAccount)
-    if (isNaN(n) || n <= 0) return setPayError('Ingresá un monto válido')
-    if (!selectedAccount) return setPayError('Selecciona una cuenta bancaria')
-    if (n > liability.current_balance) return setPayError(`El monto supera la deuda (${fmtFull(liability.current_balance, liability.currency)})`)
-    if (n > selectedAccount.current_value) return setPayError(`Saldo insuficiente en ${selectedAccount.name}`)
+    if (payTotal <= 0) return setPayError('Ingresá un monto válido')
+    if (payTotal > liability.current_balance) return setPayError(`El monto supera la deuda (${fmtFull(liability.current_balance, liability.currency)})`)
+    for (const split of paySplits) {
+      const acc = bankAccounts.find(a => a.id === split.asset_id)
+      const n = parseFloat(split.amount) || 0
+      if (!acc) return setPayError('Selecciona una cuenta bancaria válida')
+      if (n <= 0) return setPayError(`Ingresá un monto para ${acc.name}`)
+      if (n > acc.current_value) return setPayError(`Saldo insuficiente en ${acc.name} (${fmtFull(acc.current_value, acc.currency)})`)
+    }
     setPayError(null)
+    const splits = paySplits.map(s => ({ asset_id: s.asset_id, amount: parseFloat(s.amount) || 0 }))
     startPayTransition(async () => {
-      const res = await payOffCreditCard({ liability_id: liability.id, liquidity_asset_id: payAccount, amount: n })
+      const res = await payOffCreditCard({ liability_id: liability.id, splits })
       if (res.error) return setPayError(res.error)
       onSaved()
     })
@@ -576,11 +588,11 @@ function LiabilityDetailModal({ liability, liquidityAccounts, onClose, onEdit, o
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                 {view === 'paying' && (
-                  <button onClick={() => { setView('history'); setPayError(null); setPayAmount('') }}
+                  <button onClick={() => { setView('history'); setPayError(null); setPaySplits([{ asset_id: bankAccounts[0]?.id ?? '', amount: '' }]) }}
                     className="text-[#7A9A8A] hover:text-white transition-colors text-[18px] leading-none mr-1">←</button>
                 )}
                 <h2 className="text-[15px] font-semibold text-white truncate">
-                  {view === 'paying' ? 'Pagar tarjeta' : liability.name}
+                  {view === 'paying' ? 'Pagar deuda' : liability.name}
                 </h2>
                 {view === 'history' && (
                   <span className="shrink-0 text-[10px] rounded-md px-1.5 py-0.5" style={{ background: 'rgba(232,68,52,0.15)', color: 'var(--text-red)' }}>
@@ -754,37 +766,61 @@ function LiabilityDetailModal({ liability, liquidityAccounts, onClose, onEdit, o
             /* Pay form */
             <div className="space-y-4 py-2">
               <div>
-                <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-1">Pagar desde</label>
-                <select
-                  value={payAccount}
-                  onChange={e => { setPayAccount(e.target.value); setPayError(null) }}
-                  className="w-full px-3 py-2.5 rounded-lg border border-white/10 text-[14px] text-white focus:outline-none focus:border-[#3A9E6A] bg-white/[6%]"
-                >
-                  {bankAccounts.map(account => (
-                    <option key={account.id} value={account.id} className="bg-[#1A2520]">
-                      {account.name} · {account.institution} ({fmtFull(account.current_value, account.currency)})
-                    </option>
+                <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-2">Pagar desde</label>
+                <div className="space-y-2">
+                  {paySplits.map((split, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <select
+                        value={split.asset_id}
+                        onChange={e => { updatePaySplit(i, 'asset_id', e.target.value); setPayError(null) }}
+                        className="flex-1 px-3 py-2.5 rounded-lg border border-white/10 text-[13px] text-white focus:outline-none focus:border-[#3A9E6A] bg-white/[6%]"
+                      >
+                        {bankAccounts.map(acc => (
+                          <option key={acc.id} value={acc.id} className="bg-[#1A2520]">
+                            {acc.name} ({fmtFull(acc.current_value, acc.currency)})
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        value={split.amount}
+                        onChange={e => { updatePaySplit(i, 'amount', e.target.value); setPayError(null) }}
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0.01"
+                        autoFocus={i === 0}
+                        className="w-[96px] px-3 py-2.5 rounded-lg border border-white/10 text-[14px] font-mono text-white text-right focus:outline-none focus:border-[#3A9E6A] bg-white/[6%]"
+                      />
+                      {isMultiPay && (
+                        <button type="button" onClick={() => removePaySplit(i)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-[#E84434] shrink-0"
+                          style={{ background: 'rgba(232,68,52,0.1)', border: '1px solid rgba(232,68,52,0.2)' }}>
+                          −
+                        </button>
+                      )}
+                    </div>
                   ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[11px] uppercase tracking-widest text-[#7A9A8A] mb-1">
-                  Monto a pagar ({liability.currency})
-                </label>
-                <input
-                  type="number"
-                  value={payAmount}
-                  onChange={e => { setPayAmount(e.target.value); setPayError(null) }}
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0.01"
-                  autoFocus
-                  className="w-full px-3 py-2.5 rounded-lg border border-white/10 text-[16px] font-mono text-white focus:outline-none focus:border-[#3A9E6A] bg-white/[6%]"
-                />
-                {payAmount && !isNaN(parseFloat(payAmount)) && parseFloat(payAmount) > 0 && (
-                  <p className="text-[10px] text-[#7A9A8A] mt-1.5">
-                    Deuda restante: {fmtFull(Math.max(0, liability.current_balance - parseFloat(payAmount)), liability.currency)}
-                  </p>
+                </div>
+                <button type="button" onClick={addPaySplit}
+                  className="mt-2 text-[12px] text-[#3A9E6A] hover:text-white transition-colors">
+                  + Agregar cuenta
+                </button>
+                {payTotal > 0 && (
+                  <div className="mt-2 flex items-center justify-between text-[11px] rounded-lg px-2.5 py-1.5"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                      {isMultiPay ? 'Total asignado' : 'Deuda restante'}
+                    </span>
+                    <span className="font-mono font-medium" style={{
+                      color: isMultiPay
+                        ? (payTotal <= liability.current_balance ? '#3A9E6A' : '#E84434')
+                        : 'var(--text-secondary)',
+                    }}>
+                      {isMultiPay
+                        ? fmtFull(payTotal, liability.currency)
+                        : fmtFull(Math.max(0, liability.current_balance - payTotal), liability.currency)}
+                    </span>
+                  </div>
                 )}
               </div>
               {payError && <p className="text-[#E84434] text-[12px]">{payError}</p>}
@@ -796,11 +832,11 @@ function LiabilityDetailModal({ liability, liquidityAccounts, onClose, onEdit, o
         <div className="shrink-0 px-6 pb-6 pt-4">
           {view === 'paying' ? (
             <div className="brujula-modal-actions flex gap-3">
-              <button type="button" onClick={() => { setView('history'); setPayError(null); setPayAmount('') }} disabled={payPending}
+              <button type="button" onClick={() => { setView('history'); setPayError(null); setPaySplits([{ asset_id: bankAccounts[0]?.id ?? '', amount: '' }]) }} disabled={payPending}
                 className="flex-1 py-2.5 rounded-xl border border-white/10 text-[13px] font-medium text-[#7A9A8A] hover:text-white transition-colors">
                 Cancelar
               </button>
-              <button type="button" onClick={handlePay} disabled={payPending || !payAmount}
+              <button type="button" onClick={handlePay} disabled={payPending || payTotal <= 0}
                 className="flex-1 py-2.5 rounded-xl bg-[#2E7D52] text-white text-[13px] font-medium hover:bg-[#3A9E6A] transition-colors disabled:opacity-60">
                 {payPending ? 'Registrando…' : 'Registrar pago'}
               </button>
@@ -823,7 +859,7 @@ function LiabilityDetailModal({ liability, liquidityAccounts, onClose, onEdit, o
                 className="py-2.5 px-4 rounded-xl border border-white/10 text-[13px] font-medium text-[#7A9A8A] hover:text-white transition-colors">
                 Editar
               </button>
-              {isCC && bankAccounts.length > 0 && (
+              {bankAccounts.length > 0 && (
                 <button type="button" onClick={() => setView('paying')}
                   className="py-2.5 px-4 rounded-xl bg-[#2E7D52] text-white text-[13px] font-medium hover:bg-[#3A9E6A] transition-colors">
                   Pagar

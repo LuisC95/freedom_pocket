@@ -6,6 +6,7 @@ import type {
   DeductionCategory,
   EntryType,
   PaymentComponent,
+  LiquiditySplit,
 } from '../types'
 import { DEDUCTION_CATEGORY_LABELS } from '../types'
 import { registerPayment, scanPaystub, createIncome } from '../actions'
@@ -97,12 +98,23 @@ export function RegisterPaymentModal({ incomes, liquidityAccounts, periodId, onC
   const [error, setError] = useState<string | null>(null)
   const [entryDate, setEntryDate] = useState(today)
   const [availableIncomes, setAvailableIncomes] = useState<Income[]>(incomes)
-  const [liquidityAssetId, setLiquidityAssetId] = useState(depositAccounts[0]?.id ?? '')
 
   const [earnings, setEarnings] = useState<EarningRow[]>([
     { income_id: incomes[0]?.id ?? '', amount: '', hours_worked: '' },
   ])
   const [deductions, setDeductions] = useState<DeductionRow[]>([])
+
+  // ── Splits de depósito ────────────────────────────────────────────────────
+  const [splits, setSplits] = useState<{ asset_id: string; amount: string }[]>([
+    { asset_id: depositAccounts[0]?.id ?? '', amount: '' },
+  ])
+  const isMultiSplit = splits.length > 1
+  const splitsTotal  = splits.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0)
+
+  const addSplit    = () => setSplits(prev => [...prev, { asset_id: depositAccounts[0]?.id ?? '', amount: '' }])
+  const removeSplit = (i: number) => setSplits(prev => prev.filter((_, idx) => idx !== i))
+  const updateSplit = (i: number, field: 'asset_id' | 'amount', val: string) =>
+    setSplits(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: val } : s))
 
   // ── Cálculos en tiempo real ────────────────────────────────────────────────
   const gross       = earnings.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0)
@@ -227,9 +239,23 @@ export function RegisterPaymentModal({ incomes, liquidityAccounts, periodId, onC
     setError(null)
 
     if (earnings.length === 0) return setError('Agrega al menos una ganancia')
-    if (!liquidityAssetId) return setError('Selecciona cuenta o cash de destino')
+    if (!splits[0]?.asset_id) return setError('Selecciona cuenta o cash de destino')
     if (earnings.some(row => !row.income_id || parseFloat(row.amount) <= 0 || isNaN(parseFloat(row.amount)))) {
       return setError('Completa todos los campos de ganancias')
+    }
+
+    // Construir liquidity_splits
+    const liquidity_splits: LiquiditySplit[] = isMultiSplit
+      ? splits.map(s => ({ asset_id: s.asset_id, amount: parseFloat(s.amount) || 0 }))
+      : [{ asset_id: splits[0].asset_id, amount: net }]
+
+    if (isMultiSplit) {
+      if (splits.some(s => !s.asset_id || parseFloat(s.amount) <= 0)) {
+        return setError('Completa el monto de cada cuenta')
+      }
+      if (Math.abs(splitsTotal - net) > 0.01) {
+        return setError(`La suma de cuentas ($${splitsTotal.toFixed(2)}) no coincide con el neto ($${net.toFixed(2)})`)
+      }
     }
 
     const components: PaymentComponent[] = [
@@ -254,7 +280,7 @@ export function RegisterPaymentModal({ incomes, liquidityAccounts, periodId, onC
     ]
 
     startTransition(async () => {
-      const res = await registerPayment({ entry_date: entryDate, liquidity_asset_id: liquidityAssetId, components })
+      const res = await registerPayment({ entry_date: entryDate, liquidity_splits, components })
       if (res.error) return setError(res.error)
       onSaved()
     })
@@ -297,20 +323,55 @@ export function RegisterPaymentModal({ incomes, liquidityAccounts, periodId, onC
             />
           </div>
 
-          {/* Botón scanner + input hidden */}
+          {/* Depositar en (multi-split) */}
           <div>
             <FieldLabel>Depositar en</FieldLabel>
-            <select
-              value={liquidityAssetId}
-              onChange={e => setLiquidityAssetId(e.target.value)}
-              style={selectStyle}
-            >
-              {depositAccounts.map(account => (
-                <option key={account.id} value={account.id} style={{ background: '#1A2520', color: '#fff' }}>
-                  {account.name} · {account.liquidity_kind === 'cash' ? 'Cash' : account.institution} ({fmt(account.current_value)})
-                </option>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {splits.map((split, i) => (
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: isMultiSplit ? '1fr 96px 28px' : '1fr', gap: '6px', alignItems: 'center' }}>
+                  <select
+                    value={split.asset_id}
+                    onChange={e => updateSplit(i, 'asset_id', e.target.value)}
+                    style={selectStyle}
+                  >
+                    {depositAccounts.map(acc => (
+                      <option key={acc.id} value={acc.id} style={{ background: '#1A2520', color: '#fff' }}>
+                        {acc.name} · {acc.liquidity_kind === 'cash' ? 'Cash' : acc.institution} ({fmt(acc.current_value)})
+                      </option>
+                    ))}
+                  </select>
+                  {isMultiSplit && (<>
+                    <input
+                      type="number"
+                      value={split.amount}
+                      onChange={e => updateSplit(i, 'amount', e.target.value)}
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                      style={{ ...amountInputStyle, textAlign: 'right' }}
+                    />
+                    <button type="button" onClick={() => removeSplit(i)} style={removeBtnStyle}>−</button>
+                  </>)}
+                </div>
               ))}
-            </select>
+              <button type="button" onClick={addSplit} style={addRowBtnStyle}>+ Agregar cuenta</button>
+            </div>
+            {isMultiSplit && (
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '5px 8px', marginTop: '4px', borderRadius: '6px',
+                background: Math.abs(splitsTotal - net) <= 0.01 ? 'rgba(46,125,82,0.1)' : 'rgba(232,68,52,0.1)',
+                border: `1px solid ${Math.abs(splitsTotal - net) <= 0.01 ? 'rgba(46,125,82,0.25)' : 'rgba(232,68,52,0.25)'}`,
+              }}>
+                <span style={{ fontSize: '11px', color: '#7A9A8A' }}>Asignado</span>
+                <span style={{
+                  fontFamily: 'IBM Plex Mono, monospace', fontSize: '12px', fontWeight: 500,
+                  color: Math.abs(splitsTotal - net) <= 0.01 ? '#3A9E6A' : '#E84434',
+                }}>
+                  {fmt(splitsTotal)} / {fmt(net)}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Botón scanner + input hidden */}

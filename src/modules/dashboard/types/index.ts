@@ -66,11 +66,18 @@ export interface TransactionInsert {
 export interface CreditCardOption {
   id: string
   name: string
+  liability_type?: string
   current_balance: number
   credit_limit: number | null
+  monthly_payment?: number | null
   currency: string
   is_shared: boolean
   owner_name?: string
+}
+
+export type LiabilityPaymentOption = CreditCardOption & {
+  liability_type: string
+  monthly_payment: number | null
 }
 
 export interface DashboardUserSettings {
@@ -196,6 +203,7 @@ export interface DashboardData {
   pending_recurring: RecurringTemplate[]
   categories: TransactionCategory[]
   credit_card_options: CreditCardOption[]
+  liability_options: LiabilityPaymentOption[]
   user_settings: DashboardUserSettings
   liquidity_accounts: LiquidityAccount[]
 }

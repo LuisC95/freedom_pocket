@@ -445,15 +445,15 @@ export async function deleteLiability(id: string): Promise<{ error: string | nul
 
 export async function payOffCreditCard({
   liability_id,
-  liquidity_asset_id,
-  amount,
+  splits,
 }: {
   liability_id: string
-  liquidity_asset_id: string
-  amount: number
+  splits: { asset_id: string; amount: number }[]
 }): Promise<{ data: Liability | null; error: string | null }> {
-  if (amount <= 0) return { data: null, error: 'El monto debe ser mayor a 0' }
-  if (!liquidity_asset_id) return { data: null, error: 'Selecciona una cuenta bancaria' }
+  const totalAmount = splits.reduce((s, split) => s + split.amount, 0)
+  if (totalAmount <= 0) return { data: null, error: 'El monto debe ser mayor a 0' }
+  if (!splits.length) return { data: null, error: 'Selecciona al menos una cuenta bancaria' }
+
   const DEV_USER_ID = await getDevUserId()
   const supabase = createAdminClient()
   const household = await getHouseholdScope(supabase, DEV_USER_ID)
@@ -463,10 +463,11 @@ export async function payOffCreditCard({
     .eq('id', liability_id)
     .in('user_id', household.householdId ? household.memberUserIds : [DEV_USER_ID])
     .single()
-  if (!lib) return { data: null, error: 'Tarjeta no encontrada' }
+  if (!lib) return { data: null, error: 'Deuda no encontrada' }
+  if (totalAmount > Number(lib.current_balance)) {
+    return { data: null, error: 'El monto total supera la deuda actual' }
+  }
 
-  // Crear transacción en dashboard (excluida de métricas) para que el pago
-  // también aparezca en el dashboard y el historial pueda detectar si se elimina
   const { data: period } = await supabase
     .from('periods')
     .select('id')
@@ -480,38 +481,44 @@ export async function payOffCreditCard({
       user_id: DEV_USER_ID,
       period_id: period?.id ?? null,
       type: 'expense',
-      amount,
+      amount: totalAmount,
       currency: lib.currency ?? 'USD',
       transaction_date: new Date().toISOString().slice(0, 10),
       payment_source: 'cash_debit',
       liability_id: null,
-      liquidity_asset_id,
+      liquidity_asset_id: splits[0].asset_id,
       exclude_from_metrics: true,
-      notes: `Pago de tarjeta: ${lib.name}`,
+      notes: `Pago de deuda: ${lib.name}`,
     } as any)
     .select('id')
     .single()
 
   if (txnError) return { data: null, error: txnError.message }
 
-  // Movimiento de liquidez con related_transaction_id para tracking
-  const liquidityResult = await adjustLiquidityBalance(supabase, {
-    assetId: liquidity_asset_id,
-    currentUserId: DEV_USER_ID,
-    delta: -amount,
-    movementType: 'credit_card_payment',
-    allowCash: false,
-    relatedTransactionId: txn.id,
-    relatedLiabilityId: liability_id,
-    notes: 'Pago de tarjeta desde brújula',
-  })
-
-  if (liquidityResult.error) {
-    await supabase.from('transactions').delete().eq('id', txn.id)
-    return { data: null, error: liquidityResult.error }
+  // Ajustar liquidez por split; rollback si alguno falla
+  const doneSplits: { asset_id: string; amount: number }[] = []
+  for (const split of splits) {
+    const liquidityResult = await adjustLiquidityBalance(supabase, {
+      assetId: split.asset_id,
+      currentUserId: DEV_USER_ID,
+      delta: -split.amount,
+      movementType: 'credit_card_payment',
+      allowCash: false,
+      relatedTransactionId: txn.id,
+      relatedLiabilityId: liability_id,
+      notes: 'Pago de deuda desde brújula',
+    })
+    if (liquidityResult.error) {
+      await supabase.from('transactions').delete().eq('id', txn.id)
+      for (const done of doneSplits) {
+        await adjustLiquidityBalance(supabase, { assetId: done.asset_id, currentUserId: DEV_USER_ID, delta: done.amount, movementType: 'manual_adjustment', allowCash: false, notes: 'Reversión por error en pago de deuda' })
+      }
+      return { data: null, error: liquidityResult.error }
+    }
+    doneSplits.push(split)
   }
 
-  const newBalance = Math.max(0, Number(lib.current_balance) - amount)
+  const newBalance = Math.max(0, Number(lib.current_balance) - totalAmount)
   return updateLiability({
     id: liability_id,
     current_balance: newBalance,
