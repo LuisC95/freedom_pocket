@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getDevUserId } from '@/lib/dev-user'
 import { getHouseholdScope, getHouseholdVisibilityScope } from '@/lib/household'
@@ -832,6 +833,7 @@ export async function createTransaction(
   }
 
   await recalculateBudgetAvgs(DEV_USER_ID)
+  revalidatePath('/dashboard')
   return { data: mapTransaction(row), error: null }
 }
 
@@ -906,6 +908,7 @@ export async function updateTransaction(
     }
   }
 
+  revalidatePath('/dashboard')
   return { data: mapTransaction(row), error: null }
 }
 
@@ -977,6 +980,7 @@ export async function deleteTransaction(id: string): Promise<{ error: string | n
   }
 
   await recalculateBudgetAvgs(DEV_USER_ID)
+  revalidatePath('/dashboard')
   return { error: null }
 }
 
