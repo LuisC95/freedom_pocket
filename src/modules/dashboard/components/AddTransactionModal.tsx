@@ -140,6 +140,33 @@ export function AddTransactionModal({
   const [selectorExpanded, setSelectorExpanded] = useState(false)
   const [rememberAsDefault, setRememberAsDefault] = useState(false)
 
+  // Multi-account split
+  const [isMultiSplit, setIsMultiSplit] = useState(false)
+  const [cashSplits, setCashSplits] = useState<{ asset_id: string; amount: string }[]>([])
+  const splitsTotal = cashSplits.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0)
+
+  function enterSplitMode() {
+    const n = parseFloat(amount)
+    setIsMultiSplit(true)
+    setCashSplits([
+      { asset_id: selectedLiquidityAssetId ?? liquidityAccounts[0]?.id ?? '', amount: n > 0 ? n.toFixed(2) : '' },
+    ])
+  }
+  function exitSplitMode() {
+    setIsMultiSplit(false)
+    setCashSplits([])
+  }
+  function addCashSplit() {
+    setCashSplits(prev => [...prev, { asset_id: liquidityAccounts[0]?.id ?? '', amount: '' }])
+  }
+  function removeCashSplit(i: number) {
+    if (cashSplits.length <= 1) { exitSplitMode(); return }
+    setCashSplits(prev => prev.filter((_, idx) => idx !== i))
+  }
+  function updateCashSplit(i: number, field: 'asset_id' | 'amount', val: string) {
+    setCashSplits(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: val } : s))
+  }
+
   const [isRecurring, setIsRecurring] = useState(false)
   const [registerToday, setRegisterToday] = useState(true)
   const [frequency, setFrequency] = useState<RecurringFrequency>('manual')
@@ -181,6 +208,7 @@ export function AddTransactionModal({
     setSelectedLiquidityAssetId(null)
     setSelectedLiabilityId(cardId)
     setSelectorExpanded(false)
+    exitSplitMode()
   }
 
   async function persistDefaultPaymentIfNeeded() {
@@ -236,6 +264,45 @@ export function AddTransactionModal({
     const amt = parseFloat(amount)
     if (isNaN(amt) || amt <= 0) return setError('El monto debe ser mayor a 0')
     if (!categoryId) return setError('Selecciona una categoría')
+
+    // ── Multi-split: crear una transacción por cuenta ──────────────────────
+    if (isMultiSplit && paymentSource === 'cash_debit') {
+      if (cashSplits.length === 0) return setError('Agrega al menos una cuenta')
+      for (const split of cashSplits) {
+        const acc = liquidityAccounts.find(a => a.id === split.asset_id)
+        const n = parseFloat(split.amount) || 0
+        if (!acc || n <= 0) return setError('Completa los montos de cada cuenta')
+        if (n > acc.current_value) return setError(`Saldo insuficiente en ${acc.name} (disponible: ${fmtMoney(acc.current_value)})`)
+      }
+      if (Math.abs(splitsTotal - amt) > 0.01) {
+        return setError(`La suma (${fmtMoney(splitsTotal)}) no coincide con el monto (${fmtMoney(amt)})`)
+      }
+      startTransition(async () => {
+        for (const split of cashSplits) {
+          const res = await createTransaction({
+            period_id: periodId,
+            type,
+            amount: parseFloat(split.amount),
+            category_id: categoryId,
+            transaction_date: date,
+            notes: notes || null,
+            currency,
+            price_per_hour_snapshot: pricePerHour,
+            payment_source: 'cash_debit',
+            liability_id: null,
+            liquidity_asset_id: split.asset_id,
+            status: 'confirmed',
+          })
+          if (res.error) { setError(res.error); return }
+        }
+        const defaultRes = await persistDefaultPaymentIfNeeded()
+        if (defaultRes && !defaultRes.ok) { setError(defaultRes.error); return }
+        onSaved()
+      })
+      return
+    }
+
+    // ── Cuenta única (flujo existente) ─────────────────────────────────────
     if (paymentSource === 'credit_card' && !selectedLiabilityId) return setError('Selecciona una tarjeta de credito')
     if (paymentSource === 'cash_debit' && !selectedLiquidityAssetId) return setError('Selecciona una cuenta o cash')
     const selectedLiquidity = liquidityAccounts.find(account => account.id === selectedLiquidityAssetId)
@@ -751,6 +818,85 @@ export function AddTransactionModal({
               )}
             </div>
           </div>
+
+          {/* ── Split de cuentas ── */}
+          {!isEdit && paymentSource === 'cash_debit' && !isMultiSplit && liquidityAccounts.length > 1 && (
+            <button
+              type="button"
+              onClick={enterSplitMode}
+              style={{
+                display: 'block',
+                marginTop: '-8px',
+                marginBottom: '14px',
+                background: 'none',
+                border: 'none',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '11px',
+                color: '#7A9A8A',
+                cursor: 'pointer',
+                padding: '0',
+                textAlign: 'left',
+              }}
+            >
+              ÷ Dividir entre cuentas
+            </button>
+          )}
+          {!isEdit && paymentSource === 'cash_debit' && isMultiSplit && (
+            <div style={{ marginBottom: '14px', backgroundColor: '#0E1512', border: '0.5px solid #2a3a33', borderRadius: '8px', overflow: 'hidden' }}>
+              <div style={{ padding: '10px 12px' }}>
+                {cashSplits.map((split, i) => {
+                  const acc = liquidityAccounts.find(a => a.id === split.asset_id)
+                  return (
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 88px 26px', gap: '6px', alignItems: 'center', marginBottom: '6px' }}>
+                      <select
+                        value={split.asset_id}
+                        onChange={e => updateCashSplit(i, 'asset_id', e.target.value)}
+                        style={{ ...INPUT_STYLE, padding: '8px 10px', fontSize: '12px', appearance: 'none' as const }}
+                      >
+                        {liquidityAccounts.map(a => (
+                          <option key={a.id} value={a.id} style={{ background: '#0E1512' }}>
+                            {a.name} ({fmtMoney(a.current_value)})
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        value={split.amount}
+                        onChange={e => updateCashSplit(i, 'amount', e.target.value)}
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0.01"
+                        style={{ ...INPUT_STYLE, padding: '8px 10px', fontSize: '12px', textAlign: 'right' as const }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeCashSplit(i)}
+                        style={{ width: '26px', height: '34px', borderRadius: '6px', background: '#E8443418', border: '0.5px solid #E8443440', color: '#E84434', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                      >−</button>
+                    </div>
+                  )
+                })}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
+                  <button type="button" onClick={addCashSplit}
+                    style={{ background: 'none', border: 'none', fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#3A9E6A', cursor: 'pointer', padding: 0 }}>
+                    + Agregar cuenta
+                  </button>
+                  <span style={{
+                    fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 500,
+                    color: Math.abs(splitsTotal - (parseFloat(amount) || 0)) <= 0.01 && splitsTotal > 0 ? '#3A9E6A' : '#7A9A8A',
+                  }}>
+                    {fmtMoney(splitsTotal)} / {fmtMoney(parseFloat(amount) || 0)}
+                  </span>
+                </div>
+              </div>
+              <div style={{ borderTop: '0.5px solid #2a3a33', padding: '7px 12px' }}>
+                <button type="button" onClick={exitSplitMode}
+                  style={{ background: 'none', border: 'none', fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#7A9A8A', cursor: 'pointer', padding: 0 }}>
+                  ← Usar una sola cuenta
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Fecha */}
           <div style={{ marginBottom: '14px' }}>
