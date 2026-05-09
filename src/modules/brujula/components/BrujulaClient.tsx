@@ -24,17 +24,21 @@ const MOVEMENT_LABELS: Record<string, string> = {
 // ─── Formatters ───────────────────────────────────────────────────────────────
 
 function fmt(n: number, currency = 'USD') {
-  if (Math.abs(n) >= 1_000_000) {
-    return `${new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n / 1_000_000)}M`
-  }
-  if (Math.abs(n) >= 1_000) {
-    return `${new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n / 1_000)}k`
-  }
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 0 }).format(n)
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n)
 }
 
 function fmtFull(n: number, currency = 'USD') {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 0 }).format(n)
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n)
 }
 
 function fmtDias(d: number) {

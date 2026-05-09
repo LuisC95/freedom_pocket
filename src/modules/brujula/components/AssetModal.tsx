@@ -193,11 +193,12 @@ export function AssetModal({ asset, onClose, onSaved }: AssetModalProps) {
           {/* Valor + Moneda */}
           <div>
             <label className={LABEL_CLASS}>Valor actual</label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_78px] gap-2 sm:grid-cols-[minmax(0,1fr)_86px]">
               <input type="number" value={form.current_value} onChange={e => set('current_value', e.target.value)}
-                placeholder="0.00" min="0" step="0.01" className={`flex-1 ${NUM_CLASS}`} />
+                placeholder="0.00" min="0" step="0.01" inputMode="decimal"
+                className={`min-w-0 ${NUM_CLASS} tabular-nums`} />
               <select value={form.currency} onChange={e => set('currency', e.target.value)}
-                className={`${SELECT_CLASS} w-[92px]`}>
+                className={`${SELECT_CLASS} min-w-0`}>
                 {['USD','EUR','MXN','ARS','COP'].map(c => <option key={c}>{c}</option>)}
               </select>
             </div>

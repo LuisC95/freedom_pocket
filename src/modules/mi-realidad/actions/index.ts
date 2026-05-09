@@ -20,18 +20,41 @@ import type {
 
 // ─── Algoritmo 1 — Precio Real por Hora ──────────────────────────────────────
 
-function calcularIngresoMensual(income: Income, entries: IncomeEntry[]): number {
-  const hoy = new Date()
-  const entriesEsteMes = entries.filter(e =>
+function parseDateOnly(value: string): Date {
+  return new Date(`${value.slice(0, 10)}T12:00:00`)
+}
+
+function toDateOnlyString(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
+
+function daysInclusive(start: Date, end: Date): number {
+  const startDay = parseDateOnly(toDateOnlyString(start))
+  const endDay = parseDateOnly(toDateOnlyString(end))
+  return Math.max(1, Math.round((endDay.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+}
+
+function isDateInRange(value: string, start: Date, end: Date): boolean {
+  const date = parseDateOnly(value)
+  return date >= start && date <= end
+}
+
+function calcularIngresoMensual(
+  income: Income,
+  entries: IncomeEntry[],
+  metricStart: Date,
+  metricEnd: Date
+): number {
+  const entriesDelPeriodo = entries.filter(e =>
     e.income_id === income.id &&
-    new Date(e.entry_date).getMonth() === hoy.getMonth() &&
-    new Date(e.entry_date).getFullYear() === hoy.getFullYear()
+    isDateInRange(e.entry_date, metricStart, metricEnd)
   )
 
-  if (entriesEsteMes.length > 0) {
-    const ganancias   = entriesEsteMes.filter(e => e.entry_type === 'earning').reduce((s, e) => s + e.amount, 0)
-    const deducciones = entriesEsteMes.filter(e => e.entry_type === 'deduction').reduce((s, e) => s + e.amount, 0)
-    return ganancias - deducciones
+  if (entriesDelPeriodo.length > 0) {
+    const ganancias   = entriesDelPeriodo.filter(e => e.entry_type === 'earning').reduce((s, e) => s + e.amount, 0)
+    const deducciones = entriesDelPeriodo.filter(e => e.entry_type === 'deduction').reduce((s, e) => s + e.amount, 0)
+    const netoPeriodo = ganancias - deducciones
+    return (netoPeriodo / daysInclusive(metricStart, metricEnd)) * 30
   }
 
   switch (income.frequency) {
@@ -46,10 +69,12 @@ function calcularPrecioRealPorHora(
   incomes: Income[],
   allEntries: IncomeEntry[],
   realHours: RealHours,
-  periodId: string
+  periodId: string,
+  metricStart: Date,
+  metricEnd: Date
 ): PrecioRealPorHora {
   const total_ingresos_mes = incomes.reduce(
-    (sum, income) => sum + calcularIngresoMensual(income, allEntries), 0
+    (sum, income) => sum + calcularIngresoMensual(income, allEntries, metricStart, metricEnd), 0
   )
   const currency = incomes[0]?.currency ?? 'USD'
 
@@ -174,6 +199,15 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
     incomes:    undefined,
   }))
 
+  const today = parseDateOnly(toDateOnlyString(new Date()))
+  const periodStartDate = parseDateOnly(period.start_date)
+  const periodEndDate = period.is_active ? today : period.end_date ? parseDateOnly(period.end_date) : today
+  const metricStartDate = periodStartDate
+  const metricEndDate = periodEndDate < periodStartDate ? periodStartDate : periodEndDate
+  const metricStartStr = toDateOnlyString(metricStartDate)
+  const metricEndStr = toDateOnlyString(metricEndDate)
+  const diasDelPeriodo = daysInclusive(metricStartDate, metricEndDate)
+
   let estado: MiRealidadEstado
   if (ingresosWithOwners.length === 0 && !real_hours) estado = 'sin_datos'
   else if (ingresosWithOwners.length > 0 && !real_hours) estado = 'solo_ingresos'
@@ -182,20 +216,16 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
 
   const precio_real_por_hora =
     estado === 'completo' && real_hours
-      ? calcularPrecioRealPorHora(ingresosWithOwners, allEntries, real_hours, period.id)
+      ? calcularPrecioRealPorHora(ingresosWithOwners, allEntries, real_hours, period.id, metricStartDate, metricEndDate)
       : null
 
   const ingresosConEntries = ingresosWithOwners.map(i => ({
     ...i,
     entries: allEntries.filter(e => e.income_id === i.id),
-    total_mes_calculado: calcularIngresoMensual(i, allEntries),
+    total_mes_calculado: calcularIngresoMensual(i, allEntries, metricStartDate, metricEndDate),
   }))
 
   // ── Métricas derivadas ────────────────────────────────────────────────────
-  const endDate   = period.end_date ? new Date(period.end_date) : new Date()
-  const startDate = new Date(period.start_date)
-  const diasDelPeriodo = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1)
-
   const totalIngresosMes = ingresosConEntries.reduce((s, i) => s + i.total_mes_calculado, 0)
 
   const costoRealDeTrabajar = precio_real_por_hora?.precio_por_hora ?? null
@@ -205,25 +235,23 @@ export async function getMiRealidadData(): Promise<MiRealidadData> {
   const rendimientoDeTuTiempo = totalIngresosMes > 0 ? totalIngresosMes / HORAS_MES : null
 
   // ── Gasto mensual estimado (para valorRealDeTuTiempo) ────────────────────
-  const hoy = new Date()
-  const diasDelMes = hoy.getDate()
-  const daysBack   = Math.max(1, diasDelMes - 1)
-  const ventana    = new Date(hoy)
-  ventana.setDate(ventana.getDate() - daysBack)
-  const ventanaStr = ventana.toISOString().split('T')[0]
-
-  const { data: txRaw } = await supabase
-    .from('transactions')
-    .select('amount, type')
-    .in('user_id', scope.visibleExpenseUserIds)
-    .gte('transaction_date', ventanaStr)
-    .eq('exclude_from_metrics', false)
+  const { data: txRaw } =
+    scope.visibleExpensePeriodIds.length > 0
+      ? await supabase
+          .from('transactions')
+          .select('amount, type')
+          .in('user_id', scope.visibleExpenseUserIds)
+          .in('period_id', scope.visibleExpensePeriodIds)
+          .gte('transaction_date', metricStartStr)
+          .lte('transaction_date', metricEndStr)
+          .eq('exclude_from_metrics', false)
+      : { data: [] }
 
   const totalGastoPeriodo = (txRaw ?? [])
     .filter(t => t.type === 'expense')
     .reduce((s, t) => s + Number(t.amount), 0)
 
-  const gastoDiario = daysBack > 0 ? totalGastoPeriodo / daysBack : 0
+  const gastoDiario = totalGastoPeriodo / diasDelPeriodo
   const gastoMensualEstimado = gastoDiario * 30
 
   // (ingreso - gasto) por hora de vida en un mes normalizado
