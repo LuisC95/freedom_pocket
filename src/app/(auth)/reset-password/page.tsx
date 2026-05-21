@@ -1,13 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
-import { signUp } from '@/actions/auth'
+import { resetPassword } from '@/actions/auth'
 
-export default function RegisterPage() {
-  const [email, setEmail] = useState('')
+export default function ResetPasswordPage() {
   const [password, setPassword] = useState('')
-  const [inviteCode, setInviteCode] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -15,7 +13,7 @@ export default function RegisterPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const result = await signUp({ email, password, inviteCode })
+    const result = await resetPassword({ password, confirmPassword })
     if (result && 'error' in result) {
       setError(result.error)
       setLoading(false)
@@ -40,14 +38,13 @@ export default function RegisterPage() {
           FC
         </div>
         <h1 className="text-xl font-semibold" style={{ color: 'var(--fc-text-primary)', fontFamily: 'IBM Plex Sans, sans-serif' }}>
-          Crear cuenta
+          Nueva contraseña
         </h1>
         <p className="text-sm mt-1" style={{ color: 'var(--fc-text-secondary)' }}>
-          Necesitas un código de invitación
+          Elige una contraseña segura
         </p>
       </div>
 
-      {/* Card */}
       <div
         className="rounded-2xl p-6 border"
         style={{
@@ -59,24 +56,7 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium" style={{ color: 'var(--fc-text-secondary)', fontFamily: 'IBM Plex Sans, sans-serif' }}>
-              Email
-            </label>
-            <input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none transition-colors"
-              style={inputStyle}
-              onFocus={e => e.currentTarget.style.borderColor = 'var(--fc-accent)'}
-              onBlur={e => e.currentTarget.style.borderColor = 'var(--fc-border-light)'}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium" style={{ color: 'var(--fc-text-secondary)', fontFamily: 'IBM Plex Sans, sans-serif' }}>
-              Contraseña
+              Nueva contraseña
             </label>
             <input
               type="password"
@@ -95,16 +75,16 @@ export default function RegisterPage() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium" style={{ color: 'var(--fc-text-secondary)', fontFamily: 'IBM Plex Sans, sans-serif' }}>
-              Código de invitación
+              Confirmar contraseña
             </label>
             <input
-              type="text"
-              value={inviteCode}
-              onChange={e => setInviteCode(e.target.value.toUpperCase())}
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
               required
-              placeholder="XXXXXXXX"
-              className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none transition-colors tracking-widest"
-              style={{ ...inputStyle, fontFamily: 'IBM Plex Mono, monospace' }}
+              className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none transition-colors"
+              style={inputStyle}
               onFocus={e => e.currentTarget.style.borderColor = 'var(--fc-accent)'}
               onBlur={e => e.currentTarget.style.borderColor = 'var(--fc-border-light)'}
             />
@@ -124,17 +104,10 @@ export default function RegisterPage() {
               fontFamily: 'IBM Plex Sans, sans-serif',
             }}
           >
-            {loading ? 'Creando cuenta...' : 'Crear cuenta'}
+            {loading ? 'Guardando...' : 'Guardar contraseña'}
           </button>
         </form>
       </div>
-
-      <p className="text-center text-xs mt-4" style={{ color: 'var(--fc-text-muted)' }}>
-        ¿Ya tienes cuenta?{' '}
-        <Link href="/login" className="transition-colors" style={{ color: 'var(--fc-accent)' }}>
-          Inicia sesión
-        </Link>
-      </p>
     </div>
   )
 }

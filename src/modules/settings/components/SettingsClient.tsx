@@ -7,6 +7,7 @@ import { PreferencesDetail } from './PreferencesDetail'
 import { HouseholdDetail } from './HouseholdDetail'
 import { SubscriptionDetail } from './SubscriptionDetail'
 import { AboutDetail } from './AboutDetail'
+import { InvitationsDetail } from './InvitationsDetail'
 
 interface Props {
   data: SettingsPageData
@@ -28,7 +29,7 @@ function ChevronRight() {
 
 export function SettingsClient({ data }: Props) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(null)
-  const { profile, preferences, household, members, currentUserRole } = data
+  const { profile, preferences, household, members, currentUserRole, invitationCodes } = data
 
   const householdName = household?.name ?? null
   const memberCount = members.length
@@ -159,6 +160,22 @@ export function SettingsClient({ data }: Props) {
           </div>
         </div>
 
+        {/* Administración section — solo admins */}
+        {profile.is_admin && (
+          <div style={{ marginBottom: 18 }}>
+            <p className="fc-label-micro" style={{ padding: '0 2px', marginBottom: 8 }}>Administración</p>
+            <div className="glass" style={{ overflow: 'hidden' }}>
+              <RowItem
+                icon="🎟️"
+                iconColor="gold"
+                label="Códigos de invitación"
+                detail={`${invitationCodes.filter(c => !c.used_by && (!c.expires_at || new Date(c.expires_at) > new Date())).length} disponibles · ${invitationCodes.length} totales`}
+                onClick={() => open('invitations')}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Cuenta section */}
         <div style={{ marginBottom: 18 }}>
           <p className="fc-label-micro" style={{ padding: '0 2px', marginBottom: 8 }}>Cuenta</p>
@@ -217,6 +234,12 @@ export function SettingsClient({ data }: Props) {
       <DetailOverlay active={activeSection === 'about'}>
         <AboutDetail onBack={back} />
       </DetailOverlay>
+
+      {profile.is_admin && (
+        <DetailOverlay active={activeSection === 'invitations'}>
+          <InvitationsDetail codes={invitationCodes} onBack={back} />
+        </DetailOverlay>
+      )}
     </div>
   )
 }

@@ -27,7 +27,7 @@ export default async function ProtectedLayout({
   children: React.ReactNode
 }) {
   const { authenticated, isAdmin } = await getAuthState()
-  if (!authenticated) redirect('/dev-login')
+  if (!authenticated) redirect(VALID_USER_IDS.size > 0 ? '/dev-login' : '/login')
 
   return (
     <div className="h-dvh flex flex-col" style={{ backgroundColor: 'var(--bg-base)' }}>

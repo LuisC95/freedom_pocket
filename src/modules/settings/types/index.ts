@@ -30,12 +30,22 @@ export interface HouseholdMember {
   display_name: string
 }
 
+export interface InvitationCode {
+  id: string
+  code: string
+  used_by: string | null
+  used_at: string | null
+  expires_at: string | null
+  created_at: string
+}
+
 export interface SettingsPageData {
   profile: SettingsProfile
   preferences: SettingsPreferences
   household: SettingsHousehold | null
   members: HouseholdMember[]
   currentUserRole: 'owner' | 'member' | null
+  invitationCodes: InvitationCode[]
 }
 
 export type SettingsSection =
@@ -44,4 +54,5 @@ export type SettingsSection =
   | 'household'
   | 'subscription'
   | 'about'
+  | 'invitations'
   | null

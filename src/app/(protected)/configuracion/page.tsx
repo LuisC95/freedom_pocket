@@ -53,12 +53,23 @@ export default async function ConfiguracionPage() {
     ? (Array.isArray(memberRow.household) ? memberRow.household[0] : memberRow.household)
     : null
 
+  let invitationCodes: SettingsPageData['invitationCodes'] = []
+  if (profile?.is_admin) {
+    const { data: codes } = await supabase
+      .from('invitation_codes')
+      .select('id, code, used_by, used_at, expires_at, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    invitationCodes = codes ?? []
+  }
+
   const pageData: SettingsPageData = {
     profile: profile!,
     preferences: settings!,
     household: household ?? null,
     members,
     currentUserRole: memberRow?.role ?? null,
+    invitationCodes,
   }
 
   return (
