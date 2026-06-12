@@ -96,7 +96,7 @@ export type LiabilityUpdate = Partial<Omit<Liability, 'id' | 'user_id' | 'create
 
 export interface CreditCardExpenseHistoryItem {
   id: string
-  kind: 'expense' | 'payment'
+  kind: 'expense' | 'payment' | 'adjustment'
   amount: number
   currency: string
   transaction_date: string

@@ -586,6 +586,20 @@ export async function getCreditCardExpenseHistory(
 
   if (error) return { data: [], error: error.message }
 
+  // ── Ajustes de saldo (capturas) ──────────────────────────────────────────
+  // Transacciones de ajuste: payment_source credit_card + exclude_from_metrics.
+  // Los pagos normales nunca llevan liability_id, así que no colisionan.
+  const { data: adjustmentRows } = await supabase
+    .from('transactions')
+    .select('id,user_id,amount,currency,transaction_date,notes')
+    .eq('liability_id', liability_id)
+    .eq('type', 'expense')
+    .eq('payment_source', 'credit_card')
+    .eq('exclude_from_metrics', true)
+    .in('user_id', scope.visibleExpenseUserIds)
+    .order('transaction_date', { ascending: false })
+    .limit(100)
+
   // ── Pagos (liquidity_movements) ──────────────────────────────────────────
   // Incluimos related_transaction_id para detectar movimientos huérfanos
   // (cuando se elimina la transacción original, el movimiento queda huérfano)
@@ -637,6 +651,7 @@ export async function getCreditCardExpenseHistory(
   const profileNames = await getProfileNames(supabase, [
     ...(rows ?? []).map((row: CreditCardExpenseRow) => row.user_id),
     ...paymentProfileUserIds,
+    ...(adjustmentRows ?? []).map(r => r.user_id),
   ])
 
   // ── Merge y ordenar ──────────────────────────────────────────────────────
@@ -672,7 +687,19 @@ export async function getCreditCardExpenseHistory(
     source_account_name: assetNames[m.asset_id] ?? null,
   }))
 
-  const merged = [...expenses, ...payments].sort((a, b) =>
+  const adjustments: CreditCardExpenseHistoryItem[] = (adjustmentRows ?? []).map(r => ({
+    id: 'adj_' + r.id,
+    kind: 'adjustment',
+    amount: Number(r.amount),
+    currency: r.currency,
+    transaction_date: r.transaction_date,
+    notes: r.notes,
+    category_name: null,
+    category_color: null,
+    registered_by_name: profileNames[r.user_id],
+  }))
+
+  const merged = [...expenses, ...payments, ...adjustments].sort((a, b) =>
     b.transaction_date.localeCompare(a.transaction_date)
   )
 

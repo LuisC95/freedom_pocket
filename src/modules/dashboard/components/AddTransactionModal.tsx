@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { Check, ChevronDown, ChevronUp, CreditCard, WalletCards } from 'lucide-react'
+import { useRef, useState, useTransition } from 'react'
+import { Camera, Check, ChevronDown, ChevronUp, CreditCard, Loader2, WalletCards } from 'lucide-react'
 import { createTransaction, updateTransaction, createRecurringTemplate, createCategory, deleteCategory, updateDefaultPayment } from '../actions'
+import { scanReceipt } from '../actions/scan'
+import { filesToVisionImages } from '@/lib/client-image'
 import type { CreditCardOption, PaymentSource, Transaction, TransactionCategory, RecurringFrequency } from '../types'
 import type { LiquidityAccount } from '@/types/liquidity'
 
@@ -107,6 +109,11 @@ export function AddTransactionModal({
   const isEdit = !!transaction
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+
+  // Escaneo de factura con IA
+  const [scanning, setScanning] = useState(false)
+  const [scanNotice, setScanNotice] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
+  const scanInputRef = useRef<HTMLInputElement>(null)
 
   const type = 'expense' as const
   const [amount, setAmount] = useState(transaction?.amount?.toString() ?? '')
@@ -257,6 +264,50 @@ export function AddTransactionModal({
     })
   }
 
+  async function handleScanFiles(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) return
+    setError(null)
+    setScanNotice(null)
+    setScanning(true)
+    try {
+      const images = await filesToVisionImages(Array.from(fileList).slice(0, 2))
+      const res = await scanReceipt(images)
+      if (res.error || !res.data) {
+        setScanNotice({ tone: 'warn', text: res.error ?? 'No se pudo analizar la factura' })
+        return
+      }
+      const scan = res.data
+      if (scan.total !== null) setAmount(String(scan.total))
+      if (scan.transaction_date) setDate(scan.transaction_date)
+      if (scan.currency && ['USD', 'EUR', 'MXN', 'ARS', 'COP'].includes(scan.currency)) {
+        setCurrency(scan.currency)
+      }
+      if (scan.category_id) setCategoryId(scan.category_id)
+
+      const desglose = scan.items
+        .map(it => {
+          const qty = it.quantity && it.quantity !== 1 ? `${it.quantity}× ` : ''
+          const amt = it.amount != null ? ` — ${it.amount.toFixed(2)}` : ''
+          return `${qty}${it.description}${amt}`
+        })
+        .join('\n')
+      const noteParts = [scan.merchant, desglose].filter(Boolean)
+      if (noteParts.length > 0) setNotes(noteParts.join('\n'))
+
+      const confLabel = scan.confidence === 'high' ? 'alta' : scan.confidence === 'medium' ? 'media' : 'baja'
+      const warnText = scan.warnings.length > 0 ? ` · ${scan.warnings.join(' · ')}` : ''
+      setScanNotice({
+        tone: scan.confidence === 'low' || scan.warnings.length > 0 ? 'warn' : 'ok',
+        text: `Factura leída (confianza ${confLabel}). Revisa los datos antes de guardar.${warnText}`,
+      })
+    } catch (err) {
+      setScanNotice({ tone: 'warn', text: err instanceof Error ? err.message : 'No se pudo procesar la imagen' })
+    } finally {
+      setScanning(false)
+      if (scanInputRef.current) scanInputRef.current.value = ''
+    }
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
@@ -405,6 +456,58 @@ export function AddTransactionModal({
         </div>
 
         <form onSubmit={handleSubmit} className="add-transaction-form">
+
+          {/* Escanear factura con IA */}
+          {!isEdit && (
+            <div style={{ marginBottom: '14px' }}>
+              <input
+                ref={scanInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={e => handleScanFiles(e.target.files)}
+                style={{ display: 'none' }}
+              />
+              <button
+                type="button"
+                onClick={() => scanInputRef.current?.click()}
+                disabled={scanning || pending}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  backgroundColor: '#0E1512',
+                  border: '0.5px dashed #2E7D5260',
+                  borderRadius: '8px',
+                  padding: '10px 12px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: scanning ? '#7A9A8A' : '#3A9E6A',
+                  cursor: scanning ? 'wait' : 'pointer',
+                }}
+              >
+                {scanning
+                  ? <Loader2 size={14} className="animate-spin" />
+                  : <Camera size={14} />}
+                {scanning ? 'Analizando factura…' : 'Escanear factura (foto)'}
+              </button>
+              {scanNotice && (
+                <p style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '10px',
+                  marginTop: '5px',
+                  lineHeight: 1.5,
+                  color: scanNotice.tone === 'ok' ? '#3A9E6A' : '#C69B30',
+                }}>
+                  {scanNotice.text}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Monto */}
           <div style={{ marginBottom: '14px' }}>

@@ -10,6 +10,7 @@ import { AssetModal } from './AssetModal'
 import { LiabilityModal } from './LiabilityModal'
 import { BusinessModal } from './BusinessModal'
 import { FreedomGoalModal } from './FreedomGoalModal'
+import { ScanBalancesModal } from './ScanBalancesModal'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -713,13 +714,16 @@ function LiabilityDetailModal({ liability, liquidityAccounts, onClose, onEdit, o
                             {item.kind === 'expense' ? (
                               <span className="h-2 w-2 rounded-full shrink-0" style={{ background: item.category_color ?? '#7A9A8A' }} />
                             ) : (
-                              <span className="h-2 w-2 rounded-full shrink-0" style={{ background: '#3A9E6A' }} />
+                              <span className="h-2 w-2 rounded-full shrink-0" style={{ background: item.kind === 'adjustment' ? '#C69B30' : '#3A9E6A' }} />
                             )}
                             <p className="text-[13px] font-medium text-white truncate">
-                              {item.kind === 'expense' ? (item.category_name ?? 'Sin categoría') : 'Pago realizado'}
+                              {item.kind === 'expense' ? (item.category_name ?? 'Sin categoría') : item.kind === 'adjustment' ? 'Ajuste de saldo' : 'Pago realizado'}
                             </p>
                             {item.kind === 'payment' && (
                               <span className="shrink-0 text-[10px] rounded-md px-1.5 py-0.5" style={{ background: 'rgba(46,125,82,0.25)', color: '#3A9E6A' }}>Pago</span>
+                            )}
+                            {item.kind === 'adjustment' && (
+                              <span className="shrink-0 text-[10px] rounded-md px-1.5 py-0.5" style={{ background: 'rgba(198,155,48,0.20)', color: '#C69B30' }}>Ajuste</span>
                             )}
                           </div>
                           <p className="text-[11px] text-[#7A9A8A]">
@@ -729,7 +733,7 @@ function LiabilityDetailModal({ liability, liquidityAccounts, onClose, onEdit, o
                           </p>
                           {item.notes && <p className="text-[11px] text-[#7A9A8A] mt-1 truncate">{item.notes}</p>}
                         </div>
-                        <p className={`font-mono text-[14px] font-semibold shrink-0 ${item.kind === 'payment' ? 'text-[#3A9E6A]' : ''}`}
+                        <p className={`font-mono text-[14px] font-semibold shrink-0 ${item.kind === 'payment' ? 'text-[#3A9E6A]' : item.kind === 'adjustment' ? 'text-[#C69B30]' : ''}`}
                           style={item.kind === 'expense' ? { color: 'var(--text-red)' } : undefined}>
                           {item.kind === 'payment' ? `-${fmtFull(item.amount, item.currency)}` : fmtFull(item.amount, item.currency)}
                         </p>
@@ -890,6 +894,7 @@ type Modal =
   | { type: 'business_edit'; business: Business }
   | { type: 'goal_new' }
   | { type: 'goal_edit'; goal: FreedomGoal }
+  | { type: 'scan_balances' }
   | null
 
 type VehicleTab = 'activos' | 'negocios'
@@ -999,6 +1004,15 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
           </div>
         ))}
       </div>
+
+      {/* ── Actualizar saldos con captura ── */}
+      <button
+        type="button"
+        onClick={() => setModal({ type: 'scan_balances' })}
+        className="w-full mb-4 flex items-center justify-center gap-2 rounded-xl border border-dashed border-[#2E7D52]/50 bg-white px-4 py-3 text-[11px] uppercase tracking-widest text-[#2E7D52] hover:text-[#3A9E6A] transition-colors"
+      >
+        <span aria-hidden>📷</span> Actualizar saldos con captura
+      </button>
 
       {/* ── Vehículos (Activos / Negocios) ── */}
       <section className="mb-4">
@@ -1165,6 +1179,9 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
       )}
       {modal?.type === 'business_edit' && (
         <BusinessModal business={modal.business} onClose={() => setModal(null)} onSaved={refresh} />
+      )}
+      {modal?.type === 'scan_balances' && (
+        <ScanBalancesModal onClose={() => setModal(null)} onSaved={refresh} />
       )}
       {modal?.type === 'goal_new' && (
         <FreedomGoalModal onClose={() => setModal(null)} onSaved={refresh} />

@@ -15,3 +15,4 @@ begin
       check (credit_limit is null or credit_limit >= 0);
   end if;
 end $$;
+
