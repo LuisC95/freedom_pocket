@@ -82,12 +82,11 @@ function Sheet({ children, onClose }: { children: React.ReactNode; onClose: () =
   return (
     <div
       style={{ position: 'fixed', inset: 0, zIndex: 40, backgroundColor: 'rgba(0,0,0,0.65)', padding: '0 16px', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
-      className="flex items-end justify-center sm:items-center"
+      className="flex items-center justify-center"
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div
-        style={{ backgroundColor: G.sheetBg, borderRadius: '20px 20px 20px 20px', padding: '20px', width: '100%', maxWidth: '440px', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 -8px 60px rgba(0,0,0,0.5)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)' }}
-        className="mb-4 sm:mb-0"
+        style={{ backgroundColor: G.sheetBg, borderRadius: '20px', padding: '20px', width: '100%', maxWidth: '440px', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 8px 60px rgba(0,0,0,0.5)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)' }}
       >
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
           <button onClick={onClose} style={{ color: G.textSec, fontSize: '20px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, cursor: 'pointer', lineHeight: 1, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
