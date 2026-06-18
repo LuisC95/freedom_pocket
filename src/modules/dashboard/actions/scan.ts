@@ -23,6 +23,8 @@ export interface ReceiptScanResult {
   items: ReceiptScanItem[]
   confidence: 'high' | 'medium' | 'low'
   warnings: string[]
+  payment_source: 'cash_debit' | 'credit_card' | null
+  matched_card_id: string | null
 }
 
 interface RawReceipt {
@@ -35,6 +37,8 @@ interface RawReceipt {
   items?: unknown
   confidence?: unknown
   warnings?: unknown
+  payment_source?: unknown
+  matched_card_id?: unknown
 }
 
 function asCleanString(v: unknown, maxLen = 120): string | null {
@@ -50,7 +54,8 @@ function asAmount(v: unknown): number | null {
 }
 
 export async function scanReceipt(
-  images: VisionImage[]
+  images: VisionImage[],
+  creditCards: Array<{ id: string; name: string; currency: string }> = []
 ): Promise<{ data: ReceiptScanResult | null; error: string | null }> {
   await getDevUserId() // exige sesión activa antes de gastar tokens
 
@@ -58,6 +63,10 @@ export async function scanReceipt(
   const categoryList = categories
     .map(c => `- ${c.id} — ${c.name}`)
     .join('\n')
+
+  const cardList = creditCards.length > 0
+    ? creditCards.map(c => `- ${c.id} — "${c.name}" [${c.currency}]`).join('\n')
+    : '- (ninguna registrada)'
 
   const today = new Date().toISOString().slice(0, 10)
 
@@ -71,7 +80,9 @@ Analiza la(s) imagen(es) y responde SOLO con un objeto JSON con esta forma exact
   "category_id": string | null,
   "items": [{ "description": string, "quantity": number | null, "amount": number | null }],
   "confidence": "high" | "medium" | "low",
-  "warnings": [string]
+  "warnings": [string],
+  "payment_source": "cash_debit" | "credit_card" | null,
+  "matched_card_id": string | null
 }
 
 Reglas:
@@ -82,6 +93,9 @@ Reglas:
 ${categoryList || '- (sin categorías disponibles)'}
 - "items": las líneas de la compra. "amount" es el precio total de esa línea. Máximo 25 items; si hay más, agrupa los menores en "Otros".
 - "warnings": notas breves en español si algo es ilegible o dudoso.
+- "payment_source": "credit_card" si la factura muestra pago con tarjeta (Visa, Mastercard, Amex, débito con últimos 4 dígitos visibles, o leyenda "Tarjeta"/"Card"). "cash_debit" si dice Efectivo/Cash. null si no se puede determinar.
+- "matched_card_id": si payment_source es "credit_card", elige el id EXACTO de la tarjeta registrada que corresponde según nombre, banco o últimos 4 dígitos, SOLO de esta lista (o null si ninguna coincide):
+${cardList}
 - Si la imagen NO es una factura o recibo de compra, responde {"error": "not_receipt"}.`
 
   const result = await geminiVisionJson<RawReceipt>({ prompt, images })
@@ -135,6 +149,19 @@ ${categoryList || '- (sin categorías disponibles)'}
     .filter((w): w is string => w !== null)
     .slice(0, 5)
 
+  const paymentSource: ReceiptScanResult['payment_source'] =
+    raw.payment_source === 'credit_card' || raw.payment_source === 'cash_debit'
+      ? raw.payment_source
+      : null
+
+  const validCardIds = new Set(creditCards.map(c => c.id))
+  const matchedCardId =
+    paymentSource === 'credit_card' &&
+    typeof raw.matched_card_id === 'string' &&
+    validCardIds.has(raw.matched_card_id)
+      ? raw.matched_card_id
+      : null
+
   const data: ReceiptScanResult = {
     merchant: asCleanString(raw.merchant, 80),
     transaction_date: transactionDate,
@@ -145,6 +172,8 @@ ${categoryList || '- (sin categorías disponibles)'}
     items,
     confidence,
     warnings,
+    payment_source: paymentSource,
+    matched_card_id: matchedCardId,
   }
 
   if (data.total === null) {

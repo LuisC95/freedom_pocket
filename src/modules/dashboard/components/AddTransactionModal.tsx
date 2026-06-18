@@ -271,7 +271,10 @@ export function AddTransactionModal({
     setScanning(true)
     try {
       const images = await filesToVisionImages(Array.from(fileList).slice(0, 2))
-      const res = await scanReceipt(images)
+      const res = await scanReceipt(
+        images,
+        creditCardOptions.map(c => ({ id: c.id, name: c.name, currency: c.currency }))
+      )
       if (res.error || !res.data) {
         setScanNotice({ tone: 'warn', text: res.error ?? 'No se pudo analizar la factura' })
         return
@@ -283,6 +286,17 @@ export function AddTransactionModal({
         setCurrency(scan.currency)
       }
       if (scan.category_id) setCategoryId(scan.category_id)
+
+      if (scan.payment_source === 'credit_card') {
+        if (scan.matched_card_id) {
+          selectCreditCard(scan.matched_card_id)
+        } else {
+          setPaymentSource('credit_card')
+          setSelectedLiabilityId(null)
+        }
+      } else if (scan.payment_source === 'cash_debit') {
+        setPaymentSource('cash_debit')
+      }
 
       const desglose = scan.items
         .map(it => {
