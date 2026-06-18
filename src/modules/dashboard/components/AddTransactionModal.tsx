@@ -469,7 +469,7 @@ export function AddTransactionModal({
           <button onClick={onClose} style={{ fontFamily: 'var(--font-mono)', fontSize: '18px', color: '#7A9A8A', cursor: 'pointer', background: 'none', border: 'none', lineHeight: 1 }}>×</button>
         </div>
 
-        <form onSubmit={handleSubmit} className="add-transaction-form">
+        <form id="add-tx-form" onSubmit={handleSubmit} className="add-transaction-form">
 
           {/* Escanear factura con IA */}
           {!isEdit && (
@@ -1150,39 +1150,41 @@ export function AddTransactionModal({
           )}
 
           {error && (
-            <p style={{ color: '#E84434', fontFamily: 'var(--font-mono)', fontSize: '11px', marginBottom: '10px' }}>
+            <p style={{ color: '#E84434', fontFamily: 'var(--font-mono)', fontSize: '11px' }}>
               {error}
             </p>
           )}
 
-          {/* Botones */}
-          <div className="add-transaction-actions">
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                flex: 1, padding: '12px', borderRadius: '10px',
-                backgroundColor: 'transparent', border: '0.5px solid #2E7D5240',
-                fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#7A9A8A', cursor: 'pointer',
-              }}
-              disabled={pending}
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              style={{
-                flex: 1, padding: '12px', borderRadius: '10px',
-                backgroundColor: accentColor, border: 'none',
-                fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500, color: 'white', cursor: 'pointer',
-                opacity: pending ? 0.7 : 1,
-              }}
-              disabled={pending}
-            >
-              {pending ? 'Guardando…' : isEdit ? 'Guardar' : (isRecurring && !registerToday) ? 'Guardar plantilla' : 'Agregar'}
-            </button>
-          </div>
         </form>
+
+        {/* Footer — fuera del area scrollable para que siempre sea visible */}
+        <div className="add-transaction-actions" style={{ flexShrink: 0, marginTop: '14px', paddingTop: '14px', borderTop: '0.5px solid rgba(255,255,255,0.08)' }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              flex: 1, padding: '12px', borderRadius: '10px',
+              backgroundColor: 'transparent', border: '0.5px solid #2E7D5240',
+              fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#7A9A8A', cursor: 'pointer',
+            }}
+            disabled={pending}
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form="add-tx-form"
+            style={{
+              flex: 1, padding: '12px', borderRadius: '10px',
+              backgroundColor: accentColor, border: 'none',
+              fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500, color: 'white', cursor: 'pointer',
+              opacity: pending ? 0.7 : 1,
+            }}
+            disabled={pending}
+          >
+            {pending ? 'Guardando…' : isEdit ? 'Guardar' : (isRecurring && !registerToday) ? 'Guardar plantilla' : 'Agregar'}
+          </button>
+        </div>
       </div>
     </div>
   )
