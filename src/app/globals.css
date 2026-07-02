@@ -1,5 +1,5 @@
-/* Geist — Variable font for modern FinTech dashboards */
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
+/* IBM Plex — Design system typography for Fastlane Compass */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -80,9 +80,9 @@
     --fc-color-premium:  var(--gold);
     --fc-color-neutral:  var(--text-secondary);
 
-    /* Typography — Geist by Vercel */
-    --font-sans: 'Geist', sans-serif;
-    --font-mono: 'Geist Mono', monospace;
+    /* Typography — IBM Plex (design system canonical) */
+    --font-sans: 'IBM Plex Sans', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
 
     /* Type scale */
     --fc-text-micro: 9px;
@@ -572,6 +572,24 @@
     }
   }
 
+  /* ── Brujula hero ring+pills row ── */
+  .brujula-hero-ring-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 340px) {
+    .brujula-hero-ring-row {
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .brujula-hero-ring-row > div:last-child {
+      width: 100%;
+    }
+  }
+
   .brujula-page {
     width: 100%;
     max-width: 672px;
@@ -609,17 +627,16 @@
     min-width: 0;
   }
 
-  @media (max-width: 767px) {
+  @media (max-width: 639px) {
     .brujula-modal-backdrop {
-      align-items: stretch !important;
-      padding: 8px 8px calc(90px + env(safe-area-inset-bottom)) !important;
+      align-items: flex-end !important;
+      padding: 0 !important;
     }
 
     .brujula-modal-card {
-      max-width: none;
-      max-height: calc(100dvh - 98px - env(safe-area-inset-bottom)) !important;
-      padding: 16px !important;
-      border-radius: 14px !important;
+      max-width: 100% !important;
+      max-height: 90dvh !important;
+      border-radius: 24px 24px 0 0 !important;
     }
   }
 
@@ -685,12 +702,7 @@
     }
 
     .brujula-modal-actions {
-      position: sticky;
-      bottom: 0;
-      margin: 0 -16px -16px;
-      padding: 12px 16px max(12px, env(safe-area-inset-bottom));
-      background: #1A2520;
-      border-top: 1px solid rgba(255,255,255,0.10);
+      gap: 12px;
     }
   }
 
@@ -734,7 +746,7 @@
     overflow: hidden;
     border-radius: 16px;
     background: #1A2520;
-    font-family: 'Geist', sans-serif;
+    font-family: var(--font-sans);
   }
 
   .register-payment-header {
@@ -1540,6 +1552,175 @@
   /* ── Glow helpers ── */
   .glow-green { text-shadow: 0 0 20px rgba(77,201,138,0.5); }
   .glow-gold  { text-shadow: 0 0 16px rgba(212,169,58,0.45); }
+
+  /* ── Monospace helper ── */
+  .mono { font-family: var(--font-mono); }
+
+  /* ── Section typography ── */
+  .section-title {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  .section-label {
+    font-family: var(--font-sans);
+    font-size: 9px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    display: block;
+    margin: 0;
+  }
+
+  /* ── Ghost button ── */
+  .ghost-btn {
+    background: transparent;
+    border: none;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--green-bright);
+    cursor: pointer;
+    padding: 6px 10px;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    transition: color 0.15s;
+  }
+  .ghost-btn:hover { color: #77DDA8; }
+
+  /* .glass + .card → padding helper */
+  .card { padding: 12px 14px; }
+
+  /* ScoreRing wrapper */
+  .score-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* Balance columns: grid 2 cols, siempre side-by-side */
+  .balance-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  /* Lista scrollable dentro de cada columna */
+  .balance-col-list {
+    max-height: clamp(140px, 38vh, 320px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.10) transparent;
+  }
+  .balance-col-list::-webkit-scrollbar { width: 3px; }
+  .balance-col-list::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.12);
+    border-radius: 2px;
+  }
+
+  /* Balance point item */
+  .bp-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    cursor: pointer;
+    transition: opacity 0.1s;
+  }
+  .bp-item:last-child { border-bottom: none; }
+  .bp-item:active { opacity: 0.7; }
+
+  /* Accordion group wrapper */
+  .bp-item-group {
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .bp-item-group:last-child { border-bottom: none; }
+
+  /* Expanded content inside accordion */
+  .bp-expand {
+    padding: 2px 0 12px;
+  }
+
+  /* Action buttons inside expanded accordion */
+  .bp-expand-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .bp-expand-btn {
+    flex: 1;
+    min-width: 0;
+    padding: 5px 4px;
+    border-radius: 7px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: center;
+    white-space: nowrap;
+    transition: background 0.1s;
+  }
+  .bp-expand-btn:active { background: rgba(255,255,255,0.10); }
+  .bp-expand-btn--green {
+    background: rgba(46,125,82,0.18);
+    border-color: rgba(46,125,82,0.30);
+    color: var(--green-bright);
+  }
+  .bp-expand-btn--pay {
+    background: rgba(46,125,82,0.22);
+    border-color: rgba(46,125,82,0.35);
+    color: var(--green-bright);
+    font-weight: 600;
+  }
+
+  /* Icon container for bp-item */
+  .bp-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* DebtMeter gradient track */
+  .meter-track {
+    position: relative;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #E84434 0%, #C69B30 50%, #3A9E6A 100%);
+    overflow: visible;
+  }
+  .meter-marker {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 0 6px rgba(0,0,0,0.5);
+    transition: left 0.5s ease;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
