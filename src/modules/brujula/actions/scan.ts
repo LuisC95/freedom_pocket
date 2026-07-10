@@ -106,6 +106,8 @@ interface RawDetectedAccount {
   last4?: unknown
   account_kind?: unknown
   balance?: unknown
+  credit_limit?: unknown
+  available_credit?: unknown
   currency?: unknown
   match?: unknown
   match_confidence?: unknown
@@ -140,7 +142,9 @@ Analiza la(s) imagen(es) y responde SOLO con un objeto JSON con esta forma exact
     "label": string,
     "last4": string | null,
     "account_kind": "bank" | "credit_card" | "other",
-    "balance": number,
+    "balance": number | null,
+    "credit_limit": number | null,
+    "available_credit": number | null,
     "currency": string | null,
     "match": string | null,
     "match_confidence": "high" | "medium" | "low",
@@ -152,7 +156,7 @@ Analiza la(s) imagen(es) y responde SOLO con un objeto JSON con esta forma exact
 Reglas:
 - Extrae CADA cuenta o tarjeta visible con su saldo. "label" es el nombre tal como aparece en pantalla; "last4" son los últimos 4 dígitos si se ven.
 - Para cuentas bancarias: "balance" es el saldo actual/disponible de la cuenta.
-- Para tarjetas de crédito: "balance" es el SALDO ACTUAL ADEUDADO (current balance / saldo al corte). NUNCA uses el crédito disponible, el límite, ni el pago mínimo. Si solo se ve el crédito disponible y no el saldo adeudado, omite esa tarjeta y agrégalo a "warnings".
+- Para tarjetas de crédito: extrae "credit_limit" (límite total de crédito) y "available_credit" (crédito disponible / lo que aún puedes gastar) si están visibles en la captura. Si ambos están presentes, deja "balance" en null — el sistema calculará la deuda como límite − disponible, lo cual incluye cargos pendientes que aún no aparecen en el saldo adeudado oficial. Si solo se ve el saldo adeudado (sin disponible ni límite), ponlo en "balance" y deja credit_limit y available_credit en null. Nunca uses el pago mínimo como balance.
 - "currency": código ISO 4217 inferido por símbolo/idioma (USD, MXN, EUR...). null si no es claro.
 - "match": el identificador EXACTO (ej. "asset:uuid" o "liability:uuid") de la cuenta registrada que corresponde, elegido SOLO de esta lista, o null si ninguna corresponde:
 ${candidateList}
@@ -176,7 +180,20 @@ ${candidateList}
     .slice(0, 20)
     .map((item: unknown) => {
       const obj = (item ?? {}) as RawDetectedAccount
-      const balance = asBalance(obj.balance)
+
+      const accountKind = obj.account_kind === 'bank' || obj.account_kind === 'credit_card'
+        ? obj.account_kind
+        : 'other'
+
+      const creditLimit = asBalance(obj.credit_limit)
+      const availableCredit = asBalance(obj.available_credit)
+
+      let balance: number | null
+      if (accountKind === 'credit_card' && creditLimit !== null && availableCredit !== null) {
+        balance = round2(Math.max(0, creditLimit - availableCredit))
+      } else {
+        balance = asBalance(obj.balance)
+      }
       if (balance === null) return null
 
       const matchRef = typeof obj.match === 'string' ? obj.match.trim() : null
@@ -184,10 +201,6 @@ ${candidateList}
 
       const currencyRaw = typeof obj.currency === 'string' ? obj.currency.trim().toUpperCase() : null
       const last4Raw = typeof obj.last4 === 'string' ? obj.last4.replace(/\D/g, '').slice(-4) : ''
-
-      const accountKind = obj.account_kind === 'bank' || obj.account_kind === 'credit_card'
-        ? obj.account_kind
-        : 'other'
 
       return {
         label: (typeof obj.label === 'string' && obj.label.trim() ? obj.label.trim() : 'Cuenta detectada').slice(0, 80),
