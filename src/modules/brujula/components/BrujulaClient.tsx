@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { BrujulaData, Asset, Liability, Business, FreedomGoal, CreditCardExpenseHistoryItem, AssetMovementHistoryItem, LiabilityPaymentHistoryItem } from '../types'
 import type { LiquidityAccount } from '@/types/liquidity'
-import { ASSET_TYPE_LABELS, BUSINESS_MODEL_LABELS, BUSINESS_STATUS_LABELS, LIABILITY_TYPE_LABELS, PROGRESS_LEVEL_LABELS } from '../types'
+import { ASSET_TYPE_LABELS, BUSINESS_MODEL_LABELS, BUSINESS_STATUS_LABELS, LIABILITY_TYPE_LABELS } from '../types'
 import { deleteAsset, deleteLiability, deleteBusiness, deleteFreedomGoal, updateFreedomGoal, payOffCreditCard, getCreditCardExpenseHistory, getAssetMovementHistory, getLiabilityPaymentHistory } from '../actions'
 import { AssetModal } from './AssetModal'
 import { LiabilityModal } from './LiabilityModal'
@@ -66,20 +66,27 @@ function creditUsage(balance: number, limit: number | null) {
 
 // ─── Score Ring ───────────────────────────────────────────────────────────────
 
-function ScoreRing({ score, level_label, level_percentage }: { score: number; level_label: string; level_percentage: number }) {
+function ScoreRing({ score, level_label }: { score: number; level_label: string }) {
   const r = 36
   const circ = 2 * Math.PI * r
   const dash = (score / 100) * circ
   return (
-    <div className="relative flex items-center justify-center w-[96px] h-[96px]">
-      <svg width="96" height="96" viewBox="0 0 96 96" className="-rotate-90">
+    <div className="score-wrap" style={{ width: 96, height: 96 }}>
+      <svg width="96" height="96" viewBox="0 0 96 96"
+        style={{ transform: 'rotate(-90deg)', position: 'absolute', top: 0, left: 0 }}>
+        <defs>
+          <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#2E7D52" />
+            <stop offset="100%" stopColor="#5DCAA5" />
+          </linearGradient>
+        </defs>
         <circle cx="48" cy="48" r={r} strokeWidth="6" stroke="rgba(255,255,255,0.08)" fill="none" />
-        <circle cx="48" cy="48" r={r} strokeWidth="6" stroke="#5DCAA5" fill="none"
+        <circle cx="48" cy="48" r={r} strokeWidth="6" stroke="url(#scoreGrad)" fill="none"
           strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-mono text-[22px] font-bold text-white leading-none">{score.toFixed(0)}</span>
-        <span className="text-[8px] text-white/40 mt-0.5">{level_label}</span>
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <span className="mono glow-green" style={{ fontSize: 22, fontWeight: 700, color: 'var(--green-bright)', lineHeight: 1 }}>{score.toFixed(0)}</span>
+        <span style={{ fontSize: 8, color: 'var(--text-muted)', marginTop: 2 }}>{level_label}</span>
       </div>
     </div>
   )
@@ -91,13 +98,201 @@ function DimPill({ label, score, description }: { label: string; score: number; 
   return (
     <div className="min-w-0 bg-white/[6%] rounded-xl px-3 py-2.5">
       <div className="flex items-center justify-between gap-2 mb-1.5">
-        <span className="min-w-0 text-[10px] uppercase tracking-widest text-[#5DCAA5]/70">{label}</span>
+        <span className="min-w-0 truncate text-[10px] uppercase tracking-widest text-[#5DCAA5]/70">{label}</span>
         <span className="font-mono text-[13px] text-white">{score.toFixed(0)}</span>
       </div>
       <div className="h-1 bg-white/10 rounded-full overflow-hidden">
         <div className="h-full bg-[#5DCAA5] rounded-full transition-all" style={{ width: `${score}%` }} />
       </div>
       <p className="text-[9px] text-white/30 mt-1.5 leading-tight">{description}</p>
+    </div>
+  )
+}
+
+// ─── Debt Meter ───────────────────────────────────────────────────────────────
+
+function DebtMeter({ totalLiabilities, totalAssets }: { totalLiabilities: number; totalAssets: number }) {
+  const ratio = totalAssets > 0 ? Math.min(totalLiabilities / totalAssets, 1) : 0
+  const pct = ratio * 100
+  const label = pct < 30 ? 'Saludable' : pct < 60 ? 'Moderado' : 'Alto'
+  const color = pct < 30 ? 'var(--green-bright)' : pct < 60 ? 'var(--text-gold)' : 'var(--text-red)'
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+        <span className="section-label">Ratio de deuda</span>
+        <span className="mono" style={{ fontSize: 10, color }}>{label} · {pct.toFixed(0)}%</span>
+      </div>
+      <div className="meter-track">
+        <div className="meter-marker" style={{ left: `${Math.max(0, Math.min(100, pct))}%` }} />
+      </div>
+    </div>
+  )
+}
+
+// ─── Asset Bp Item ────────────────────────────────────────────────────────────
+
+function AssetBpItem({ asset, precioHora, isSelected, onToggle, onEdit, onDelete, onViewDetail, deletePending }: {
+  asset: Asset
+  precioHora: number | null
+  isSelected: boolean
+  onToggle: () => void
+  onEdit: () => void
+  onDelete: () => void
+  onViewDetail: () => void
+  deletePending: boolean
+}) {
+  const usdVal = asset.value_in_usd ?? asset.current_value
+  const hrs = precioHora && precioHora > 0 ? Math.round(usdVal / precioHora) : null
+
+  return (
+    <div className="bp-item-group">
+      <div className="bp-item" onClick={onToggle} role="button" tabIndex={0}
+        onKeyDown={e => e.key === 'Enter' && onToggle()}
+        style={{ borderBottom: 'none' }}>
+        <div className="bp-icon">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden>
+            {asset.is_liquid ? (
+              <>
+                <rect x="1" y="3.5" width="11" height="7.5" rx="1.5" stroke="var(--green-bright)" strokeWidth="1.2"/>
+                <path d="M4 3.5V2.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v1" stroke="var(--green-bright)" strokeWidth="1.2"/>
+              </>
+            ) : (
+              <path d="M1.5 11L3.5 5.5L6.5 8L9.5 3.5L11.5 11" stroke="var(--green-bright)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+            )}
+          </svg>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {asset.name}
+          </p>
+          {hrs !== null && !isSelected && (
+            <span className="section-label" style={{ marginTop: 2 }}>{hrs.toLocaleString()} hrs vida</span>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+          {!isSelected && (
+            <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: 'var(--green-bright)' }}>
+              {fmt(asset.current_value, asset.currency)}
+            </span>
+          )}
+          <span style={{ fontSize: 9, color: 'var(--text-muted)', transition: 'transform 0.2s', transform: isSelected ? 'rotate(180deg)' : 'none', display: 'block' }}>▾</span>
+        </div>
+      </div>
+
+      {isSelected && (
+        <div className="bp-expand">
+          <div className="mono" style={{ fontSize: 17, fontWeight: 700, color: 'var(--green-bright)', marginBottom: 2, lineHeight: 1 }}>
+            {fmt(asset.current_value, asset.currency)}
+          </div>
+          <span className="section-label" style={{ display: 'block', marginBottom: hrs !== null ? 2 : 6 }}>
+            {ASSET_TYPE_LABELS[asset.asset_type]}{asset.institution ? ` · ${asset.institution}` : ''}
+          </span>
+          {hrs !== null && (
+            <span className="section-label" style={{ display: 'block', marginBottom: 6 }}>
+              {hrs.toLocaleString()} hrs de vida
+            </span>
+          )}
+          {asset.monthly_yield != null && asset.monthly_yield > 0 && (
+            <span className="section-label" style={{ display: 'block', color: 'rgba(93,202,165,0.7)', marginBottom: 6 }}>
+              +{fmt(asset.monthly_yield, asset.currency)}/mes
+              {asset.annual_rate_pct != null && ` · ${asset.annual_rate_pct}% anual`}
+            </span>
+          )}
+          <div className="bp-expand-actions">
+            <button onClick={e => { e.stopPropagation(); onViewDetail() }} className="bp-expand-btn">Historial</button>
+            <button onClick={e => { e.stopPropagation(); onEdit() }} className="bp-expand-btn bp-expand-btn--green">Editar</button>
+            <DeleteBtn onConfirm={onDelete} pending={deletePending} />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Liability Bp Item ────────────────────────────────────────────────────────
+
+function LiabilityBpItem({ liability, precioHora, isSelected, onToggle, onEdit, onDelete, onPay, onViewDetail, deletePending }: {
+  liability: Liability
+  precioHora: number | null
+  isSelected: boolean
+  onToggle: () => void
+  onEdit: () => void
+  onDelete: () => void
+  onPay: () => void
+  onViewDetail: () => void
+  deletePending: boolean
+}) {
+  const isCC = liability.liability_type === 'credit_card'
+  const usage = creditUsage(liability.current_balance, liability.credit_limit)
+  const usdVal = liability.balance_in_usd ?? liability.current_balance
+  const hrs = precioHora && precioHora > 0 ? Math.round(usdVal / precioHora) : null
+
+  return (
+    <div className="bp-item-group">
+      <div className="bp-item" onClick={onToggle} role="button" tabIndex={0}
+        onKeyDown={e => e.key === 'Enter' && onToggle()}
+        style={{ borderBottom: 'none' }}>
+        <div className="bp-icon">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden>
+            <path d="M3 6.5h7M3 4h4a2.5 2.5 0 0 1 0 5H3V2" stroke="var(--text-red)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {liability.name}
+          </p>
+          {hrs !== null && !isSelected && (
+            <span className="section-label" style={{ marginTop: 2, color: 'rgba(242,103,90,0.6)' }}>{hrs.toLocaleString()} hrs vida</span>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+          {!isSelected && (
+            <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-red)' }}>
+              {fmt(liability.current_balance, liability.currency)}
+            </span>
+          )}
+          <span style={{ fontSize: 9, color: 'var(--text-muted)', transition: 'transform 0.2s', transform: isSelected ? 'rotate(180deg)' : 'none', display: 'block' }}>▾</span>
+        </div>
+      </div>
+
+      {isSelected && (
+        <div className="bp-expand">
+          <div className="mono" style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-red)', marginBottom: 2, lineHeight: 1 }}>
+            {fmt(liability.current_balance, liability.currency)}
+          </div>
+          <span className="section-label" style={{ display: 'block', marginBottom: hrs !== null ? 2 : 6 }}>
+            {LIABILITY_TYPE_LABELS[liability.liability_type]}
+          </span>
+          {hrs !== null && (
+            <span className="section-label" style={{ display: 'block', marginBottom: 6, color: 'rgba(242,103,90,0.55)' }}>
+              {hrs.toLocaleString()} hrs de vida
+            </span>
+          )}
+          {usage && (
+            <div style={{ marginBottom: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                <span className="section-label">Límite {fmt(liability.credit_limit ?? 0, liability.currency)}</span>
+                <span className="mono section-label">{usage.pct.toFixed(0)}%</span>
+              </div>
+              <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${Math.min(usage.pct, 100)}%`, borderRadius: 2, background: 'var(--text-red)', transition: 'width 0.4s' }} />
+              </div>
+            </div>
+          )}
+          {(liability.interest_rate_pct != null || liability.monthly_payment != null) && (
+            <span className="section-label" style={{ display: 'block', marginBottom: 6 }}>
+              {liability.interest_rate_pct != null && `${liability.interest_rate_pct}% interés`}
+              {liability.monthly_payment != null && ` · ${fmt(liability.monthly_payment, liability.currency)}/mes`}
+            </span>
+          )}
+          <div className="bp-expand-actions">
+            {isCC && <button onClick={e => { e.stopPropagation(); onPay() }} className="bp-expand-btn bp-expand-btn--pay">Pagar</button>}
+            <button onClick={e => { e.stopPropagation(); onViewDetail() }} className="bp-expand-btn">Historial</button>
+            <button onClick={e => { e.stopPropagation(); onEdit() }} className="bp-expand-btn">Editar</button>
+            <DeleteBtn onConfirm={onDelete} pending={deletePending} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -301,52 +496,47 @@ function FreedomGoalRow({ goal, diasActuales, onEdit, onDelete, onToggle, pendin
     : null
 
   return (
-    <div
-      className="glass rounded-xl p-3.5 transition-colors"
-      style={goal.is_completed ? { borderColor: 'rgba(46,125,82,0.30)', background: 'rgba(46,125,82,0.08)' } : undefined}
-    >
-      <div className="brujula-goal-row flex items-start gap-3">
-        <button onClick={onToggle} disabled={pending}
-          className="mt-0.5 w-5 h-5 rounded-full shrink-0 flex items-center justify-center transition-colors"
-          style={{
-            border: goal.is_completed ? '2px solid #3A9E6A' : '2px solid rgba(255,255,255,0.20)',
-            background: goal.is_completed ? '#2E7D52' : 'rgba(255,255,255,0.08)',
-          }}>
+    <div className="glass card"
+      style={{ borderColor: goal.is_completed ? 'rgba(46,125,82,0.3)' : 'rgba(255,255,255,0.09)' }}>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button onClick={onToggle} disabled={pending} style={{
+          width: 22, height: 22, borderRadius: '50%', flexShrink: 0, marginTop: 1,
+          border: `2px solid ${goal.is_completed ? 'var(--green)' : 'rgba(255,255,255,0.15)'}`,
+          background: goal.is_completed ? 'var(--green)' : 'transparent',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: pending ? 'default' : 'pointer', padding: 0,
+        }}>
           {goal.is_completed && (
-            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-              <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <svg width={10} height={8} viewBox="0 0 10 8" fill="none">
+              <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           )}
         </button>
 
-        <div className="flex-1 min-w-0">
-          <div className="brujula-card-badges flex items-center gap-2 mb-1">
-            <span className={`text-[13px] font-medium truncate ${goal.is_completed ? 'text-[#7A9A8A] line-through' : 'text-[#141F19]'}`}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+            <p style={{ fontSize: 13, fontWeight: 500, color: goal.is_completed ? 'var(--text-muted)' : 'var(--text-primary)', margin: 0, textDecoration: goal.is_completed ? 'line-through' : 'none', flex: 1, marginRight: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {goal.label}
-            </span>
-            {goal.is_system_suggested && (
-              <span className="shrink-0 text-[10px] bg-[#EAF0EC] text-[#7A9A8A] rounded-md px-1.5 py-0.5">Sugerida</span>
+            </p>
+            {goal.target_days != null && (
+              <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: goal.is_completed ? 'var(--text-muted)' : 'var(--green)', flexShrink: 0 }}>
+                {goal.target_days}d
+              </span>
             )}
           </div>
 
-          {goal.target_days != null && (
-            <p className="text-[11px] text-[#7A9A8A] mb-2">
-              Meta: {goal.target_days} días · Actual: {diasActuales.toFixed(0)} días
-            </p>
-          )}
-
           {progreso !== null && (
-            <div className="h-1.5 bg-[#EAF0EC] rounded-full overflow-hidden">
-              <div className="h-full bg-[#2E7D52] rounded-full transition-all" style={{ width: `${progreso}%` }} />
+            <div className="prog-track" style={{ marginBottom: 8 }}>
+              <div className="prog-fill" style={{ width: `${progreso}%`, background: 'var(--green)' }} />
             </div>
           )}
-        </div>
 
-        <div className="brujula-card-actions flex items-center gap-1 shrink-0">
-          <button onClick={onEdit} className="text-[12px] text-[#7A9A8A] hover:text-[#2E7D52] transition-colors px-1">
-            Editar
-          </button>
-          <DeleteBtn onConfirm={onDelete} pending={pending} />
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+            <button onClick={onEdit} style={{ fontSize: 10, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', fontFamily: 'var(--font-sans)' }}>
+              Editar
+            </button>
+            <DeleteBtn onConfirm={onDelete} pending={pending} />
+          </div>
         </div>
       </div>
     </div>
@@ -386,11 +576,16 @@ function AssetDetailModal({ asset, onClose, onEdit, onSaved }: {
   }
 
   return (
-    <div className="brujula-modal-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-      <div className="brujula-modal-card w-full max-w-md bg-[#1A2520] rounded-2xl shadow-xl border border-white/10 max-h-[90vh] flex flex-col">
+    <div className="brujula-modal-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 sm:px-4 backdrop-blur-sm">
+      <div className="brujula-modal-card w-full sm:max-w-md bg-[#0D1A12] sm:rounded-2xl shadow-xl border border-white/10 max-h-[90dvh] flex flex-col">
+
+        {/* Drag handle — mobile only */}
+        <div className="sm:hidden flex justify-center pt-2.5 pb-0.5 shrink-0">
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)' }} />
+        </div>
 
         {/* ── Header ── */}
-        <div className="shrink-0 p-6 pb-0">
+        <div className="shrink-0 p-4 pb-0 sm:p-6 sm:pb-0">
           <div className="flex items-start justify-between gap-3 mb-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -409,7 +604,7 @@ function AssetDetailModal({ asset, onClose, onEdit, onSaved }: {
                 <p className="text-[11px] text-[#7A9A8A]">{asset.institution}</p>
               )}
             </div>
-            <button onClick={onClose} className="text-[#7A9A8A] hover:text-white transition-colors text-xl leading-none shrink-0">×</button>
+            <button onClick={onClose} className="flex items-center justify-center w-9 h-9 rounded-full text-[#7A9A8A] hover:text-white transition-colors text-xl shrink-0" style={{ background: 'rgba(255,255,255,0.06)' }}>×</button>
           </div>
 
           {/* Valor */}
@@ -442,7 +637,7 @@ function AssetDetailModal({ asset, onClose, onEdit, onSaved }: {
 
         {/* ── Movimientos (solo cuentas líquidas) ── */}
         {isLiquid ? (
-          <div className="flex-1 overflow-y-auto px-6 pb-4 min-h-0">
+          <div className="flex-1 overflow-y-auto px-4 pb-4 sm:px-6 min-h-0">
             {loading && <p className="text-[13px] text-[#7A9A8A] py-6 text-center">Cargando movimientos…</p>}
             {!loading && histError && <p className="text-[13px] text-[#E84434] py-6 text-center">{histError}</p>}
             {!loading && !histError && items.length === 0 && (
@@ -478,7 +673,8 @@ function AssetDetailModal({ asset, onClose, onEdit, onSaved }: {
         )}
 
         {/* ── Footer ── */}
-        <div className="shrink-0 px-6 pb-6 pt-4 flex gap-2 items-center">
+        <div className="shrink-0 px-4 pt-3 sm:px-6 sm:pt-4 flex gap-2 items-center border-t border-white/[6%]"
+          style={{ paddingBottom: 'max(20px, env(safe-area-inset-bottom, 20px))' }}>
           {confirming ? (
             <button type="button" onClick={handleDelete} disabled={deletePending}
               className="py-2.5 px-4 rounded-xl bg-[#E84434] text-white text-[13px] font-medium disabled:opacity-60 transition-colors">
@@ -584,17 +780,22 @@ function LiabilityDetailModal({ liability, liquidityAccounts, onClose, onEdit, o
   }
 
   return (
-    <div className="brujula-modal-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-      <div className="brujula-modal-card w-full max-w-md bg-[#1A2520] rounded-2xl shadow-xl border border-white/10 max-h-[90vh] flex flex-col">
+    <div className="brujula-modal-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 sm:px-4 backdrop-blur-sm">
+      <div className="brujula-modal-card w-full sm:max-w-md bg-[#0D1A12] sm:rounded-2xl shadow-xl border border-white/10 max-h-[90dvh] flex flex-col">
+
+        {/* Drag handle — mobile only */}
+        <div className="sm:hidden flex justify-center pt-2.5 pb-0.5 shrink-0">
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)' }} />
+        </div>
 
         {/* ── Header ── */}
-        <div className="shrink-0 p-6 pb-0">
+        <div className="shrink-0 p-4 pb-0 sm:p-6 sm:pb-0">
           <div className="flex items-start justify-between gap-3 mb-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                 {view === 'paying' && (
                   <button onClick={() => { setView('history'); setPayError(null); setPaySplits([{ asset_id: bankAccounts[0]?.id ?? '', amount: '' }]) }}
-                    className="text-[#7A9A8A] hover:text-white transition-colors text-[18px] leading-none mr-1">←</button>
+                    className="flex items-center justify-center w-9 h-9 rounded-full text-[#7A9A8A] hover:text-white transition-colors shrink-0 mr-1" style={{ background: 'rgba(255,255,255,0.06)' }}>←</button>
                 )}
                 <h2 className="text-[15px] font-semibold text-white truncate">
                   {view === 'paying' ? 'Pagar deuda' : liability.name}
@@ -612,7 +813,7 @@ function LiabilityDetailModal({ liability, liquidityAccounts, onClose, onEdit, o
                 <p className="text-[11px] text-[#7A9A8A]">Registró {liability.registered_by_name}</p>
               )}
             </div>
-            <button onClick={onClose} className="text-[#7A9A8A] hover:text-white transition-colors text-xl leading-none shrink-0">×</button>
+            <button onClick={onClose} className="flex items-center justify-center w-9 h-9 rounded-full text-[#7A9A8A] hover:text-white transition-colors text-xl shrink-0" style={{ background: 'rgba(255,255,255,0.06)' }}>×</button>
           </div>
 
           {/* CC Summary */}
@@ -694,7 +895,7 @@ function LiabilityDetailModal({ liability, liquidityAccounts, onClose, onEdit, o
         </div>
 
         {/* ── Contenido scrolleable ── */}
-        <div className="flex-1 overflow-y-auto px-6 pb-4 min-h-0">
+        <div className="flex-1 overflow-y-auto px-4 pb-4 sm:px-6 min-h-0">
           {view === 'history' ? (
             <>
               {loading && <p className="text-[13px] text-[#7A9A8A] py-6 text-center">Cargando historial…</p>}
@@ -837,7 +1038,8 @@ function LiabilityDetailModal({ liability, liquidityAccounts, onClose, onEdit, o
         </div>
 
         {/* ── Footer ── */}
-        <div className="shrink-0 px-6 pb-6 pt-4">
+        <div className="shrink-0 px-4 pt-3 sm:px-6 sm:pt-4 border-t border-white/[6%]"
+          style={{ paddingBottom: 'max(20px, env(safe-area-inset-bottom, 20px))' }}>
           {view === 'paying' ? (
             <div className="brujula-modal-actions flex gap-3">
               <button type="button" onClick={() => { setView('history'); setPayError(null); setPaySplits([{ asset_id: bankAccounts[0]?.id ?? '', amount: '' }]) }} disabled={payPending}
@@ -897,8 +1099,6 @@ type Modal =
   | { type: 'scan_balances' }
   | null
 
-type VehicleTab = 'activos' | 'negocios'
-
 interface BrujulaClientProps {
   data: BrujulaData
 }
@@ -906,7 +1106,8 @@ interface BrujulaClientProps {
 export function BrujulaClient({ data }: BrujulaClientProps) {
   const router = useRouter()
   const [modal, setModal] = useState<Modal>(null)
-  const [vehicleTab, setVehicleTab] = useState<VehicleTab>('activos')
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null)
+  const [selectedLiabilityId, setSelectedLiabilityId] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   const { assets, liabilities, businesses, freedom_goals, score, dias_de_libertad, fastlane, precio_real_hora, liquidity_accounts } = data
@@ -943,205 +1144,199 @@ export function BrujulaClient({ data }: BrujulaClientProps) {
   return (
     <>
       {/* ── Hero Card ── */}
-      <div className="bg-[#1A2520] rounded-xl px-4 py-4 mb-4 sm:px-[18px]">
+      <div className="glass-hero" style={{ padding: 20, marginBottom: 20 }}>
 
-        <div className="brujula-hero-top flex flex-col gap-4 border-b border-white/[8%] pb-4 mb-4 min-[460px]:flex-row">
-          <div className="flex shrink-0 items-center gap-3 min-[460px]:flex-col min-[460px]:gap-2">
-            <ScoreRing
-              score={score.total_score}
-              level_label={score.level_label}
-              level_percentage={score.level_percentage}
-            />
-            <div className="min-w-0 flex-1 min-[460px]:w-[84px] min-[460px]:flex-none">
-              <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
-                <div className="h-full bg-[#5DCAA5] rounded-full transition-all" style={{ width: `${score.level_percentage}%` }} />
-              </div>
-              <p className="mt-1.5 text-[8px] text-white/30 uppercase tracking-wider">{PROGRESS_LEVEL_LABELS[score.level]}</p>
-            </div>
-          </div>
-
-          <div className="min-w-0 flex-1 flex flex-col gap-2.5 justify-center">
-            <div className="brujula-metric-row flex items-baseline justify-between gap-3">
-              <p className="text-[10px] uppercase tracking-widest text-[#5DCAA5]/70">Días de libertad</p>
-              <p className="font-mono text-[22px] text-white leading-none shrink-0">{fmtDias(diasLibertad)}</p>
-            </div>
-            <div className="brujula-metric-row flex items-baseline justify-between gap-3">
-              <p className="text-[10px] text-white/30">Ingreso pasivo/mes</p>
-              <p className="font-mono text-[16px] text-white/70 text-right break-words">{fmt(ingresoPasivo)}</p>
-            </div>
-            <div className="brujula-metric-row flex items-baseline justify-between gap-3">
-              <p className="text-[10px] text-white/30">Patrimonio neto</p>
-              <p className={`font-mono text-[16px] leading-none text-right break-words ${netWorth >= 0 ? 'text-[#5DCAA5]' : 'text-[#E84434]'}`}>
-                {fmt(Math.abs(netWorth))}{netWorth < 0 ? ' neg.' : ''}
-              </p>
-            </div>
+        {/* ScoreRing + DimPills 2×2 */}
+        <div className="brujula-hero-ring-row">
+          <ScoreRing score={score.total_score} level_label={score.level_label} />
+          <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, minWidth: 0 }}>
+            <DimPill label="Tiempo" score={score.d1_time_decoupling}
+              description={precio_real_hora != null ? `$${precio_real_hora.toFixed(0)}/hr` : 'sin datos'} />
+            <DimPill label="Riqueza" score={score.d2_asset_health}
+              description={`${assets.length} activos`} />
+            <DimPill label="Libertad" score={score.d3_financial_freedom}
+              description={`${diasLibertad.toFixed(0)} días`} />
+            <DimPill label="Impulso" score={score.d4_momentum}
+              description={data.retention_rate_m2 != null ? `${data.retention_rate_m2.toFixed(0)}% ret.` : 'sin datos'} />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 lg:grid-cols-4">
-          <DimPill label="D1 · Tiempo" score={score.d1_time_decoupling}
-            description={precio_real_hora != null ? `$${precio_real_hora.toFixed(0)}/hr real` : 'sin datos de horas'} />
-          <DimPill label="D2 · Patrimonio" score={score.d2_asset_health}
-            description={`${fmt(totalAssets)} activos · ${fmt(totalLiabilities)} pasivos`} />
-          <DimPill label="D3 · Libertad" score={score.d3_financial_freedom}
-            description={`${diasLibertad.toFixed(0)} días de autonomía`} />
-          <DimPill label="D4 · Momentum" score={score.d4_momentum}
-            description={data.retention_rate_m2 != null ? `${data.retention_rate_m2.toFixed(0)}% retención mensual` : 'sin transacciones'} />
-        </div>
-      </div>
-
-      {/* ── Fastlane Summary Pills ── */}
-      <div className="grid grid-cols-1 gap-2 mb-4 min-[430px]:grid-cols-3">
-        {[
-          { label: 'Activos',    val: fmt(totalAssets),    sub: `${assets.length} vehículos` },
-          { label: 'Pasivos',    val: fmt(totalLiabilities), sub: `${liabilities.length} deudas`, red: true },
-          { label: 'Valoración', val: fmt(fastlane.asset_value_estimado), sub: 'activos + negocios' },
-        ].map(item => (
-          <div key={item.label} className="min-w-0 bg-white border border-[#EAF0EC] rounded-xl p-3 text-center">
-            <p className="text-[9px] uppercase tracking-widest text-[#7A9A8A] mb-1">{item.label}</p>
-            <p className={`font-mono text-[clamp(14px,4vw,16px)] font-semibold leading-tight break-words ${item.red ? 'text-[#E84434]' : 'text-[#141F19]'}`}>{item.val}</p>
-            <p className="text-[9px] text-[#7A9A8A] mt-0.5">{item.sub}</p>
+        {/* Patrimonio neto */}
+        <div style={{ textAlign: 'center', marginBottom: 12 }}>
+          <div className="section-label">Patrimonio neto</div>
+          <div className="mono glow-green" style={{ fontSize: 'clamp(20px, 7.5vw, 30px)', fontWeight: 700, color: netWorth >= 0 ? 'var(--green-bright)' : 'var(--text-red)', lineHeight: 1.1, marginTop: 3 }}>
+            {netWorth < 0 ? '-' : ''}{fmt(Math.abs(netWorth))}
           </div>
-        ))}
+        </div>
+
+        {/* Activos vs Pasivos */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div>
+            <div className="section-label">Activos</div>
+            <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginTop: 2 }}>{fmt(totalAssets)}</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div className="section-label">Libertad</div>
+            <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: 'var(--green-bright)', marginTop: 2 }}>{fmtDias(diasLibertad)}</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div className="section-label">Pasivos</div>
+            <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-red)', marginTop: 2 }}>{fmt(totalLiabilities)}</div>
+          </div>
+        </div>
+
+        <DebtMeter totalLiabilities={totalLiabilities} totalAssets={totalAssets} />
       </div>
 
       {/* ── Actualizar saldos con captura ── */}
       <button
         type="button"
         onClick={() => setModal({ type: 'scan_balances' })}
-        className="w-full mb-4 flex items-center justify-center gap-2 rounded-xl border border-dashed border-[#2E7D52]/50 bg-white px-4 py-3 text-[11px] uppercase tracking-widest text-[#2E7D52] hover:text-[#3A9E6A] transition-colors"
+        style={{
+          width: '100%', marginBottom: 20,
+          background: 'transparent',
+          border: '1px dashed rgba(58,158,106,0.35)',
+          borderRadius: 10, padding: '9px 12px',
+          color: 'var(--green-bright)',
+          fontFamily: 'var(--font-sans)', fontSize: 11,
+          cursor: 'pointer', letterSpacing: '0.06em',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        }}
       >
-        <span aria-hidden>📷</span> Actualizar saldos con captura
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+          <rect x="1" y="3.5" width="12" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.2"/>
+          <circle cx="7" cy="8" r="2.3" stroke="currentColor" strokeWidth="1.2"/>
+          <path d="M5 3.5V2.5A.5.5 0 0 1 5.5 2h3a.5.5 0 0 1 .5.5v1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+        </svg>
+        Actualizar saldos con captura
       </button>
 
-      {/* ── Vehículos (Activos / Negocios) ── */}
-      <section className="mb-4">
-        <div className="brujula-section-header flex items-center justify-between mb-3">
-          <h2 className="text-[13px] font-semibold text-[#141F19]">Vehículos de riqueza</h2>
-          <button
-            onClick={() => setModal(vehicleTab === 'activos' ? { type: 'asset_new' } : { type: 'business_new' })}
-            className="text-[12px] font-medium text-[#2E7D52] hover:text-[#3A9E6A] transition-colors">
-            + Agregar
-          </button>
-        </div>
-
-        <div className="fc-tabs mb-3">
-          {(['activos', 'negocios'] as VehicleTab[]).map(tab => (
-            <button key={tab} onClick={() => setVehicleTab(tab)}
-              className={`fc-tab ${vehicleTab === tab ? 'active' : ''}`}>
-              {tab === 'activos' ? `Activos (${assets.length})` : `Negocios (${businesses.length})`}
-            </button>
-          ))}
-        </div>
-
-        {vehicleTab === 'activos' && (
-          <div className="space-y-2">
-            {assets.length === 0 ? (
-              <div className="bg-[#EAF0EC] rounded-xl p-4 text-center">
-                <p className="text-[13px] text-[#7A9A8A]">Sin activos registrados</p>
-                <button onClick={() => setModal({ type: 'asset_new' })}
-                  className="mt-2 text-[12px] font-medium text-[#2E7D52] hover:text-[#3A9E6A]">
-                  + Agregar activo
-                </button>
-              </div>
-            ) : (
-              assets.map(a => (
-                <AssetCard key={a.id} asset={a}
-                  onClick={() => setModal({ type: 'asset_detail', asset: a })} />
-              ))
-            )}
+      {/* ── Balance Columns: Activos | Pasivos ── */}
+      <div className="balance-cols">
+        {/* Activos */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <h2 className="section-title">Activos</h2>
+            <button className="ghost-btn" onClick={() => setModal({ type: 'asset_new' })}>+</button>
           </div>
-        )}
+          {assets.length === 0 ? (
+            <div className="glass" style={{ padding: '12px 14px', textAlign: 'center' }}>
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>Sin activos</p>
+            </div>
+          ) : (
+            <div className="glass balance-col-list" style={{ padding: '4px 12px' }}>
+              {assets.map(a => (
+                <AssetBpItem
+                  key={a.id}
+                  asset={a}
+                  precioHora={precio_real_hora}
+                  isSelected={selectedAssetId === a.id}
+                  onToggle={() => setSelectedAssetId(prev => prev === a.id ? null : a.id)}
+                  onEdit={() => setModal({ type: 'asset_edit', asset: a })}
+                  onDelete={() => startTransition(async () => { await deleteAsset(a.id); setSelectedAssetId(null); router.refresh() })}
+                  onViewDetail={() => setModal({ type: 'asset_detail', asset: a })}
+                  deletePending={pending}
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
-        {vehicleTab === 'negocios' && (
-          <div className="space-y-2">
-            {businesses.length === 0 ? (
-              <div className="bg-[#EAF0EC] rounded-xl p-4 text-center">
-                <p className="text-[13px] text-[#7A9A8A]">Sin negocios registrados</p>
-                <button onClick={() => setModal({ type: 'business_new' })}
-                  className="mt-2 text-[12px] font-medium text-[#2E7D52] hover:text-[#3A9E6A]">
-                  + Agregar negocio
-                </button>
-              </div>
-            ) : (
-              businesses.map(b => (
+        {/* Pasivos */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <h2 className="section-title">Pasivos</h2>
+            <button className="ghost-btn" onClick={() => setModal({ type: 'liability_new' })}>+</button>
+          </div>
+          {liabilities.length === 0 ? (
+            <div className="glass" style={{ padding: '12px 14px', textAlign: 'center' }}>
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>Sin pasivos</p>
+            </div>
+          ) : (
+            <div className="glass balance-col-list" style={{ padding: '4px 12px' }}>
+              {liabilities.map(l => (
+                <LiabilityBpItem
+                  key={l.id}
+                  liability={l}
+                  precioHora={precio_real_hora}
+                  isSelected={selectedLiabilityId === l.id}
+                  onToggle={() => setSelectedLiabilityId(prev => prev === l.id ? null : l.id)}
+                  onEdit={() => setModal({ type: 'liability_edit', liability: l })}
+                  onDelete={() => startTransition(async () => { await deleteLiability(l.id); setSelectedLiabilityId(null); router.refresh() })}
+                  onPay={() => setModal({ type: 'liability_detail', liability: l })}
+                  onViewDetail={() => setModal({ type: 'liability_detail', liability: l })}
+                  deletePending={pending}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Negocios ── */}
+      <section style={{ marginBottom: 20 }}>
+        {businesses.length === 0 ? (
+          <button onClick={() => setModal({ type: 'business_new' })} style={{
+            width: '100%', background: 'transparent',
+            border: '1px dashed rgba(255,255,255,0.12)',
+            borderRadius: 10, padding: '9px',
+            color: 'var(--text-muted)', fontFamily: 'var(--font-sans)', fontSize: 11, cursor: 'pointer',
+          }}>
+            + Registrar negocio
+          </button>
+        ) : (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <h2 className="section-title">Negocios</h2>
+              <button className="ghost-btn" onClick={() => setModal({ type: 'business_new' })}>+</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {businesses.map(b => (
                 <BusinessCard key={b.id} business={b}
                   onEdit={() => setModal({ type: 'business_edit', business: b })}
                   onDelete={() => handleDelete(() => deleteBusiness(b.id))}
                   pending={pending} />
-              ))
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* ── Pasivos ── */}
-      <section className="mb-4">
-        <div className="brujula-section-header flex items-center justify-between mb-3">
-          <h2 className="text-[13px] font-semibold text-[#141F19]">Pasivos</h2>
-          <button onClick={() => setModal({ type: 'liability_new' })}
-            className="text-[12px] font-medium text-[#2E7D52] hover:text-[#3A9E6A] transition-colors">
-            + Agregar
-          </button>
-        </div>
-
-        <div className="space-y-2">
-          {liabilities.length === 0 ? (
-            <div className="bg-[#EAF0EC] rounded-xl p-4 text-center">
-              <p className="text-[13px] text-[#7A9A8A]">Sin pasivos registrados</p>
+              ))}
             </div>
-          ) : (
-            liabilities.map(l => (
-              <LiabilityCard key={l.id} liability={l}
-                onClick={() => setModal({ type: 'liability_detail', liability: l })} />
-            ))
-          )}
-        </div>
+          </>
+        )}
       </section>
 
       {/* ── Metas de Libertad ── */}
-      <section className="mb-4">
-        <div className="brujula-section-header flex items-center justify-between mb-3">
-          <h2 className="text-[13px] font-semibold text-[#141F19]">Metas de libertad</h2>
-          <button onClick={() => setModal({ type: 'goal_new' })}
-            className="text-[12px] font-medium text-[#2E7D52] hover:text-[#3A9E6A] transition-colors">
-            + Agregar
-          </button>
+      <section style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h2 className="section-title">Metas de libertad</h2>
+          <button className="ghost-btn" onClick={() => setModal({ type: 'goal_new' })}>+ Agregar</button>
         </div>
 
         {diasLibertad > 0 && (
-          <div className="brujula-freedom-summary bg-[#EAF0EC] rounded-xl p-3 mb-3 flex items-center gap-3">
-            <div className="text-center shrink-0">
-              <p className="font-mono text-[24px] font-bold text-[#2E7D52] leading-none">{fmtDias(diasLibertad)}</p>
-              <p className="text-[9px] text-[#7A9A8A] mt-0.5">días actuales</p>
+          <div className="glass" style={{ padding: '12px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ textAlign: 'center', flexShrink: 0 }}>
+              <p className="mono" style={{ fontSize: 22, fontWeight: 700, color: 'var(--green-bright)', lineHeight: 1, margin: 0 }}>{fmtDias(diasLibertad)}</p>
+              <div className="section-label" style={{ marginTop: 3 }}>días actuales</div>
             </div>
-            <div className="flex-1">
-              <p className="text-[11px] text-[#7A9A8A] leading-relaxed">
-                Tu ingreso pasivo de {fmt(ingresoPasivo)}/mes puede cubrir {diasLibertad.toFixed(0)} días sin trabajar
-              </p>
-            </div>
+            <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+              {fmt(ingresoPasivo)}/mes cubre {diasLibertad.toFixed(0)} días sin trabajar
+            </p>
           </div>
         )}
 
-        <div className="space-y-2">
-          {freedom_goals.length === 0 ? (
-            <div className="bg-[#EAF0EC] rounded-xl p-4 text-center">
-              <p className="text-[13px] text-[#7A9A8A]">Sin metas definidas</p>
-              <button onClick={() => setModal({ type: 'goal_new' })}
-                className="mt-2 text-[12px] font-medium text-[#2E7D52] hover:text-[#3A9E6A]">
-                + Agregar meta
-              </button>
-            </div>
-          ) : (
-            freedom_goals.map(g => (
+        {freedom_goals.length === 0 ? (
+          <div className="glass" style={{ padding: '16px', textAlign: 'center' }}>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 8px' }}>Sin metas definidas</p>
+            <button className="ghost-btn" onClick={() => setModal({ type: 'goal_new' })}>+ Agregar meta</button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {freedom_goals.map(g => (
               <FreedomGoalRow key={g.id} goal={g} diasActuales={diasLibertad}
                 onEdit={() => setModal({ type: 'goal_edit', goal: g })}
                 onDelete={() => handleDelete(() => deleteFreedomGoal(g.id))}
                 onToggle={() => handleToggleGoal(g)}
                 pending={pending} />
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* ── Modales ── */}

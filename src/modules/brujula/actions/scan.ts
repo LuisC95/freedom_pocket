@@ -246,6 +246,26 @@ export async function applyBalanceSnapshot(
   const result: BalanceApplyResult = { applied: 0, skipped: 0, errors: [] }
   const today = new Date().toISOString().slice(0, 10)
 
+  // Las transacciones de ajuste de pasivos requieren period_id y category_id (NOT NULL).
+  // Usamos el período activo del usuario y una categoría de sistema como marcadores.
+  const [{ data: activePeriod }, { data: fallbackCategory }] = await Promise.all([
+    supabase
+      .from('periods')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .order('start_date', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('transaction_categories')
+      .select('id')
+      .in('applies_to', ['expense', 'both'])
+      .is('user_id', null)
+      .limit(1)
+      .maybeSingle(),
+  ])
+
   for (const update of updates) {
     const newBalance = asBalance(update.new_balance)
     if (newBalance === null) {
@@ -316,12 +336,22 @@ export async function applyBalanceSnapshot(
 
     // Transacción de ajuste: deja rastro en el historial de la tarjeta sin
     // afectar métricas de gasto (exclude_from_metrics). El balance se setea aparte.
+    if (!activePeriod) {
+      result.errors.push(`${liability.name}: no hay período activo para registrar el ajuste`)
+      continue
+    }
+    if (!fallbackCategory) {
+      result.errors.push(`${liability.name}: no se encontró una categoría disponible`)
+      continue
+    }
+
     const sign = delta > 0 ? '+' : '−'
     const { data: txRow, error: txError } = await supabase
       .from('transactions')
       .insert({
         user_id: userId,
-        period_id: null,
+        period_id: activePeriod.id,
+        category_id: fallbackCategory.id,
         type: 'expense',
         amount: Math.abs(delta),
         currency: liability.currency ?? 'USD',
